@@ -2,7 +2,7 @@ module sh.sysl.markdown
 
 import sysl.buf.byte_sink
 import sysl.slices.contains
-import sysl.text.from_utf8_unchecked
+import sysl.text.{Search, from_utf8_unchecked}
 
 // The HTML renderer: one walk over the arena, writing to a `Writer`.
 //
@@ -225,15 +225,16 @@ private struct Html
             self.put(digit[0..<1])
         self.tag(">")
 
-    // The info string's first word names the language, as a class on the `<code>`.
+    // The info string's first word names the language, as a class on the `<code>`: `language-` and
+    // the word, unless the word already begins with `language-`, as cmark writes it.
     code_block(*self, info: string, literal: string)
         val word = first_word(info)
 
         self.cr()
         self.tag("<pre>")
 
-        if word.len > 0 then
-            self.tag("<code class=\"language-")
+        if info.len > 0 then
+            self.tag(if word.starts_with("language-") then "<code class=\"" else "<code class=\"language-")
             self.esc(word)
             self.tag("\">")
         else
@@ -282,32 +283,12 @@ private keeps(c: u8) -> bool
 
     contains(";/?:@&=+$,-_.!~*'()#".bytes, c)
 
-// What commonmark.js's `info.split(/\s+/)[0]` answers: the info string up to its first whitespace,
-// where whitespace is JavaScript's `\s` -- the ASCII six and the Unicode space separators.
+// The info string up to its first ASCII whitespace -- a space, or a byte from tab to carriage return
+// -- as cmark cuts it. A non-breaking space or any other Unicode space is part of the word.
 private first_word(info: string) -> string
     val b = info.bytes
-    var i: usize = 0
 
-    while i < b.len
-        if space_len(b, i) > 0 then return info[0..<i]
-        i += 1
+    for i in 0..<b.len
+        if b[i] == u8(' ') || (b[i] >= 9 && b[i] <= 13) then return info[0..<i]
 
     info
-
-// The length in bytes of the JavaScript `\s` character starting at `i`, or 0 if there is none.
-private space_len(b: []const u8, i: usize) -> usize
-    val c = b[i]
-
-    if c == u8(' ') || (c >= 9 && c <= 13) then return 1
-
-    val rest = b.len - i
-    val c1 = if rest > 1 then b[i + 1] else 0
-    val c2 = if rest > 2 then b[i + 2] else 0
-
-    if c == 0xC2 && c1 == 0xA0 then 2                                   // U+00A0
-    else if c == 0xE1 && c1 == 0x9A && c2 == 0x80 then 3                // U+1680
-    else if c == 0xE2 && c1 == 0x80 && ((c2 >= 0x80 && c2 <= 0x8A) || c2 == 0xA8 || c2 == 0xA9 || c2 == 0xAF) then 3
-    else if c == 0xE2 && c1 == 0x81 && c2 == 0x9F then 3                // U+205F
-    else if c == 0xE3 && c1 == 0x80 && c2 == 0x80 then 3                // U+3000
-    else if c == 0xEF && c1 == 0xBB && c2 == 0xBF then 3                // U+FEFF
-    else 0

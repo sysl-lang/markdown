@@ -1,5 +1,7 @@
 module sh.sysl.markdown
 
+import sysl.text.Search
+
 /** `src` read as CommonMark into a document tree.
  *
  * Reading never fails: CommonMark gives every sequence of characters a meaning, so there is no
@@ -7,10 +9,14 @@ module sh.sysl.markdown
  */
 parse(src: string) -> Doc = parse_with(src, registry())
 
-/** `src` read as CommonMark, with the syntax the extensions in `exts` add. */
+/** `src` read as CommonMark, with the syntax the extensions in `exts` add.
+ *
+ * A byte order mark at the start is not read as text, as cmark does not read it, and spans still
+ * count from the source's first byte.
+ */
 parse_with(src: string, exts: Registry) -> Doc
     var p = parser(src, exts)
-    var at: usize = 0
+    var at: usize = if src.starts_with("\u{feff}") then 3 else 0
 
     while at < src.len
         val le = line_end(src.bytes, at)

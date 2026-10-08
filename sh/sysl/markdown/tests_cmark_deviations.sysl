@@ -1,0 +1,50 @@
+module sh.sysl.markdown
+@tests
+
+// Where cmark 0.31.2 renders an input differently from this package and the spec decides for this
+// package. Each was found by `tools/differential.sh` and is kept here, with the part of the spec
+// that decides it, so that a later change cannot drift toward cmark's reading unnoticed.
+
+private html(src: string) -> string = to_html(parse(src))
+
+// Spec 6.6, an HTML comment: `<!--`, text not including `-->`, and `-->`. Text ending in `-` is
+// still such text; cmark refuses a comment whose text ends in `-` and runs on to a later `-->`.
+@test("a comment's text may end in '-', and the comment ends at the first '-->'")
+comment_text_ending_in_dash()
+    assert_eq(html("a <!--<!----> b"), "<p>a <!--<!----> b</p>\n")
+    assert_eq(html("a <!-- x ---> b"), "<p>a <!-- x ---> b</p>\n")
+    assert_eq(html("(<!--![<!------->\t-->"), "<p>(<!--![<!------->\t--&gt;</p>\n")
+
+// Spec 6.6, a CDATA section: `<![CDATA[`, text not including `]]>`, and `]]>`. Text ending in `]`
+// is still such text; cmark refuses it.
+@test("a CDATA section's text may end in ']'")
+cdata_text_ending_in_bracket()
+    assert_eq(html("a<![CDATA[x]]]>"), "<p>a<![CDATA[x]]]></p>\n")
+
+// Spec 6.6: whether a comment closes says nothing about a CDATA section or a declaration after it.
+// cmark stops looking for either once one `<!--` has gone unclosed.
+@test("an unclosed comment leaves a later CDATA section and declaration raw HTML")
+unclosed_comment_then_cdata()
+    assert_eq(html("a <!-- <![CDATA[ x ]]> b"), "<p>a &lt;!-- <![CDATA[ x ]]> b</p>\n")
+    assert_eq(html("a <!-- <!DOCTYPE x> b"), "<p>a &lt;!-- <!DOCTYPE x> b</p>\n")
+
+// Spec 4.8, examples 222 and 223: a paragraph's lines lose their leading spaces and tabs. cmark keeps
+// them on a lazy line, and on a line indented four or more columns, where they then show in a code
+// span, after a hard break, and before a definition they stop it being read.
+@test("a lazy or deeply indented continuation line loses its leading whitespace")
+lazy_line_leading_whitespace()
+    assert_eq(html(">`a\n  b`\n"), "<blockquote>\n<p><code>a b</code></p>\n</blockquote>\n")
+    assert_eq(html("> c\\\n      a\n"), "<blockquote>\n<p>c<br />\na</p>\n</blockquote>\n")
+    assert_eq(html("> [a]: /u\n [b]: /v\n\n[b]\n"), "<blockquote>\n</blockquote>\n<p><a href=\"/v\">b</a></p>\n")
+
+// Spec 4.7, example 210: a title followed by more text on its line is no title, and the definition
+// is the label and destination alone. cmark keeps the title it read.
+@test("a title on the next line with text after it is not the definition's")
+title_with_text_after()
+    assert_eq(html("[a]: /u\n\"t\"x\n\n[a]\n"), "<p>&quot;t&quot;x</p>\n<p><a href=\"/u\">a</a></p>\n")
+
+// Spec 6.8: spaces at the end of a line are removed. A tab is not a space; cmark removes it too.
+@test("a tab before a line ending stays in the text")
+tab_before_line_ending()
+    assert_eq(html("a\t\nb\n"), "<p>a\t\nb</p>\n")
+    assert_eq(html("a \t\nb\n"), "<p>a \t\nb</p>\n")

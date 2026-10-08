@@ -354,3 +354,30 @@ setext_span()
     assert_eq(to_html(d), "<h1>Foo\nbar</h1>\n")
     assert_eq(sp(d, h), "0..13")
     assert_eq(sp(d, first(d, h)), "0..3")
+
+// ----- found by the differential check against cmark (tools/differential.sh) -----
+
+@test("a closing pre, script, style or textarea tag alone on a line begins an HTML block")
+closing_raw_tags_begin_blocks()
+    assert_eq(to_html(parse("</script>\n\n</pre>\n\n</style>\n")), "</script>\n</pre>\n</style>\n")
+    assert_eq(to_html(parse("</textarea>  \nx\n")), "</textarea>  \nx\n")
+
+    // An open tag of the four names is still refused, though cmark 0.31.2 makes a block of this one:
+    // the spec's seventh start condition names "an open tag (with any tag name other than pre,
+    // script, style, or textarea)".
+    assert_eq(to_html(parse("<script/>\n")), "<p><script/></p>\n")
+    assert_eq(to_html(parse("a\n</script>\n")), "<p>a\n</script></p>\n")
+
+@test("a byte order mark before the first line is not text, and spans still count it")
+byte_order_mark()
+    val d = parse("\u{feff}# Hi\n")
+    val h = first(d, d.root())
+
+    assert_eq(to_html(d), "<h1>Hi</h1>\n")
+    assert_eq(sp(d, h), "3..7")
+    assert_eq(to_html(parse("a\n\u{feff}b\n")), "<p>a\n\u{feff}b</p>\n")
+
+@test("an info string already beginning with language- is not given a second")
+language_prefix_once()
+    assert_eq(to_html(parse("```language-r\nx\n```\n")), "<pre><code class=\"language-r\">x\n</code></pre>\n")
+    assert_eq(to_html(parse("```r\nx\n```\n")), "<pre><code class=\"language-r\">x\n</code></pre>\n")

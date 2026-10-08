@@ -11,7 +11,7 @@ module sh.sysl.markdown
 // | 4 | `<!` and an ASCII letter | `>` |
 // | 5 | `<![CDATA[` | `]]>` |
 // | 6 | `<` or `</` and a block-level tag name, then a space, a tab, `>`, `/>` or the line's end | a blank line |
-// | 7 | a whole open or closing tag of any other name, and nothing after it but spaces and tabs | a blank line |
+// | 7 | a whole open tag of any other name, or a whole closing tag of any name, and nothing after it but spaces and tabs | a blank line |
 //
 // Tag names are compared without regard to case. The first five end on the line that holds their
 // end marker, which may be the line they began on; the last two end before a blank line. Only the
@@ -53,7 +53,9 @@ private[markdown] html_block_start(b: []const u8, p: usize, in_para: bool) -> u8
         if e == b.len || is_space_or_tab(after) || after == u8('>') then return 6
         if after == u8('/') && byte_at(b, e + 1) == u8('>') then return 6
 
-    if in_para || e == s || in_words(RAW_TAGS, b, s, e) then return 0
+    // The four raw names are refused only as open tags: `</script>` alone on a line is a closing tag
+    // like any other, and begins a block of the seventh kind.
+    if in_para || e == s || (s == q && in_words(RAW_TAGS, b, s, e)) then return 0
 
     val end = if s > q then closing_tag_end(b, p) else open_tag_end(b, p)
 

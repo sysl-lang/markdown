@@ -320,14 +320,14 @@ render_code_block()
 
     assert_eq(to_html(d), "<pre><code class=\"language-ruby\">a&lt;b\n</code></pre>\n<pre><code>x\n</code></pre>\n<pre><code class=\"language-a&amp;b\"></code></pre>\n")
 
-@test("a Unicode space ends an info string's first word, as JavaScript's \\s does")
+@test("only ASCII whitespace ends an info string's first word, as cmark cuts it")
 render_info_unicode_space()
     val d = new_doc("")
-    d.append_child(d.root(), CodeBlock("py\u{a0}x", "", true), at(0))
-    d.append_child(d.root(), CodeBlock("c\u{3000}x", "", true), at(0))
-    d.append_child(d.root(), CodeBlock("ä\u{2003}", "", true), at(0))
+    d.append_child(d.root(), CodeBlock("py\u{a0}x y", "", true), at(0))
+    d.append_child(d.root(), CodeBlock("c\u{3000}x\ty", "", true), at(0))
+    d.append_child(d.root(), CodeBlock("\u{a0}ä", "", true), at(0))
 
-    assert_eq(to_html(d), "<pre><code class=\"language-py\"></code></pre>\n<pre><code class=\"language-c\"></code></pre>\n<pre><code class=\"language-ä\"></code></pre>\n")
+    assert_eq(to_html(d), "<pre><code class=\"language-py\u{a0}x\"></code></pre>\n<pre><code class=\"language-c\u{3000}x\"></code></pre>\n<pre><code class=\"language-\u{a0}ä\"></code></pre>\n")
 
 @test("raw HTML, block and inline, is passed through as written")
 render_raw_html()
