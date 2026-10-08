@@ -44,6 +44,68 @@ private threes(n: usize) -> string = "a**b" + repeat("c* ", n) + "\n"
 
 private threes_out(n: usize) -> string = "<p>a**b" + repeat("c* ", n - 1) + "c*</p>\n"
 
+private same(n: usize, unit: string) -> string = "<p>" + repeat(unit, n) + "</p>\n"
+
+private nested(n: usize) -> string = repeat("[", n) + "a" + repeat("]", n) + "\n"
+
+private nested_out(n: usize) -> string = "<p>" + repeat("[", n) + "a" + repeat("]", n) + "</p>\n"
+
+private bracket_closers(n: usize) -> string = repeat("]", n) + "\n"
+
+private bracket_closers_out(n: usize) -> string = same(n, "]")
+
+private unclosed_bare(n: usize) -> string = repeat("[a](b", n) + "\n"
+
+private unclosed_bare_out(n: usize) -> string = same(n, "[a](b")
+
+private unclosed_pointy(n: usize) -> string = repeat("[a](<b", n) + "\n"
+
+private unclosed_pointy_out(n: usize) -> string = same(n, "[a](&lt;b")
+
+private unclosed_paren(n: usize) -> string = repeat("[a](", n) + "\n"
+
+private unclosed_paren_out(n: usize) -> string = same(n, "[a](")
+
+private opener_closer(n: usize) -> string = repeat("[ a_", n) + "\n"
+
+private opener_closer_out(n: usize) -> string = same(n, "[ a_")
+
+private paren_mix(n: usize) -> string = repeat("[ (](", n) + "\n"
+
+private paren_mix_out(n: usize) -> string = same(n, "[ (](")
+
+private shortcuts(n: usize) -> string = repeat("[a] ", n) + "\n"
+
+private shortcuts_out(n: usize) -> string = "<p>" + repeat("[a] ", n - 1) + "[a]</p>\n"
+
+private links(n: usize) -> string = repeat("[a](/u) ", n) + "\n"
+
+private links_out(n: usize) -> string = "<p>" + repeat("<a href=\"/u\">a</a> ", n - 1) + "<a href=\"/u\">a</a></p>\n"
+
+@test("brackets nested ten thousand deep and more are read in linear time")
+nested_brackets()
+    assert(ratio(nested, nested_out) < 20)
+
+@test("many ']' with no opener are read in linear time")
+many_bracket_closers()
+    assert(ratio(bracket_closers, bracket_closers_out) < 20)
+
+@test("many unclosed inline links are read in linear time, in each form of destination")
+unclosed_links()
+    assert(ratio(unclosed_bare, unclosed_bare_out) < 20)
+    assert(ratio(unclosed_pointy, unclosed_pointy_out) < 20)
+    assert(ratio(unclosed_paren, unclosed_paren_out) < 20)
+
+@test("link openers among emphasis closers are read in linear time")
+link_openers_and_emphasis_closers()
+    assert(ratio(opener_closer, opener_closer_out) < 20)
+    assert(ratio(paren_mix, paren_mix_out) < 20)
+
+@test("many shortcut references to nothing, and many links, are read in linear time")
+many_references()
+    assert(ratio(shortcuts, shortcuts_out) < 20)
+    assert(ratio(links, links_out) < 20)
+
 @test("many openers with no closer are read in linear time")
 many_openers()
     assert(ratio(openers, openers_out) < 20)

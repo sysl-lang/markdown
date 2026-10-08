@@ -1,0 +1,141 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{repeat, str_builder}
+
+// Links, images and link reference definitions below what the spec's examples see: the bound on a
+// label's length, labels matched by Unicode case folding, a reference image inside a link, and the
+// spans a link, an image and a paragraph that lost its definitions are given.
+
+private html(src: string) -> string = to_html(parse(src))
+
+// A node as `what start..end`.
+private node(d: Doc, n: NodeId) -> string
+    val s = d.span(n)
+    var b = str_builder()
+
+    b.push(d.kind(n) match
+        Paragraph -> "p"
+        Link(dest, _) -> "link " + dest
+        Image(dest, _) -> "image " + dest
+        Text(lit) -> "'" + lit + "'"
+        _ -> "other")
+    b.push(" ")
+    b.push_uint(ulong(s.start))
+    b.push("..")
+    b.push_uint(ulong(s.end))
+    b.finish()
+
+private child(d: Doc, n: NodeId) -> NodeId = d.first_child(n).unwrap()
+
+private after(d: Doc, n: NodeId) -> NodeId = d.next_sibling(n).unwrap()
+
+// ----- labels -----
+
+@test("a label of 999 characters is a label, and one of 1,000 is not")
+label_length()
+    val ok = repeat("a", 999)
+    val long = repeat("a", 1000)
+
+    assert_eq(html("[" + ok + "]: /u\n\n[" + ok + "]\n"), "<p><a href=\"/u\">" + ok + "</a></p>\n")
+    assert_eq(html("[" + long + "]: /u\n\n[" + long + "]\n"), "<p>[" + long + "]: /u</p>\n<p>[" + long + "]</p>\n")
+
+@test("the bound on a label counts characters, not bytes")
+label_length_in_characters()
+    val wide = repeat("é", 999)
+
+    assert_eq(html("[" + wide + "]: /u\n\n[" + wide + "]\n"), "<p><a href=\"/u\">" + wide + "</a></p>\n")
+
+@test("labels match by Unicode case folding, in either direction")
+case_folded_labels()
+    assert_eq(html("[SS]: /u\n\n[ẞ]\n"), "<p><a href=\"/u\">ẞ</a></p>\n")
+    assert_eq(html("[Straße]: /u\n\n[STRASSE]\n"), "<p><a href=\"/u\">STRASSE</a></p>\n")
+    assert_eq(html("[ΑΓΩ]: /u\n\n[αγω]\n"), "<p><a href=\"/u\">αγω</a></p>\n")
+
+@test("whitespace inside a label, line endings included, matches one space")
+label_whitespace()
+    assert_eq(html("[a \t b]: /u\n\n[a\nb]\n"), "<p><a href=\"/u\">a\nb</a></p>\n")
+
+@test("the first definition of a label is the one that counts")
+first_definition_wins()
+    assert_eq(html("[a]: /one\n[A]: /two\n\n[a]\n"), "<p><a href=\"/one\">a</a></p>\n")
+
+// ----- links holding images -----
+
+@test("a reference image inside an inline link")
+reference_image_in_link()
+    assert_eq(html("[![b][img]](/u)\n\n[img]: /i.png\n"), "<p><a href=\"/u\"><img src=\"/i.png\" alt=\"b\" /></a></p>\n")
+
+@test("a reference image inside a reference link, in each reference form")
+reference_image_in_reference_link()
+    val defs = "\n\n[img]: /i.png\n[l]: /u\n"
+
+    assert_eq(html("[![b][img]][l]" + defs), "<p><a href=\"/u\"><img src=\"/i.png\" alt=\"b\" /></a></p>\n")
+    assert_eq(html("[![img]][l]" + defs), "<p><a href=\"/u\"><img src=\"/i.png\" alt=\"img\" /></a></p>\n")
+    assert_eq(html("[![img][]][l]" + defs), "<p><a href=\"/u\"><img src=\"/i.png\" alt=\"img\" /></a></p>\n")
+
+@test("an image's alt text keeps the text of a link inside it and drops its tags")
+link_in_image()
+    assert_eq(html("![a [b](/x) *c*](/i.png)\n"), "<p><img src=\"/i.png\" alt=\"a b c\" /></p>\n")
+
+@test("emphasis inside a link pairs on its own, and does not reach out of it")
+emphasis_bounded_by_link()
+    assert_eq(html("*[a*](/u)\n"), "<p>*<a href=\"/u\">a*</a></p>\n")
+    assert_eq(html("[*a* **b**](/u)\n"), "<p><a href=\"/u\"><em>a</em> <strong>b</strong></a></p>\n")
+
+@test("a destination with escapes and references is decoded, then percent-encoded")
+destination_decoded()
+    assert_eq(html("[a](/f\\(o&ouml;\\) \"t &amp; \\\"q\\\"\")\n"), "<p><a href=\"/f(o%C3%B6)\" title=\"t &amp; &quot;q&quot;\">a</a></p>\n")
+
+@test("parentheses nest 32 deep in a bare destination, and no deeper")
+destination_parentheses()
+    val ok = repeat("(", 32) + repeat(")", 32)
+    val deep = repeat("(", 33) + repeat(")", 33)
+
+    assert_eq(html("[a](" + ok + ")\n"), "<p><a href=\"" + ok + "\">a</a></p>\n")
+    assert_eq(html("[a](" + deep + ")\n"), "<p>[a](" + deep + ")</p>\n")
+
+// ----- spans -----
+
+@test("a link's span runs from its '[' to its ')', and its text's from inside the brackets")
+link_span()
+    val d = parse("a [b](/u) c\n")
+    val p = child(d, d.root())
+    val l = after(d, child(d, p))
+
+    assert_eq(node(d, l), "link /u 2..9")
+    assert_eq(node(d, child(d, l)), "'b' 3..4")
+    assert_eq(node(d, after(d, l)), "' c' 9..11")
+
+@test("an image's span begins at its '!', and a reference link's ends after its label")
+image_and_reference_spans()
+    val d = parse("![i](/x) [r][k]\n\n[k]: /y\n")
+    val p = child(d, d.root())
+    val img = child(d, p)
+    val r = after(d, after(d, img))
+
+    assert_eq(node(d, img), "image /x 0..8")
+    assert_eq(node(d, r), "link /y 9..15")
+
+@test("a link across the lines of a block quote is spanned in the source, prefixes and all")
+link_span_across_lines()
+    val d = parse("> [a\n> b](/u)\n")
+    val p = child(d, child(d, d.root()))
+    val l = child(d, p)
+
+    assert_eq(node(d, l), "link /u 2..13")
+
+@test("a paragraph that began with definitions begins where its text does")
+paragraph_after_definitions()
+    val d = parse("[a]: /u\n[b]: /v\nc [a]\n")
+    val p = child(d, d.root())
+
+    assert_eq(node(d, p), "p 16..21")
+    assert(d.next_sibling(p).is_none())
+
+@test("a paragraph of nothing but definitions leaves no node")
+paragraph_of_definitions()
+    val d = parse("[a]: /u\n[b]: /v\n")
+
+    assert(d.first_child(d.root()).is_none())
+    assert_eq(d.refs.len(), 2)

@@ -68,7 +68,7 @@ example_315()
 example_316()
     assert_eq(to_html(parse("- a\n- b\n\n  c\n- d\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
 
-@test("example 317", ignore: "needs link reference definitions")
+@test("example 317")
 example_317()
     assert_eq(to_html(parse("- a\n- b\n\n  [ref]: /url\n- d\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
 

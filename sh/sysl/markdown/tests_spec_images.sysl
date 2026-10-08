@@ -4,90 +4,90 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Images', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 572", ignore: "the parser does not read Images")
+@test("example 572")
 example_572()
     assert_eq(to_html(parse("![foo](/url \"title\")\n")), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
 
-@test("example 573", ignore: "the parser does not read Images")
+@test("example 573")
 example_573()
     assert_eq(to_html(parse("![foo *bar*]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n")), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
 
-@test("example 574", ignore: "the parser does not read Images")
+@test("example 574")
 example_574()
     assert_eq(to_html(parse("![foo ![bar](/url)](/url2)\n")), "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n")
 
-@test("example 575", ignore: "the parser does not read Images")
+@test("example 575")
 example_575()
     assert_eq(to_html(parse("![foo [bar](/url)](/url2)\n")), "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n")
 
-@test("example 576", ignore: "the parser does not read Images")
+@test("example 576")
 example_576()
     assert_eq(to_html(parse("![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n")), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
 
-@test("example 577", ignore: "the parser does not read Images")
+@test("example 577")
 example_577()
     assert_eq(to_html(parse("![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"\n")), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
 
-@test("example 578", ignore: "the parser does not read Images")
+@test("example 578")
 example_578()
     assert_eq(to_html(parse("![foo](train.jpg)\n")), "<p><img src=\"train.jpg\" alt=\"foo\" /></p>\n")
 
-@test("example 579", ignore: "the parser does not read Images")
+@test("example 579")
 example_579()
     assert_eq(to_html(parse("My ![foo bar](/path/to/train.jpg  \"title\"   )\n")), "<p>My <img src=\"/path/to/train.jpg\" alt=\"foo bar\" title=\"title\" /></p>\n")
 
-@test("example 580", ignore: "the parser does not read Images")
+@test("example 580")
 example_580()
     assert_eq(to_html(parse("![foo](<url>)\n")), "<p><img src=\"url\" alt=\"foo\" /></p>\n")
 
-@test("example 581", ignore: "the parser does not read Images")
+@test("example 581")
 example_581()
     assert_eq(to_html(parse("![](/url)\n")), "<p><img src=\"/url\" alt=\"\" /></p>\n")
 
-@test("example 582", ignore: "the parser does not read Images")
+@test("example 582")
 example_582()
     assert_eq(to_html(parse("![foo][bar]\n\n[bar]: /url\n")), "<p><img src=\"/url\" alt=\"foo\" /></p>\n")
 
-@test("example 583", ignore: "the parser does not read Images")
+@test("example 583")
 example_583()
     assert_eq(to_html(parse("![foo][bar]\n\n[BAR]: /url\n")), "<p><img src=\"/url\" alt=\"foo\" /></p>\n")
 
-@test("example 584", ignore: "the parser does not read Images")
+@test("example 584")
 example_584()
     assert_eq(to_html(parse("![foo][]\n\n[foo]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
 
-@test("example 585", ignore: "the parser does not read Images")
+@test("example 585")
 example_585()
     assert_eq(to_html(parse("![*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n")
 
-@test("example 586", ignore: "the parser does not read Images")
+@test("example 586")
 example_586()
     assert_eq(to_html(parse("![Foo][]\n\n[foo]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n")
 
-@test("example 587", ignore: "the parser does not read Images")
+@test("example 587")
 example_587()
     assert_eq(to_html(parse("![foo] \n[]\n\n[foo]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" />\n[]</p>\n")
 
-@test("example 588", ignore: "the parser does not read Images")
+@test("example 588")
 example_588()
     assert_eq(to_html(parse("![foo]\n\n[foo]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
 
-@test("example 589", ignore: "the parser does not read Images")
+@test("example 589")
 example_589()
     assert_eq(to_html(parse("![*foo* bar]\n\n[*foo* bar]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n")
 
-@test("example 590", ignore: "the parser does not read Images")
+@test("example 590")
 example_590()
     assert_eq(to_html(parse("![[foo]]\n\n[[foo]]: /url \"title\"\n")), "<p>![[foo]]</p>\n<p>[[foo]]: /url &quot;title&quot;</p>\n")
 
-@test("example 591", ignore: "the parser does not read Images")
+@test("example 591")
 example_591()
     assert_eq(to_html(parse("![Foo]\n\n[foo]: /url \"title\"\n")), "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n")
 
-@test("example 592", ignore: "the parser does not read Images")
+@test("example 592")
 example_592()
     assert_eq(to_html(parse("!\\[foo]\n\n[foo]: /url \"title\"\n")), "<p>![foo]</p>\n")
 
-@test("example 593", ignore: "the parser does not read Images")
+@test("example 593")
 example_593()
     assert_eq(to_html(parse("\\![foo]\n\n[foo]: /url \"title\"\n")), "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n")

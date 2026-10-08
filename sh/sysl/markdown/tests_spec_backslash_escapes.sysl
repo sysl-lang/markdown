@@ -44,11 +44,11 @@ example_20()
 example_21()
     assert_eq(to_html(parse("<a href=\"/bar\\/)\">\n")), "<a href=\"/bar\\/)\">\n")
 
-@test("example 22", ignore: "needs links")
+@test("example 22")
 example_22()
     assert_eq(to_html(parse("[foo](/bar\\* \"ti\\*tle\")\n")), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
 
-@test("example 23", ignore: "needs link reference definitions")
+@test("example 23")
 example_23()
     assert_eq(to_html(parse("[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"\n")), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
 

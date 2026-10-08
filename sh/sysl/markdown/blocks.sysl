@@ -251,7 +251,7 @@ private[markdown] struct Parser
             if self.is_para(container) then
                 val under = setext_level(c, p)
 
-                if under > 0 then
+                if under > 0 && self.keeps_text_past_refs(container) then
                     self.doc.set_kind(self.stack[container].node, Heading(under, None))
                     self.close_to(container)
                     return Done
@@ -442,7 +442,12 @@ private[markdown] struct Parser
                     List(kind, _) -> self.doc.set_kind(o.node, List(kind, tight))
                     _ -> ()
             ItemBlock(_, _) -> self.end_with_last_child(o.node)
-            Para -> self.leaves.push(self.take_leaf(o.node))
+            Para ->
+                val leaf = self.doc.kind(o.node) match
+                    Paragraph -> without_refs(self.doc, self.take_leaf(o.node))
+                    _ -> self.take_leaf(o.node)
+
+                if leaf.text.len == 0 then self.doc.unlink(o.node) else self.leaves.push(leaf)
             Indented ->
                 val leaf = self.take_leaf(o.node)
                 val n = without_trailing_blank_lines(leaf.text)
@@ -469,6 +474,15 @@ private[markdown] struct Parser
         self.content.clear()
         self.segs = buf()
         leaf
+
+    // The link reference definitions the paragraph at `i` begins with taken out of its text, as a
+    // setext underline does before the paragraph becomes a heading; whether any text is left.
+    private keeps_text_past_refs(*self, i: usize) -> bool
+        val leaf = without_refs(self.doc, self.take_leaf(self.stack[i].node))
+
+        self.content.push(leaf.text)
+        self.segs = leaf.segs
+        leaf.text.len > 0
 
     private is_para(self, i: usize) -> bool
         self.stack[i].block match

@@ -42,28 +42,15 @@ ENABLED = {
     "Raw HTML",
     "Inlines",
     "Emphasis and strong emphasis",
+    "Links",
+    "Images",
+    "Link reference definitions",
 }
 
-# Examples in an ENABLED section that need a construct of a section not yet read, by number, with
-# the reason written into their `ignore:`. Each comes off this table when that construct lands.
-LINKS = "needs links"
-REFS = "needs link reference definitions"
-
-IGNORED = {
-    22: LINKS,
-    23: REFS,
-    32: LINKS,
-    33: REFS,
-    41: LINKS,
-    317: REFS,
-    342: LINKS,
-    404: LINKS,
-    419: LINKS,
-    422: LINKS,
-    433: LINKS,
-    473: LINKS,
-    474: LINKS,
-}
+# Examples in an ENABLED section that need a construct the parser does not read yet, by number, with
+# the reason written into their `ignore:`. Every CommonMark construct is read, so it is empty; an
+# extension's own corpus uses it the same way.
+IGNORED = {}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC = os.path.join(ROOT, "spec", "spec.json")

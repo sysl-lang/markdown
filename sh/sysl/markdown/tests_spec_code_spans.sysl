@@ -60,7 +60,7 @@ example_340()
 example_341()
     assert_eq(to_html(parse("*foo`*`\n")), "<p>*foo<code>*</code></p>\n")
 
-@test("example 342", ignore: "needs links")
+@test("example 342")
 example_342()
     assert_eq(to_html(parse("[not a `link](/foo`)\n")), "<p>[not a <code>link](/foo</code>)</p>\n")
 

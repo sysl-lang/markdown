@@ -220,7 +220,7 @@ example_402()
 example_403()
     assert_eq(to_html(parse("__(bar)__.\n")), "<p><strong>(bar)</strong>.</p>\n")
 
-@test("example 404", ignore: "needs links")
+@test("example 404")
 example_404()
     assert_eq(to_html(parse("*foo [bar](/url)*\n")), "<p><em>foo <a href=\"/url\">bar</a></em></p>\n")
 
@@ -280,7 +280,7 @@ example_417()
 example_418()
     assert_eq(to_html(parse("*foo **bar *baz* bim** bop*\n")), "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n")
 
-@test("example 419", ignore: "needs links")
+@test("example 419")
 example_419()
     assert_eq(to_html(parse("*foo [*bar*](/url)*\n")), "<p><em>foo <a href=\"/url\"><em>bar</em></a></em></p>\n")
 
@@ -292,7 +292,7 @@ example_420()
 example_421()
     assert_eq(to_html(parse("**** is not an empty strong emphasis\n")), "<p>**** is not an empty strong emphasis</p>\n")
 
-@test("example 422", ignore: "needs links")
+@test("example 422")
 example_422()
     assert_eq(to_html(parse("**foo [bar](/url)**\n")), "<p><strong>foo <a href=\"/url\">bar</a></strong></p>\n")
 
@@ -336,7 +336,7 @@ example_431()
 example_432()
     assert_eq(to_html(parse("**foo *bar **baz**\nbim* bop**\n")), "<p><strong>foo <em>bar <strong>baz</strong>\nbim</em> bop</strong></p>\n")
 
-@test("example 433", ignore: "needs links")
+@test("example 433")
 example_433()
     assert_eq(to_html(parse("**foo [*bar*](/url)**\n")), "<p><strong>foo <a href=\"/url\"><em>bar</em></a></strong></p>\n")
 
@@ -496,11 +496,11 @@ example_471()
 example_472()
     assert_eq(to_html(parse("*foo *bar baz*\n")), "<p>*foo <em>bar baz</em></p>\n")
 
-@test("example 473", ignore: "needs links")
+@test("example 473")
 example_473()
     assert_eq(to_html(parse("*[bar*](/url)\n")), "<p>*<a href=\"/url\">bar*</a></p>\n")
 
-@test("example 474", ignore: "needs links")
+@test("example 474")
 example_474()
     assert_eq(to_html(parse("_foo [bar_](/url)\n")), "<p>_foo <a href=\"/url\">bar_</a></p>\n")
 

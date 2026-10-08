@@ -1,7 +1,7 @@
 module sh.sysl.markdown
 
 import sh.sysl.parsing.{ByteSet, Span}
-import sysl.buf.Buf
+import sysl.buf.{Buf, buf}
 import sysl.container.{Map, map}
 import sysl.math.min
 import sysl.slices.contains
@@ -21,6 +21,8 @@ import sysl.text.{Ascii, StrBuilder, str_builder}
 // | `<` | an autolink, or raw HTML |
 // | line ending | a soft or hard line break |
 // | `*`, `_` | emphasis: the run goes on the delimiter list (`emphasis.sysl`) |
+// | `[`, `![` | a link or an image: an opener goes on the bracket stack |
+// | `]` | the end of a link's or an image's text, if what follows makes one (`links.sysl`) |
 // | U+0000 | nothing: it is text, and stands for U+FFFD |
 // | a byte an extension triggers on | whatever the extension reads there, before any of the above |
 //
@@ -39,7 +41,7 @@ private[markdown] inlines(d: Doc, leaf: Leaf, exts: Registry, triggers: ByteSet)
     while s < e && is_line_space(b[s]) do s += 1
     while e > s && is_line_space(b[e - 1]) do e -= 1
 
-    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false], delims(), exts, triggers)
+    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false], delims(), buf(), exts, triggers)
 
     sc.run(s)
 
@@ -58,6 +60,7 @@ private struct Scan
     ticks_to_end: bool          // whether `ticks` holds every run from the first code span on
     unclosed: [4]bool           // raw HTML end markers already looked for to the end
     ds: Delims
+    brackets: Buf[Bracket]      // the `[` and `![` not yet closed, innermost last
     exts: Registry
     triggers: ByteSet
 
@@ -86,6 +89,12 @@ private struct Scan
                 i = self.angle(i)
             else if c == u8('*') || c == u8('_') then
                 i = self.delimiter_run(i)
+            else if c == u8('[') then
+                i = self.open_bracket(i, i + 1, false)
+            else if c == u8('!') && byte_at(self.b, i + 1) == u8('[') then
+                i = self.open_bracket(i, i + 2, true)
+            else if c == u8(']') then
+                i = self.close_bracket(i)
             else if c == 0 then
                 self.replace(i, i + 1, "\u{fffd}")
                 i += 1
@@ -118,6 +127,90 @@ private struct Scan
 
         self.ds.push(node, ch, j - i, open, close, ext)
         self.restart(j)
+
+    // A `[`, or with `image` a `![`, at `i..<j`: a `Text` node holding it, and an opener on the
+    // bracket stack that a later `]` may make a link of.
+    open_bracket(*self, i: usize, j: usize, image: bool) -> usize
+        self.flush(i)
+
+        val start = self.m.src(i)
+        val node = self.d.append_child(self.leaf.node, Text(self.leaf.text[i..<j]), Span(start, self.m.src(j)))
+        val n = self.brackets.len()
+
+        if n > 0 then self.brackets.view()[n - 1].bracket_after = true
+
+        self.brackets.push(Bracket(node, image, true, false, self.ds.top(), j))
+        self.restart(j)
+        j
+
+    // The `]` at `i`, closing the innermost opener where what follows it -- or the text between them
+    // -- makes a link or an image. The nodes since the opener become its children, their emphasis is
+    // paired on its own, and a link deactivates every `[` before it, links not nesting. Anywhere
+    // else the `]` is text and the opener is dropped.
+    close_bracket(*self, i: usize) -> usize
+        val n = self.brackets.len()
+
+        if n == 0 then return i + 1
+
+        val o = self.brackets[n - 1]
+
+        self.brackets.truncate(n - 1)
+
+        if !o.active then return i + 1
+
+        val (dest, title, end) = self.link_after(o, i) match
+            Some(found) -> found
+            None -> return i + 1
+
+        self.flush(i)
+
+        val start = self.d.span(o.node).start
+        val kind = if o.image then Image(dest, title) else Link(dest, title)
+        val link = self.d.append_child(self.leaf.node, kind, Span(start, self.m.src(end)))
+        var k = self.d.next_sibling(o.node).unwrap()
+
+        while k.i != link.i
+            val after = self.d.next_sibling(k).unwrap()
+
+            self.d.append_node(link, k)
+            k = after
+
+        self.d.unlink(o.node)
+        process_emphasis(self.d, self.ds, self.exts, o.delims)
+
+        if !o.image then
+            val v = self.brackets.view()
+            var b = v.len
+
+            while b > 0
+                b -= 1
+
+                if !v[b].image then
+                    if !v[b].active then break
+
+                    v[b].active = false
+
+        self.restart(end)
+        end
+    end close_bracket
+
+    // What the `]` at `i` closing `o` links to, and where the link ends: an inline destination in
+    // parentheses, then a reference -- full where a label follows, collapsed or shortcut where
+    // the text between the brackets is the label.
+    link_after(self, o: Bracket, i: usize) -> Option[(string, string, usize)]
+        if byte_at(self.b, i + 1) == u8('(') then
+            val inline = inline_link(self.leaf.text[0..<self.b.len], i + 1)
+
+            if inline.is_some() then return inline
+
+        val le = label_end(self.b, i + 1)
+        val full = le > 0 && !is_blank(self.b[i + 2..<le - 1])
+        val raw = if full then self.leaf.text[i + 2..<le - 1] else self.leaf.text[o.after..<i]
+
+        if !full && o.bracket_after then return None
+
+        lookup(self.d.refs, raw).map((r) -> (r.dest, r.title, if le > 0 then le else i + 1))
+    end link_after
 
     // The first extension that triggers on the byte at `i` and reads something there: a node of its
     // own, or a run of delimiters paired as emphasis is. Answers where the scan goes on, or `i` where
@@ -318,6 +411,21 @@ private struct Scan
         end
     end autolink
 end Scan
+
+// A `[` or `![` waiting for its `]`.
+private struct Bracket
+    node: NodeId            // the `Text` node holding it
+    image: bool
+    active: bool            // false once a link has formed after it: links do not nest
+    bracket_after: bool     // another opener came after it, so the text it closes is not a label
+    delims: u32             // the delimiter list's top when it was read: the bottom of its emphasis
+    after: usize            // where the text inside it begins
+
+private is_blank(b: []const u8) -> bool
+    for c in b
+        if !c.is_space() then return false
+
+    true
 
 // A code span's text: each line ending a space, then one space taken from each end where both ends
 // have one and the text is not all spaces.

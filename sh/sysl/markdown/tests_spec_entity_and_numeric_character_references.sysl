@@ -32,11 +32,11 @@ example_30()
 example_31()
     assert_eq(to_html(parse("<a href=\"&ouml;&ouml;.html\">\n")), "<a href=\"&ouml;&ouml;.html\">\n")
 
-@test("example 32", ignore: "needs links")
+@test("example 32")
 example_32()
     assert_eq(to_html(parse("[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n")), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
 
-@test("example 33", ignore: "needs link reference definitions")
+@test("example 33")
 example_33()
     assert_eq(to_html(parse("[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n")), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
 
@@ -68,6 +68,6 @@ example_39()
 example_40()
     assert_eq(to_html(parse("&#9;foo\n")), "<p>\tfoo</p>\n")
 
-@test("example 41", ignore: "needs links")
+@test("example 41")
 example_41()
     assert_eq(to_html(parse("[a](url &quot;tit&quot;)\n")), "<p>[a](url &quot;tit&quot;)</p>\n")
