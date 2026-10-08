@@ -4,7 +4,7 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'HTML blocks', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 148", ignore: "needs emphasis")
+@test("example 148")
 example_148()
     assert_eq(to_html(parse("<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n")), "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n")
 
@@ -20,7 +20,7 @@ example_150()
 example_151()
     assert_eq(to_html(parse("</div>\n*foo*\n")), "</div>\n*foo*\n")
 
-@test("example 152", ignore: "needs emphasis")
+@test("example 152")
 example_152()
     assert_eq(to_html(parse("<DIV CLASS=\"foo\">\n\n*Markdown*\n\n</DIV>\n")), "<DIV CLASS=\"foo\">\n<p><em>Markdown</em></p>\n</DIV>\n")
 
@@ -32,7 +32,7 @@ example_153()
 example_154()
     assert_eq(to_html(parse("<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n")), "<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n")
 
-@test("example 155", ignore: "needs emphasis")
+@test("example 155")
 example_155()
     assert_eq(to_html(parse("<div>\n*foo*\n\n*bar*\n")), "<div>\n*foo*\n<p><em>bar</em></p>\n")
 
@@ -80,11 +80,11 @@ example_165()
 example_166()
     assert_eq(to_html(parse("<del>\n*foo*\n</del>\n")), "<del>\n*foo*\n</del>\n")
 
-@test("example 167", ignore: "needs emphasis")
+@test("example 167")
 example_167()
     assert_eq(to_html(parse("<del>\n\n*foo*\n\n</del>\n")), "<del>\n<p><em>foo</em></p>\n</del>\n")
 
-@test("example 168", ignore: "needs emphasis")
+@test("example 168")
 example_168()
     assert_eq(to_html(parse("<del>*foo*</del>\n")), "<p><del><em>foo</em></del></p>\n")
 
@@ -116,11 +116,11 @@ example_174()
 example_175()
     assert_eq(to_html(parse("- <div>\n- foo\n")), "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n")
 
-@test("example 176", ignore: "needs emphasis")
+@test("example 176")
 example_176()
     assert_eq(to_html(parse("<style>p{color:red;}</style>\n*foo*\n")), "<style>p{color:red;}</style>\n<p><em>foo</em></p>\n")
 
-@test("example 177", ignore: "needs emphasis")
+@test("example 177")
 example_177()
     assert_eq(to_html(parse("<!-- foo -->*bar*\n*baz*\n")), "<!-- foo -->*bar*\n<p><em>baz</em></p>\n")
 
@@ -164,7 +164,7 @@ example_186()
 example_187()
     assert_eq(to_html(parse("Foo\n<a href=\"bar\">\nbaz\n")), "<p>Foo\n<a href=\"bar\">\nbaz</p>\n")
 
-@test("example 188", ignore: "needs emphasis")
+@test("example 188")
 example_188()
     assert_eq(to_html(parse("<div>\n\n*Emphasized* text.\n\n</div>\n")), "<div>\n<p><em>Emphasized</em> text.</p>\n</div>\n")
 

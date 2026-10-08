@@ -152,7 +152,9 @@ private[markdown] struct Parser
     finish(*self) -> Doc
         self.close_to(1)
 
-        for leaf in self.leaves.view() do inlines(self.doc, leaf)
+        val triggers = self.exts.trigger_set()
+
+        for leaf in self.leaves.view() do inlines(self.doc, leaf, self.exts, triggers)
 
         for i in 0..<self.exts.len() do self.exts.at(i).post_pass(self.doc)
 

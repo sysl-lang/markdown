@@ -24,11 +24,11 @@ example_636()
 example_637()
     assert_eq(to_html(parse("foo\\\n     bar\n")), "<p>foo<br />\nbar</p>\n")
 
-@test("example 638", ignore: "needs emphasis")
+@test("example 638")
 example_638()
     assert_eq(to_html(parse("*foo  \nbar*\n")), "<p><em>foo<br />\nbar</em></p>\n")
 
-@test("example 639", ignore: "needs emphasis")
+@test("example 639")
 example_639()
     assert_eq(to_html(parse("*foo\\\nbar*\n")), "<p><em>foo<br />\nbar</em></p>\n")
 

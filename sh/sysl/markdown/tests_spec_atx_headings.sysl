@@ -20,7 +20,7 @@ example_64()
 example_65()
     assert_eq(to_html(parse("\\## foo\n")), "<p>## foo</p>\n")
 
-@test("example 66", ignore: "needs emphasis")
+@test("example 66")
 example_66()
     assert_eq(to_html(parse("# foo *bar* \\*baz\\*\n")), "<h1>foo <em>bar</em> *baz*</h1>\n")
 

@@ -1,8 +1,9 @@
 module sh.sysl.markdown
 
-import sh.sysl.parsing.Span
+import sh.sysl.parsing.{ByteSet, Span}
 import sysl.buf.Buf
 import sysl.container.{Map, map}
+import sysl.math.min
 import sysl.slices.contains
 import sysl.text.{Ascii, StrBuilder, str_builder}
 
@@ -19,13 +20,18 @@ import sysl.text.{Ascii, StrBuilder, str_builder}
 // | `` ` `` | a code span |
 // | `<` | an autolink, or raw HTML |
 // | line ending | a soft or hard line break |
+// | `*`, `_` | emphasis: the run goes on the delimiter list (`emphasis.sysl`) |
 // | U+0000 | nothing: it is text, and stands for U+FFFD |
+// | a byte an extension triggers on | whatever the extension reads there, before any of the above |
 //
 // Where nothing begins, the byte stays in the run of text. A run's `Text` holds a view of the leaf's
-// text, and a fresh string only where an escape or a reference made it differ.
+// text, and a fresh string only where an escape or a reference made it differ. Once the whole leaf
+// is read, its delimiters are paired into emphasis.
 
-/** The inline nodes of `leaf`, appended to its node in `d`. */
-private[markdown] inlines(d: Doc, leaf: Leaf)
+/** The inline nodes of `leaf`, appended to its node in `d`; `triggers` is every byte an extension in
+ * `exts` asks to be shown.
+ */
+private[markdown] inlines(d: Doc, leaf: Leaf, exts: Registry, triggers: ByteSet)
     val b = leaf.text.bytes
     var s: usize = 0
     var e = b.len
@@ -33,7 +39,7 @@ private[markdown] inlines(d: Doc, leaf: Leaf)
     while s < e && is_line_space(b[s]) do s += 1
     while e > s && is_line_space(b[e - 1]) do e -= 1
 
-    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false])
+    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false], delims(), exts, triggers)
 
     sc.run(s)
 
@@ -51,12 +57,22 @@ private struct Scan
     ticks: Map[usize, usize]    // a backtick run's length, and where the last run of it begins
     ticks_to_end: bool          // whether `ticks` holds every run from the first code span on
     unclosed: [4]bool           // raw HTML end markers already looked for to the end
+    ds: Delims
+    exts: Registry
+    triggers: ByteSet
 
     run(*self, from: usize)
         var i = from
 
         while i < self.b.len
             val c = self.b[i]
+
+            if self.triggers.has(c) then
+                val took = self.extension(i)
+
+                if took > i then
+                    i = took
+                    continue
 
             if c == u8('\n') then
                 i = self.line_break(i, i)
@@ -68,6 +84,8 @@ private struct Scan
                 i = self.code_span(i)
             else if c == u8('<') then
                 i = self.angle(i)
+            else if c == u8('*') || c == u8('_') then
+                i = self.delimiter_run(i)
             else if c == 0 then
                 self.replace(i, i + 1, "\u{fffd}")
                 i += 1
@@ -75,7 +93,64 @@ private struct Scan
                 i += 1
 
         self.flush(self.b.len)
+        process_emphasis(self.d, self.ds, self.exts, 1)
     end run
+
+    // A run of `*` or `_` at `i`: a `Text` node holding it, and an entry on the delimiter list saying
+    // whether it may open emphasis, close it, or both.
+    delimiter_run(*self, i: usize) -> usize
+        val ch = self.b[i]
+        var j = i + 1
+
+        while j < self.b.len && self.b[j] == ch do j += 1
+
+        val (open, close) = flanking(self.b, i, j)
+
+        self.push_run(i, j, ch, open, close, 0)
+        j
+
+    // The bytes `i..<j` as a `Text` node of their own, on the delimiter list.
+    push_run(*self, i: usize, j: usize, ch: u8, open: bool, close: bool, ext: usize)
+        self.flush(i)
+
+        val start = self.m.src(i)
+        val node = self.d.append_child(self.leaf.node, Text(self.leaf.text[i..<j]), Span(start, self.m.src(j)))
+
+        self.ds.push(node, ch, j - i, open, close, ext)
+        self.restart(j)
+
+    // The first extension that triggers on the byte at `i` and reads something there: a node of its
+    // own, or a run of delimiters paired as emphasis is. Answers where the scan goes on, or `i` where
+    // every extension declined.
+    extension(*self, i: usize) -> usize
+        val c = self.b[i]
+
+        for ix in 0..<self.exts.len()
+            val e = self.exts.at(ix)
+
+            if contains(e.triggers().bytes, c) then
+                e.inline_match(Subject(self.leaf.text, i)) match
+                    NoMatch -> ()
+                    Inline(kind, n) ->
+                        if n > 0 then
+                            val j = i + min(n, self.b.len - i)
+
+                            self.flush(i)
+
+                            val start = self.m.src(i)
+
+                            self.d.append_child(self.leaf.node, kind, Span(start, self.m.src(j)))
+                            self.restart(j)
+                            return j
+                    Delimiters(n, open, close) ->
+                        if n > 0 then
+                            val j = i + min(n, self.b.len - i)
+
+                            self.push_run(i, j, c, open, close, ix + 1)
+                            return j
+
+        i
+    end extension
 
     // The run of text up to `to` made a `Text` node, if it holds anything.
     flush(*self, to: usize)

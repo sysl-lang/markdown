@@ -1,0 +1,61 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.repeat
+import sysl.time.{monotonic, whole_micros}
+
+// Inputs built to make a careless parser quadratic, each read at two sizes ten times apart. A linear
+// reading takes about ten times as long for the larger, a quadratic one about a hundred, and the
+// ratio does not depend on how fast the machine is -- so the bound is a ratio, not a time. The
+// output is checked at the larger size too, so a fast wrong answer does not pass.
+
+private const small: usize = 10000
+
+// How long `src` takes to parse and write, in microseconds, with the result checked against `want`.
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = to_html(parse(src))
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+// The ratio of the larger input's time to the smaller's, the smaller taken as at least 1 ms so
+// that a run too quick to measure cannot make the ratio large.
+private ratio(input: usize -> string, output: usize -> string) -> long
+    val a = timed(input(small), output(small))
+    val b = timed(input(10 * small), output(10 * small))
+
+    b / (if a < 1000 then 1000 else a)
+
+private openers(n: usize) -> string = repeat("*a ", n) + "\n"
+
+private openers_out(n: usize) -> string = "<p>" + repeat("*a ", n - 1) + "*a</p>\n"
+
+private mismatched(n: usize) -> string = repeat("*a_ ", n) + "\n"
+
+private mismatched_out(n: usize) -> string = "<p>" + repeat("*a_ ", n - 1) + "*a_</p>\n"
+
+private closers(n: usize) -> string = repeat("a* ", n) + "\n"
+
+private closers_out(n: usize) -> string = "<p>" + repeat("a* ", n - 1) + "a*</p>\n"
+
+private threes(n: usize) -> string = "a**b" + repeat("c* ", n) + "\n"
+
+private threes_out(n: usize) -> string = "<p>a**b" + repeat("c* ", n - 1) + "c*</p>\n"
+
+@test("many openers with no closer are read in linear time")
+many_openers()
+    assert(ratio(openers, openers_out) < 20)
+
+@test("many closers with no opener are read in linear time")
+many_closers()
+    assert(ratio(closers, closers_out) < 20)
+
+@test("alternating '*' openers and '_' closers that never pair are read in linear time")
+mismatched_runs()
+    assert(ratio(mismatched, mismatched_out) < 20)
+
+@test("one opener and many closers the rule of three keeps from it are read in linear time")
+rule_of_three()
+    assert(ratio(threes, threes_out) < 20)

@@ -1,0 +1,261 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+import sysl.container.{Map, map}
+import sysl.text.{Ascii, chars_of, is_char_boundary}
+import sysl.unicode.category
+
+// Emphasis: the delimiter list, and the spec's algorithm for pairing it.
+//
+// A run of `*` or `_` is read as a `Text` node holding the run, plus an entry on the delimiter list
+// saying whether the run may open emphasis, close it, or both -- which the characters on either
+// side of it decide. Once a leaf has been read, `process_emphasis` walks the list from left to
+// right, and each closer looks back for the nearest opener that suits it. A pair takes two
+// delimiters from each side where both have two (`Strong`) and one otherwise (`Emph`); the nodes
+// between the two runs move under the new node, the delimiters between them are dropped, and what
+// is left of a run that never pairs stays as text.
+//
+// **The list is a `Buf` used as an arena, linked by index.** Slot 0 is never a delimiter: it is the
+// list's head, its `next` the first entry and its `prev` the last, so 0 means "none" as it does in
+// the tree, and dropping every delimiter between an opener and its closer is one relink.
+//
+// **A search for an opener never goes below a floor**, kept per closer character, whether the
+// closer could also open, and its run's length mod 3 -- everything that decides whether an opener
+// suits it. A closer that finds nothing raises the floor for every later closer like it, so a
+// leaf of ten thousand openers and no closer, or of runs that the rule of three keeps apart, is
+// read in linear time.
+//
+// **The function takes a stack bottom**, the index below which it leaves the list alone, so that the
+// text inside a link's brackets can be paired on its own once the link forms.
+
+/** One run of delimiters on the list. */
+private[markdown] struct Delim
+    node: NodeId        // the `Text` node holding what is left of the run
+    ch: u8
+    count: usize        // delimiters not yet taken by a pair
+    orig: usize         // the run's length as read, which the rule of three is about
+    can_open: bool
+    can_close: bool
+    ext: usize          // 0 for emphasis; for an extension's run, its place in the registry plus one
+    prev: u32
+    next: u32
+
+/** The delimiter list of one leaf. */
+private[markdown] struct Delims
+    items: Buf[Delim]
+
+    /** The index the next run pushed will take: the stack bottom for whatever is read after now. */
+    top(self) -> u32 = u32(self.items.len())
+
+    at(self, i: u32) -> Delim = self.items.at(usize(i))
+
+    push(self, node: NodeId, ch: u8, count: usize, can_open: bool, can_close: bool, ext: usize)
+        val id = u32(self.items.len())
+        val tail = self.items.at(0).prev
+
+        self.items.push(Delim(node, ch, count, count, can_open, can_close, ext, tail, 0))
+        self.items.view()[usize(tail)].next = id
+        self.items.view()[0].prev = id
+
+    // `i` taken off the list. Its own links are left as they were.
+    remove(self, i: u32)
+        val v = self.items.view()
+        val p = v[usize(i)].prev
+        val n = v[usize(i)].next
+
+        v[usize(p)].next = n
+        v[usize(n)].prev = p
+
+    // Every delimiter strictly between `a` and `b` taken off the list at once.
+    join(self, a: u32, b: u32)
+        val v = self.items.view()
+
+        v[usize(a)].next = b
+        v[usize(b)].prev = a
+
+    // The first delimiter at or above `bottom`, or 0.
+    first_from(self, bottom: u32) -> u32
+        var first: u32 = 0
+        var i = self.items.at(0).prev
+
+        while i != 0 && i >= bottom
+            first = i
+            i = self.items.at(usize(i)).prev
+
+        first
+
+    // Every delimiter at or above `bottom` taken off the list.
+    cut(self, bottom: u32)
+        var i = self.items.at(0).prev
+
+        while i != 0 && i >= bottom do i = self.items.at(usize(i)).prev
+
+        self.join(i, 0)
+end Delims
+
+/** A delimiter list holding nothing but its head. */
+private[markdown] delims() -> Delims
+    val items: Buf[Delim] = buf()
+
+    items.push(Delim(NodeId(0), 0, 0, 0, false, false, 0, 0, 0))
+    Delims(items)
+
+/** Pair the delimiters at or above `bottom` into emphasis, as the spec's appendix does, then take
+ * every one of them off the list. Text holding a run that never paired stays where it is.
+ */
+private[markdown] process_emphasis(d: Doc, ds: Delims, exts: Registry, bottom: u32)
+    var floor = [bottom; 12]
+    var ext_floor: Map[(u8, bool, usize), u32] = map()
+    var closer = ds.first_from(bottom)
+
+    while closer != 0
+        val c = ds.at(closer)
+
+        if !c.can_close then
+            closer = c.next
+            continue
+
+        val slot = c.orig % 3 + (if c.ch == u8('_') then 6 else 0) + (if c.can_open then 3 else 0)
+        val low = if c.ext == 0 then floor[slot] else ext_floor.get_or((c.ch, c.can_open, c.orig), bottom)
+        var o = c.prev
+        var found = false
+
+        while !found && o != 0 && o >= low
+            val od = ds.at(o)
+
+            if od.can_open && od.ch == c.ch && od.ext == c.ext && suits(exts, od, c) then found = true else o = od.prev
+
+        if found then
+            closer = pair(d, ds, exts, o, closer)
+        else
+            if c.ext == 0 then floor[slot] = closer else ext_floor.put((c.ch, c.can_open, c.orig), closer)
+
+            if !c.can_open then ds.remove(closer)
+
+            closer = c.next
+    end while
+
+    ds.cut(bottom)
+end process_emphasis
+
+// Whether opener `o` may pair with closer `c`. For emphasis, the rule of three: where either run
+// could both open and close, the two runs' lengths may not sum to a multiple of 3 unless both are
+// multiples of 3 themselves.
+private suits(exts: Registry, o: Delim, c: Delim) -> bool
+    if c.ext != 0 then return exts.at(c.ext - 1).delimiter_node(c.ch, o.orig, c.orig).is_some()
+
+    !(c.can_open || o.can_close) || c.orig % 3 == 0 || (o.orig + c.orig) % 3 != 0
+
+// Opener `o` and closer `c` paired: the node they make, holding everything between them, put after
+// the opener's text. Answers the closer to look at next -- `c` again while it has delimiters left.
+private pair(d: Doc, ds: Delims, exts: Registry, o: u32, c: u32) -> u32
+    val od = ds.at(o)
+    val cd = ds.at(c)
+    var use: usize = 1
+    var kind = Emph
+
+    if cd.ext != 0 then
+        kind = exts.at(cd.ext - 1).delimiter_node(cd.ch, od.orig, cd.orig).unwrap()
+        use = if od.count < cd.count then od.count else cd.count
+    else if od.count >= 2 && cd.count >= 2 then
+        kind = Strong
+        use = 2
+
+    ds.join(o, c)
+    ds.items.view()[usize(o)].count = od.count - use
+    ds.items.view()[usize(c)].count = cd.count - use
+
+    val so = d.span(od.node)
+    val sc = d.span(cd.node)
+    val parent = d.parent(od.node).unwrap()
+    val node = d.append_child(parent, kind, Span(so.end - use, sc.start + use))
+    var n = d.next_sibling(od.node).unwrap()
+
+    while n.i != cd.node.i
+        val after = d.next_sibling(n).unwrap()
+
+        d.append_node(node, n)
+        n = after
+
+    d.insert_after(od.node, node)
+    take(d, od.node, od.count - use, Span(so.start, so.end - use))
+    take(d, cd.node, cd.count - use, Span(sc.start + use, sc.end))
+
+    if od.count == use then ds.remove(o)
+
+    if cd.count > use then return c
+
+    ds.remove(c)
+    cd.next
+end pair
+
+// The run of text `n` cut down to its first `left` delimiters, and to `span`; unlinked once none
+// are left.
+private take(d: Doc, n: NodeId, left: usize, span: Span)
+    if left == 0 then
+        d.unlink(n)
+        return
+
+    d.kind(n) match
+        Text(lit) -> d.set_kind(n, Text(lit[0..<left]))
+        _ -> ()
+
+    d.set_span(n, span)
+
+// What the character on one side of a delimiter run is, as flanking sees it.
+private enum Side
+    Space       // Unicode whitespace, or the start or end of the text
+    Punct       // Unicode punctuation: a P or S category
+    Other
+
+/** Whether the run of delimiters `from..<to` in `b` may open emphasis, and whether it may close it.
+ *
+ * A run is left-flanking where the character after it is not whitespace, and is not punctuation
+ * unless the character before it is whitespace or punctuation; right-flanking is the same with the
+ * sides swapped. `*` opens where it is left-flanking and closes where it is right-flanking; `_`
+ * also refuses to open or close inside a word -- where the run flanks both ways and the side it
+ * would face away from is not punctuation.
+ */
+private[markdown] flanking(b: []const u8, from: usize, to: usize) -> (bool, bool)
+    val before = side_before(b, from)
+    val after = side_after(b, to)
+    val left = after != Space && (after != Punct || before != Other)
+    val right = before != Space && (before != Punct || after != Other)
+
+    if b[from] != u8('_') then return (left, right)
+
+    (left && (!right || before == Punct), right && (!left || after == Punct))
+
+private side_before(b: []const u8, at: usize) -> Side
+    if at == 0 then return Space
+
+    if b[at - 1] < 128 then return ascii_side(b[at - 1])
+
+    var s = at - 1
+
+    while s > 0 && !is_char_boundary(b[s]) do s -= 1
+
+    char_side(b[s..<at])
+
+private side_after(b: []const u8, at: usize) -> Side
+    if at >= b.len then return Space
+
+    if b[at] < 128 then return ascii_side(b[at])
+
+    char_side(b[at..<b.len])
+
+// U+0000 stands for U+FFFD, which is a symbol, so it is punctuation here.
+private ascii_side(c: u8) -> Side
+    if c == u8(' ') || c == u8('\t') || c == u8('\n') || c == u8('\r') || c == 12 then return Space
+
+    if c == 0 || c.is_punct() then Punct else Other
+
+// The side the character `b` begins with is on.
+private char_side(b: []const u8) -> Side
+    chars_of(b).peek() match
+        None -> Other
+        Some(ch) -> category(ch) match
+            Zs -> Space
+            Pc | Pd | Ps | Pe | Pi | Pf | Po | Sm | Sc | Sk | So -> Punct
+            _ -> Other

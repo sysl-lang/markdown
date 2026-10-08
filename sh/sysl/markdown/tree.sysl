@@ -170,6 +170,29 @@ struct Doc
         if after == 0 then v[usize(p)].last = n.i else v[usize(after)].prev = n.i
     end insert_after
 
+    /** Make `n` -- a node already in the arena, unlinked or not -- the last child of `parent`, as
+     * emphasis does with the nodes between its delimiters. The document is never moved, and a node
+     * is never made its own child.
+     */
+    append_node(self, parent: NodeId, n: NodeId)
+        if n.i == 0 || n.i == parent.i then return
+
+        self.unlink(n)
+
+        val v = self.nodes.view()
+        val p = usize(parent.i)
+        val me = usize(n.i)
+        val before = v[p].last
+
+        v[me].parent = parent.i
+        v[me].prev = before
+        v[me].next = 0
+
+        if before == 0 then v[p].first = n.i else v[usize(before)].next = n.i
+
+        v[p].last = n.i
+    end append_node
+
     /** Every node from the document down, in document order: see `Walker`. */
     walk(self) -> Walker = self.walk_from(NodeId(0))
 

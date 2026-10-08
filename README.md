@@ -4,10 +4,10 @@ CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is
 
 **Status: in progress.** The document tree, its walk, the HTML renderer and the extension interface
 are written and tested. The parser reads every block construct -- block quotes, lists, headings,
-code blocks, HTML blocks, thematic breaks, paragraphs -- and every inline construct but emphasis and
-links: backslash escapes, entity and numeric character references, code spans, autolinks, raw HTML
-and line breaks. Spec examples that need emphasis or links are compiled but ignored, each naming
-what it waits for. Nothing is tagged.
+code blocks, HTML blocks, thematic breaks, paragraphs -- and every inline construct but links:
+backslash escapes, entity and numeric character references, code spans, autolinks, raw HTML, line
+breaks, and emphasis and strong emphasis. Spec examples that need links are compiled but ignored,
+each naming what it waits for. Nothing is tagged.
 
 ```hocon
 dependencies {

@@ -4,15 +4,15 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Setext headings', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 80", ignore: "needs emphasis")
+@test("example 80")
 example_80()
     assert_eq(to_html(parse("Foo *bar*\n=========\n\nFoo *bar*\n---------\n")), "<h1>Foo <em>bar</em></h1>\n<h2>Foo <em>bar</em></h2>\n")
 
-@test("example 81", ignore: "needs emphasis")
+@test("example 81")
 example_81()
     assert_eq(to_html(parse("Foo *bar\nbaz*\n====\n")), "<h1>Foo <em>bar\nbaz</em></h1>\n")
 
-@test("example 82", ignore: "needs emphasis")
+@test("example 82")
 example_82()
     assert_eq(to_html(parse("  Foo *bar\nbaz*\t\n====\n")), "<h1>Foo <em>bar\nbaz</em></h1>\n")
 

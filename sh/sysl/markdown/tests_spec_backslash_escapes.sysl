@@ -16,7 +16,7 @@ example_13()
 example_14()
     assert_eq(to_html(parse("\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n")), "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;\n&amp;ouml; not a character entity</p>\n")
 
-@test("example 15", ignore: "needs emphasis")
+@test("example 15")
 example_15()
     assert_eq(to_html(parse("\\\\*emphasis*\n")), "<p>\\<em>emphasis</em></p>\n")
 

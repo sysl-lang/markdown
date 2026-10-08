@@ -52,7 +52,7 @@ example_35()
 example_36()
     assert_eq(to_html(parse("    f&ouml;f&ouml;\n")), "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n")
 
-@test("example 37", ignore: "needs emphasis")
+@test("example 37")
 example_37()
     assert_eq(to_html(parse("&#42;foo&#42;\n*foo*\n")), "<p>*foo*\n<em>foo</em></p>\n")
 

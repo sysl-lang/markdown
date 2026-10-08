@@ -4,530 +4,530 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Emphasis and strong emphasis', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 350", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 350")
 example_350()
     assert_eq(to_html(parse("*foo bar*\n")), "<p><em>foo bar</em></p>\n")
 
-@test("example 351", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 351")
 example_351()
     assert_eq(to_html(parse("a * foo bar*\n")), "<p>a * foo bar*</p>\n")
 
-@test("example 352", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 352")
 example_352()
     assert_eq(to_html(parse("a*\"foo\"*\n")), "<p>a*&quot;foo&quot;*</p>\n")
 
-@test("example 353", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 353")
 example_353()
     assert_eq(to_html(parse("*\u{a0}a\u{a0}*\n")), "<p>*\u{a0}a\u{a0}*</p>\n")
 
-@test("example 354", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 354")
 example_354()
     assert_eq(to_html(parse("*$*alpha.\n\n*\u{a3}*bravo.\n\n*\u{20ac}*charlie.\n")), "<p>*$*alpha.</p>\n<p>*\u{a3}*bravo.</p>\n<p>*\u{20ac}*charlie.</p>\n")
 
-@test("example 355", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 355")
 example_355()
     assert_eq(to_html(parse("foo*bar*\n")), "<p>foo<em>bar</em></p>\n")
 
-@test("example 356", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 356")
 example_356()
     assert_eq(to_html(parse("5*6*78\n")), "<p>5<em>6</em>78</p>\n")
 
-@test("example 357", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 357")
 example_357()
     assert_eq(to_html(parse("_foo bar_\n")), "<p><em>foo bar</em></p>\n")
 
-@test("example 358", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 358")
 example_358()
     assert_eq(to_html(parse("_ foo bar_\n")), "<p>_ foo bar_</p>\n")
 
-@test("example 359", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 359")
 example_359()
     assert_eq(to_html(parse("a_\"foo\"_\n")), "<p>a_&quot;foo&quot;_</p>\n")
 
-@test("example 360", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 360")
 example_360()
     assert_eq(to_html(parse("foo_bar_\n")), "<p>foo_bar_</p>\n")
 
-@test("example 361", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 361")
 example_361()
     assert_eq(to_html(parse("5_6_78\n")), "<p>5_6_78</p>\n")
 
-@test("example 362", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 362")
 example_362()
     assert_eq(to_html(parse("\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}_\n")), "<p>\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}_</p>\n")
 
-@test("example 363", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 363")
 example_363()
     assert_eq(to_html(parse("aa_\"bb\"_cc\n")), "<p>aa_&quot;bb&quot;_cc</p>\n")
 
-@test("example 364", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 364")
 example_364()
     assert_eq(to_html(parse("foo-_(bar)_\n")), "<p>foo-<em>(bar)</em></p>\n")
 
-@test("example 365", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 365")
 example_365()
     assert_eq(to_html(parse("_foo*\n")), "<p>_foo*</p>\n")
 
-@test("example 366", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 366")
 example_366()
     assert_eq(to_html(parse("*foo bar *\n")), "<p>*foo bar *</p>\n")
 
-@test("example 367", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 367")
 example_367()
     assert_eq(to_html(parse("*foo bar\n*\n")), "<p>*foo bar\n*</p>\n")
 
-@test("example 368", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 368")
 example_368()
     assert_eq(to_html(parse("*(*foo)\n")), "<p>*(*foo)</p>\n")
 
-@test("example 369", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 369")
 example_369()
     assert_eq(to_html(parse("*(*foo*)*\n")), "<p><em>(<em>foo</em>)</em></p>\n")
 
-@test("example 370", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 370")
 example_370()
     assert_eq(to_html(parse("*foo*bar\n")), "<p><em>foo</em>bar</p>\n")
 
-@test("example 371", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 371")
 example_371()
     assert_eq(to_html(parse("_foo bar _\n")), "<p>_foo bar _</p>\n")
 
-@test("example 372", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 372")
 example_372()
     assert_eq(to_html(parse("_(_foo)\n")), "<p>_(_foo)</p>\n")
 
-@test("example 373", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 373")
 example_373()
     assert_eq(to_html(parse("_(_foo_)_\n")), "<p><em>(<em>foo</em>)</em></p>\n")
 
-@test("example 374", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 374")
 example_374()
     assert_eq(to_html(parse("_foo_bar\n")), "<p>_foo_bar</p>\n")
 
-@test("example 375", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 375")
 example_375()
     assert_eq(to_html(parse("_\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}\n")), "<p>_\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}</p>\n")
 
-@test("example 376", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 376")
 example_376()
     assert_eq(to_html(parse("_foo_bar_baz_\n")), "<p><em>foo_bar_baz</em></p>\n")
 
-@test("example 377", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 377")
 example_377()
     assert_eq(to_html(parse("_(bar)_.\n")), "<p><em>(bar)</em>.</p>\n")
 
-@test("example 378", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 378")
 example_378()
     assert_eq(to_html(parse("**foo bar**\n")), "<p><strong>foo bar</strong></p>\n")
 
-@test("example 379", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 379")
 example_379()
     assert_eq(to_html(parse("** foo bar**\n")), "<p>** foo bar**</p>\n")
 
-@test("example 380", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 380")
 example_380()
     assert_eq(to_html(parse("a**\"foo\"**\n")), "<p>a**&quot;foo&quot;**</p>\n")
 
-@test("example 381", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 381")
 example_381()
     assert_eq(to_html(parse("foo**bar**\n")), "<p>foo<strong>bar</strong></p>\n")
 
-@test("example 382", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 382")
 example_382()
     assert_eq(to_html(parse("__foo bar__\n")), "<p><strong>foo bar</strong></p>\n")
 
-@test("example 383", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 383")
 example_383()
     assert_eq(to_html(parse("__ foo bar__\n")), "<p>__ foo bar__</p>\n")
 
-@test("example 384", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 384")
 example_384()
     assert_eq(to_html(parse("__\nfoo bar__\n")), "<p>__\nfoo bar__</p>\n")
 
-@test("example 385", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 385")
 example_385()
     assert_eq(to_html(parse("a__\"foo\"__\n")), "<p>a__&quot;foo&quot;__</p>\n")
 
-@test("example 386", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 386")
 example_386()
     assert_eq(to_html(parse("foo__bar__\n")), "<p>foo__bar__</p>\n")
 
-@test("example 387", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 387")
 example_387()
     assert_eq(to_html(parse("5__6__78\n")), "<p>5__6__78</p>\n")
 
-@test("example 388", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 388")
 example_388()
     assert_eq(to_html(parse("\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}__\n")), "<p>\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}__</p>\n")
 
-@test("example 389", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 389")
 example_389()
     assert_eq(to_html(parse("__foo, __bar__, baz__\n")), "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n")
 
-@test("example 390", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 390")
 example_390()
     assert_eq(to_html(parse("foo-__(bar)__\n")), "<p>foo-<strong>(bar)</strong></p>\n")
 
-@test("example 391", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 391")
 example_391()
     assert_eq(to_html(parse("**foo bar **\n")), "<p>**foo bar **</p>\n")
 
-@test("example 392", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 392")
 example_392()
     assert_eq(to_html(parse("**(**foo)\n")), "<p>**(**foo)</p>\n")
 
-@test("example 393", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 393")
 example_393()
     assert_eq(to_html(parse("*(**foo**)*\n")), "<p><em>(<strong>foo</strong>)</em></p>\n")
 
-@test("example 394", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 394")
 example_394()
     assert_eq(to_html(parse("**Gomphocarpus (*Gomphocarpus physocarpus*, syn.\n*Asclepias physocarpa*)**\n")), "<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.\n<em>Asclepias physocarpa</em>)</strong></p>\n")
 
-@test("example 395", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 395")
 example_395()
     assert_eq(to_html(parse("**foo \"*bar*\" foo**\n")), "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n")
 
-@test("example 396", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 396")
 example_396()
     assert_eq(to_html(parse("**foo**bar\n")), "<p><strong>foo</strong>bar</p>\n")
 
-@test("example 397", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 397")
 example_397()
     assert_eq(to_html(parse("__foo bar __\n")), "<p>__foo bar __</p>\n")
 
-@test("example 398", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 398")
 example_398()
     assert_eq(to_html(parse("__(__foo)\n")), "<p>__(__foo)</p>\n")
 
-@test("example 399", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 399")
 example_399()
     assert_eq(to_html(parse("_(__foo__)_\n")), "<p><em>(<strong>foo</strong>)</em></p>\n")
 
-@test("example 400", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 400")
 example_400()
     assert_eq(to_html(parse("__foo__bar\n")), "<p>__foo__bar</p>\n")
 
-@test("example 401", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 401")
 example_401()
     assert_eq(to_html(parse("__\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}\n")), "<p>__\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}</p>\n")
 
-@test("example 402", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 402")
 example_402()
     assert_eq(to_html(parse("__foo__bar__baz__\n")), "<p><strong>foo__bar__baz</strong></p>\n")
 
-@test("example 403", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 403")
 example_403()
     assert_eq(to_html(parse("__(bar)__.\n")), "<p><strong>(bar)</strong>.</p>\n")
 
-@test("example 404", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 404", ignore: "needs links")
 example_404()
     assert_eq(to_html(parse("*foo [bar](/url)*\n")), "<p><em>foo <a href=\"/url\">bar</a></em></p>\n")
 
-@test("example 405", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 405")
 example_405()
     assert_eq(to_html(parse("*foo\nbar*\n")), "<p><em>foo\nbar</em></p>\n")
 
-@test("example 406", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 406")
 example_406()
     assert_eq(to_html(parse("_foo __bar__ baz_\n")), "<p><em>foo <strong>bar</strong> baz</em></p>\n")
 
-@test("example 407", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 407")
 example_407()
     assert_eq(to_html(parse("_foo _bar_ baz_\n")), "<p><em>foo <em>bar</em> baz</em></p>\n")
 
-@test("example 408", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 408")
 example_408()
     assert_eq(to_html(parse("__foo_ bar_\n")), "<p><em><em>foo</em> bar</em></p>\n")
 
-@test("example 409", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 409")
 example_409()
     assert_eq(to_html(parse("*foo *bar**\n")), "<p><em>foo <em>bar</em></em></p>\n")
 
-@test("example 410", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 410")
 example_410()
     assert_eq(to_html(parse("*foo **bar** baz*\n")), "<p><em>foo <strong>bar</strong> baz</em></p>\n")
 
-@test("example 411", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 411")
 example_411()
     assert_eq(to_html(parse("*foo**bar**baz*\n")), "<p><em>foo<strong>bar</strong>baz</em></p>\n")
 
-@test("example 412", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 412")
 example_412()
     assert_eq(to_html(parse("*foo**bar*\n")), "<p><em>foo**bar</em></p>\n")
 
-@test("example 413", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 413")
 example_413()
     assert_eq(to_html(parse("***foo** bar*\n")), "<p><em><strong>foo</strong> bar</em></p>\n")
 
-@test("example 414", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 414")
 example_414()
     assert_eq(to_html(parse("*foo **bar***\n")), "<p><em>foo <strong>bar</strong></em></p>\n")
 
-@test("example 415", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 415")
 example_415()
     assert_eq(to_html(parse("*foo**bar***\n")), "<p><em>foo<strong>bar</strong></em></p>\n")
 
-@test("example 416", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 416")
 example_416()
     assert_eq(to_html(parse("foo***bar***baz\n")), "<p>foo<em><strong>bar</strong></em>baz</p>\n")
 
-@test("example 417", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 417")
 example_417()
     assert_eq(to_html(parse("foo******bar*********baz\n")), "<p>foo<strong><strong><strong>bar</strong></strong></strong>***baz</p>\n")
 
-@test("example 418", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 418")
 example_418()
     assert_eq(to_html(parse("*foo **bar *baz* bim** bop*\n")), "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n")
 
-@test("example 419", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 419", ignore: "needs links")
 example_419()
     assert_eq(to_html(parse("*foo [*bar*](/url)*\n")), "<p><em>foo <a href=\"/url\"><em>bar</em></a></em></p>\n")
 
-@test("example 420", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 420")
 example_420()
     assert_eq(to_html(parse("** is not an empty emphasis\n")), "<p>** is not an empty emphasis</p>\n")
 
-@test("example 421", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 421")
 example_421()
     assert_eq(to_html(parse("**** is not an empty strong emphasis\n")), "<p>**** is not an empty strong emphasis</p>\n")
 
-@test("example 422", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 422", ignore: "needs links")
 example_422()
     assert_eq(to_html(parse("**foo [bar](/url)**\n")), "<p><strong>foo <a href=\"/url\">bar</a></strong></p>\n")
 
-@test("example 423", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 423")
 example_423()
     assert_eq(to_html(parse("**foo\nbar**\n")), "<p><strong>foo\nbar</strong></p>\n")
 
-@test("example 424", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 424")
 example_424()
     assert_eq(to_html(parse("__foo _bar_ baz__\n")), "<p><strong>foo <em>bar</em> baz</strong></p>\n")
 
-@test("example 425", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 425")
 example_425()
     assert_eq(to_html(parse("__foo __bar__ baz__\n")), "<p><strong>foo <strong>bar</strong> baz</strong></p>\n")
 
-@test("example 426", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 426")
 example_426()
     assert_eq(to_html(parse("____foo__ bar__\n")), "<p><strong><strong>foo</strong> bar</strong></p>\n")
 
-@test("example 427", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 427")
 example_427()
     assert_eq(to_html(parse("**foo **bar****\n")), "<p><strong>foo <strong>bar</strong></strong></p>\n")
 
-@test("example 428", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 428")
 example_428()
     assert_eq(to_html(parse("**foo *bar* baz**\n")), "<p><strong>foo <em>bar</em> baz</strong></p>\n")
 
-@test("example 429", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 429")
 example_429()
     assert_eq(to_html(parse("**foo*bar*baz**\n")), "<p><strong>foo<em>bar</em>baz</strong></p>\n")
 
-@test("example 430", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 430")
 example_430()
     assert_eq(to_html(parse("***foo* bar**\n")), "<p><strong><em>foo</em> bar</strong></p>\n")
 
-@test("example 431", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 431")
 example_431()
     assert_eq(to_html(parse("**foo *bar***\n")), "<p><strong>foo <em>bar</em></strong></p>\n")
 
-@test("example 432", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 432")
 example_432()
     assert_eq(to_html(parse("**foo *bar **baz**\nbim* bop**\n")), "<p><strong>foo <em>bar <strong>baz</strong>\nbim</em> bop</strong></p>\n")
 
-@test("example 433", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 433", ignore: "needs links")
 example_433()
     assert_eq(to_html(parse("**foo [*bar*](/url)**\n")), "<p><strong>foo <a href=\"/url\"><em>bar</em></a></strong></p>\n")
 
-@test("example 434", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 434")
 example_434()
     assert_eq(to_html(parse("__ is not an empty emphasis\n")), "<p>__ is not an empty emphasis</p>\n")
 
-@test("example 435", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 435")
 example_435()
     assert_eq(to_html(parse("____ is not an empty strong emphasis\n")), "<p>____ is not an empty strong emphasis</p>\n")
 
-@test("example 436", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 436")
 example_436()
     assert_eq(to_html(parse("foo ***\n")), "<p>foo ***</p>\n")
 
-@test("example 437", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 437")
 example_437()
     assert_eq(to_html(parse("foo *\\**\n")), "<p>foo <em>*</em></p>\n")
 
-@test("example 438", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 438")
 example_438()
     assert_eq(to_html(parse("foo *_*\n")), "<p>foo <em>_</em></p>\n")
 
-@test("example 439", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 439")
 example_439()
     assert_eq(to_html(parse("foo *****\n")), "<p>foo *****</p>\n")
 
-@test("example 440", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 440")
 example_440()
     assert_eq(to_html(parse("foo **\\***\n")), "<p>foo <strong>*</strong></p>\n")
 
-@test("example 441", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 441")
 example_441()
     assert_eq(to_html(parse("foo **_**\n")), "<p>foo <strong>_</strong></p>\n")
 
-@test("example 442", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 442")
 example_442()
     assert_eq(to_html(parse("**foo*\n")), "<p>*<em>foo</em></p>\n")
 
-@test("example 443", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 443")
 example_443()
     assert_eq(to_html(parse("*foo**\n")), "<p><em>foo</em>*</p>\n")
 
-@test("example 444", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 444")
 example_444()
     assert_eq(to_html(parse("***foo**\n")), "<p>*<strong>foo</strong></p>\n")
 
-@test("example 445", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 445")
 example_445()
     assert_eq(to_html(parse("****foo*\n")), "<p>***<em>foo</em></p>\n")
 
-@test("example 446", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 446")
 example_446()
     assert_eq(to_html(parse("**foo***\n")), "<p><strong>foo</strong>*</p>\n")
 
-@test("example 447", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 447")
 example_447()
     assert_eq(to_html(parse("*foo****\n")), "<p><em>foo</em>***</p>\n")
 
-@test("example 448", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 448")
 example_448()
     assert_eq(to_html(parse("foo ___\n")), "<p>foo ___</p>\n")
 
-@test("example 449", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 449")
 example_449()
     assert_eq(to_html(parse("foo _\\__\n")), "<p>foo <em>_</em></p>\n")
 
-@test("example 450", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 450")
 example_450()
     assert_eq(to_html(parse("foo _*_\n")), "<p>foo <em>*</em></p>\n")
 
-@test("example 451", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 451")
 example_451()
     assert_eq(to_html(parse("foo _____\n")), "<p>foo _____</p>\n")
 
-@test("example 452", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 452")
 example_452()
     assert_eq(to_html(parse("foo __\\___\n")), "<p>foo <strong>_</strong></p>\n")
 
-@test("example 453", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 453")
 example_453()
     assert_eq(to_html(parse("foo __*__\n")), "<p>foo <strong>*</strong></p>\n")
 
-@test("example 454", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 454")
 example_454()
     assert_eq(to_html(parse("__foo_\n")), "<p>_<em>foo</em></p>\n")
 
-@test("example 455", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 455")
 example_455()
     assert_eq(to_html(parse("_foo__\n")), "<p><em>foo</em>_</p>\n")
 
-@test("example 456", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 456")
 example_456()
     assert_eq(to_html(parse("___foo__\n")), "<p>_<strong>foo</strong></p>\n")
 
-@test("example 457", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 457")
 example_457()
     assert_eq(to_html(parse("____foo_\n")), "<p>___<em>foo</em></p>\n")
 
-@test("example 458", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 458")
 example_458()
     assert_eq(to_html(parse("__foo___\n")), "<p><strong>foo</strong>_</p>\n")
 
-@test("example 459", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 459")
 example_459()
     assert_eq(to_html(parse("_foo____\n")), "<p><em>foo</em>___</p>\n")
 
-@test("example 460", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 460")
 example_460()
     assert_eq(to_html(parse("**foo**\n")), "<p><strong>foo</strong></p>\n")
 
-@test("example 461", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 461")
 example_461()
     assert_eq(to_html(parse("*_foo_*\n")), "<p><em><em>foo</em></em></p>\n")
 
-@test("example 462", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 462")
 example_462()
     assert_eq(to_html(parse("__foo__\n")), "<p><strong>foo</strong></p>\n")
 
-@test("example 463", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 463")
 example_463()
     assert_eq(to_html(parse("_*foo*_\n")), "<p><em><em>foo</em></em></p>\n")
 
-@test("example 464", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 464")
 example_464()
     assert_eq(to_html(parse("****foo****\n")), "<p><strong><strong>foo</strong></strong></p>\n")
 
-@test("example 465", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 465")
 example_465()
     assert_eq(to_html(parse("____foo____\n")), "<p><strong><strong>foo</strong></strong></p>\n")
 
-@test("example 466", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 466")
 example_466()
     assert_eq(to_html(parse("******foo******\n")), "<p><strong><strong><strong>foo</strong></strong></strong></p>\n")
 
-@test("example 467", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 467")
 example_467()
     assert_eq(to_html(parse("***foo***\n")), "<p><em><strong>foo</strong></em></p>\n")
 
-@test("example 468", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 468")
 example_468()
     assert_eq(to_html(parse("_____foo_____\n")), "<p><em><strong><strong>foo</strong></strong></em></p>\n")
 
-@test("example 469", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 469")
 example_469()
     assert_eq(to_html(parse("*foo _bar* baz_\n")), "<p><em>foo _bar</em> baz_</p>\n")
 
-@test("example 470", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 470")
 example_470()
     assert_eq(to_html(parse("*foo __bar *baz bim__ bam*\n")), "<p><em>foo <strong>bar *baz bim</strong> bam</em></p>\n")
 
-@test("example 471", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 471")
 example_471()
     assert_eq(to_html(parse("**foo **bar baz**\n")), "<p>**foo <strong>bar baz</strong></p>\n")
 
-@test("example 472", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 472")
 example_472()
     assert_eq(to_html(parse("*foo *bar baz*\n")), "<p>*foo <em>bar baz</em></p>\n")
 
-@test("example 473", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 473", ignore: "needs links")
 example_473()
     assert_eq(to_html(parse("*[bar*](/url)\n")), "<p>*<a href=\"/url\">bar*</a></p>\n")
 
-@test("example 474", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 474", ignore: "needs links")
 example_474()
     assert_eq(to_html(parse("_foo [bar_](/url)\n")), "<p>_foo <a href=\"/url\">bar_</a></p>\n")
 
-@test("example 475", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 475")
 example_475()
     assert_eq(to_html(parse("*<img src=\"foo\" title=\"*\"/>\n")), "<p>*<img src=\"foo\" title=\"*\"/></p>\n")
 
-@test("example 476", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 476")
 example_476()
     assert_eq(to_html(parse("**<a href=\"**\">\n")), "<p>**<a href=\"**\"></p>\n")
 
-@test("example 477", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 477")
 example_477()
     assert_eq(to_html(parse("__<a href=\"__\">\n")), "<p>__<a href=\"__\"></p>\n")
 
-@test("example 478", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 478")
 example_478()
     assert_eq(to_html(parse("*a `*`*\n")), "<p><em>a <code>*</code></em></p>\n")
 
-@test("example 479", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 479")
 example_479()
     assert_eq(to_html(parse("_a `_`_\n")), "<p><em>a <code>_</code></em></p>\n")
 
-@test("example 480", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 480")
 example_480()
     assert_eq(to_html(parse("**a<https://foo.bar/?q=**>\n")), "<p>**a<a href=\"https://foo.bar/?q=**\">https://foo.bar/?q=**</a></p>\n")
 
-@test("example 481", ignore: "the parser does not read Emphasis and strong emphasis")
+@test("example 481")
 example_481()
     assert_eq(to_html(parse("__a<https://foo.bar/?q=__>\n")), "<p>__a<a href=\"https://foo.bar/?q=__\">https://foo.bar/?q=__</a></p>\n")

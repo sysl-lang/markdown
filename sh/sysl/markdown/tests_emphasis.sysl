@@ -1,0 +1,136 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{repeat, str_builder}
+
+// Emphasis below what the spec's examples see: flanking decided by characters beyond ASCII, the
+// spans the paired nodes and the text left over are given, and nesting far deeper than a stack
+// would allow.
+
+// A node as `what span`, so that a test reads the tree in one line per node.
+private node(d: Doc, n: NodeId) -> string
+    val s = d.span(n)
+    var b = str_builder()
+
+    b.push(d.kind(n) match
+        Emph -> "em"
+        Strong -> "strong"
+        Text(lit) -> "'" + lit + "'"
+        _ -> "other")
+    b.push(" ")
+    b.push_uint(ulong(s.start))
+    b.push("..")
+    b.push_uint(ulong(s.end))
+    b.finish()
+
+private child(d: Doc, n: NodeId) -> NodeId = d.first_child(n).unwrap()
+
+private after(d: Doc, n: NodeId) -> NodeId = d.next_sibling(n).unwrap()
+
+private html(src: string) -> string = to_html(parse(src))
+
+// ----- flanking beyond ASCII -----
+
+@test("a punctuation character beyond ASCII flanks a run as ASCII punctuation does")
+unicode_punctuation()
+    assert_eq(html("*¿a*\n"), "<p><em>¿a</em></p>\n")
+    assert_eq(html("a*¿b*\n"), "<p>a*¿b*</p>\n")
+    assert_eq(html("a*«b»*c\n"), "<p>a*«b»*c</p>\n")
+    assert_eq(html("«*b*»\n"), "<p>«<em>b</em>»</p>\n")
+
+@test("a symbol is punctuation too, the currency signs and the astral ones included")
+unicode_symbols()
+    assert_eq(html("a*€b*\n"), "<p>a*€b*</p>\n")
+    assert_eq(html("a*\u{1f600}b*\n"), "<p>a*\u{1f600}b*</p>\n")
+    assert_eq(html("\u{1f600}*b*\u{1f600}\n"), "<p>\u{1f600}<em>b</em>\u{1f600}</p>\n")
+
+@test("a space separator beyond ASCII is whitespace, so a run before one cannot open")
+unicode_whitespace()
+    assert_eq(html("*\u{a0}a*\n"), "<p>*\u{a0}a*</p>\n")
+    assert_eq(html("*a\u{3000}*\n"), "<p>*a\u{3000}*</p>\n")
+    assert_eq(html("a\u{a0}*b*\u{a0}c\n"), "<p>a\u{a0}<em>b</em>\u{a0}c</p>\n")
+
+@test("a letter beyond ASCII is neither, so '_' between two of them is inside a word")
+unicode_letters()
+    assert_eq(html("é_a_é\n"), "<p>é_a_é</p>\n")
+    assert_eq(html("é*a*é\n"), "<p>é<em>a</em>é</p>\n")
+    assert_eq(html("_é_\n"), "<p><em>é</em></p>\n")
+
+@test("U+0000 beside a run counts as the U+FFFD it stands for, a symbol")
+nul_beside_a_run()
+    assert_eq(html("a*\u{0}b*\n"), "<p>a*\u{fffd}b*</p>\n")
+    assert_eq(html("*\u{0}*\n"), "<p><em>\u{fffd}</em></p>\n")
+
+@test("a line ending beside a run is whitespace, and the start and end of the text are too")
+line_ends_are_whitespace()
+    assert_eq(html("a *\nb*\n"), "<p>a *\nb*</p>\n")
+    assert_eq(html("*a\n*b\n"), "<p>*a\n*b</p>\n")
+    assert_eq(html("*a*\n"), "<p><em>a</em></p>\n")
+
+// ----- spans -----
+
+@test("an emphasis node spans its delimiters and the text between them")
+emphasis_spans()
+    val d = parse("x *a* **b**\n")
+    val p = child(d, d.root())
+    val t1 = child(d, p)
+    val em = after(d, t1)
+    val t2 = after(d, em)
+    val strong = after(d, t2)
+
+    assert_eq(node(d, t1), "'x ' 0..2")
+    assert_eq(node(d, em), "em 2..5")
+    assert_eq(node(d, child(d, em)), "'a' 3..4")
+    assert_eq(node(d, t2), "' ' 5..6")
+    assert_eq(node(d, strong), "strong 6..11")
+    assert_eq(node(d, child(d, strong)), "'b' 8..9")
+    assert(d.next_sibling(strong).is_none())
+
+@test("three delimiters each side make strong inside emphasis, each spanning its own")
+strong_inside_emphasis_spans()
+    val d = parse("***a***\n")
+    val em = child(d, child(d, d.root()))
+    val strong = child(d, em)
+
+    assert_eq(node(d, em), "em 0..7")
+    assert_eq(node(d, strong), "strong 1..6")
+    assert_eq(node(d, child(d, strong)), "'a' 3..4")
+    assert(d.next_sibling(em).is_none())
+
+@test("what is left of a run that paired stays as text, spanning only itself")
+leftover_spans()
+    val d = parse("**a* b*\n")
+    val p = child(d, d.root())
+    val outer = child(d, p)
+
+    assert_eq(node(d, outer), "em 0..7")
+
+    val inner = child(d, outer)
+
+    assert_eq(node(d, inner), "em 1..4")
+    assert_eq(node(d, after(d, inner)), "' b' 4..6")
+
+    val e = parse("**a*\n")
+    val q = child(e, e.root())
+    val star = child(e, q)
+
+    assert_eq(node(e, star), "'*' 0..1")
+    assert_eq(node(e, after(e, star)), "em 1..4")
+
+@test("a run inside a block quote spans the source it was read from")
+spans_through_a_container()
+    val d = parse("> a *b*\n")
+    val p = child(d, child(d, d.root()))
+    val em = after(d, child(d, p))
+
+    assert_eq(node(d, em), "em 4..7")
+    assert_eq(node(d, child(d, em)), "'b' 5..6")
+
+// ----- depth -----
+
+@test("emphasis nested a thousand deep is read and written without a stack to overflow")
+nested_a_thousand_deep()
+    val n: usize = 1000
+
+    assert_eq(html(repeat("*a ", n) + "b" + repeat("*", n) + "\n"), "<p>" + repeat("<em>a ", n) + "b" + repeat("</em>", n) + "</p>\n")
+    assert_eq(html(repeat("*", 2 * n) + "a" + repeat("*", 2 * n) + "\n"), "<p>" + repeat("<strong>", n) + "a" + repeat("</strong>", n) + "</p>\n")

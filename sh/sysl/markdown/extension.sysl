@@ -1,5 +1,6 @@
 module sh.sysl.markdown
 
+import sh.sysl.parsing.{ByteSet, byte_set_of, empty_set}
 import sysl.buf.{Buf, buf}
 import sysl.slices.contains
 
@@ -87,6 +88,13 @@ trait Extension
 
     inline_match(self, s: Subject) -> InlineMatch = NoMatch
 
+    /** What a run of `ch` delimiters `opener` long and a later one `closer` long make when they
+     * pair, where `inline_match` answered `Delimiters` for both: `None` where they do not pair.
+     * The lengths are the runs' as read. A pair takes from each run as many delimiters as the
+     * shorter has left, and the node holds everything between them.
+     */
+    delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind] = None
+
     post_pass(self, d: Doc) = ()
 
 /** The extensions one parse uses, in the order they are asked. Empty is pure CommonMark. */
@@ -107,6 +115,14 @@ struct Registry
             if contains(e.triggers().bytes, c) then return true
 
         false
+
+    // Every byte some extension asks to be shown, as one set: what the inline scan stops at.
+    private[markdown] trigger_set(self) -> ByteSet
+        var s = empty_set()
+
+        for e in self.exts.view() do s = s.union(byte_set_of(e.triggers()))
+
+        s
 
 /** A registry with no extensions in it: the CommonMark preset. */
 registry() -> Registry = Registry(buf())

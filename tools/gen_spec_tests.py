@@ -41,40 +41,28 @@ ENABLED = {
     "Autolinks",
     "Raw HTML",
     "Inlines",
+    "Emphasis and strong emphasis",
 }
 
 # Examples in an ENABLED section that need a construct of a section not yet read, by number, with
 # the reason written into their `ignore:`. Each comes off this table when that construct lands.
-EMPHASIS = "needs emphasis"
 LINKS = "needs links"
 REFS = "needs link reference definitions"
 
 IGNORED = {
-    15: EMPHASIS,
     22: LINKS,
     23: REFS,
     32: LINKS,
     33: REFS,
-    37: EMPHASIS,
     41: LINKS,
-    56: EMPHASIS,
-    66: EMPHASIS,
-    80: EMPHASIS,
-    81: EMPHASIS,
-    82: EMPHASIS,
-    148: EMPHASIS,
-    152: EMPHASIS,
-    155: EMPHASIS,
-    167: EMPHASIS,
-    168: EMPHASIS,
-    176: EMPHASIS,
-    177: EMPHASIS,
-    188: EMPHASIS,
     317: REFS,
-    341: EMPHASIS,
     342: LINKS,
-    638: EMPHASIS,
-    639: EMPHASIS,
+    404: LINKS,
+    419: LINKS,
+    422: LINKS,
+    433: LINKS,
+    473: LINKS,
+    474: LINKS,
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
