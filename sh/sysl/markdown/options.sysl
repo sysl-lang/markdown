@@ -43,8 +43,11 @@ struct HtmlOptions
 commonmark() -> ParseOptions = ParseOptions(registry())
 
 /** The GitHub preset for a parse: CommonMark plus the extensions GitHub's own renderer runs --
- * `tables()`, `strikethrough()`, `autolinks()` and `task_lists()`, asked in that order. Each is an
- * ordinary `Extension`, so a parse wanting only some of them builds its own registry.
+ * `tables()`, `strikethrough()`, `autolinks()`, `task_lists()` and `emoji()`, asked in that order.
+ * Each is an ordinary `Extension`, so a parse wanting only some of them builds its own registry.
+ *
+ * `heading_ids()` is not here, though GitHub gives its headings ids: GitHub's spec shows its headings
+ * without them, and this preset renders exactly what the spec shows. A parse wanting both adds it.
  */
 gfm() -> ParseOptions
     val r = registry()
@@ -53,6 +56,7 @@ gfm() -> ParseOptions
     r.add(strikethrough())
     r.add(autolinks())
     r.add(task_lists())
+    r.add(emoji())
     ParseOptions(r)
 
 /** The CommonMark preset for a rendering: raw HTML passed through, a soft break as a newline, and no

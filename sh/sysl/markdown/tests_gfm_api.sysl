@@ -48,23 +48,25 @@ extensions_are_off_by_default()
     assert_eq(to_html(parse("- [x] a\n")), "<ul>\n<li>[x] a</li>\n</ul>\n")
     assert_eq(to_html(parse("<script>\n")), "<script>\n")
 
-@test("the GFM preset asks four extensions, by name, in cmark-gfm's order")
+@test("the GFM preset asks cmark-gfm's four extensions in its order, then GitHub's emoji")
 the_gfm_preset()
     val r = gfm().exts
 
-    assert_eq(r.len(), 4)
+    assert_eq(r.len(), 5)
     assert_eq(r.at(0).name(), "table")
     assert_eq(r.at(1).name(), "strikethrough")
     assert_eq(r.at(2).name(), "autolink")
     assert_eq(r.at(3).name(), "tasklist")
+    assert_eq(r.at(4).name(), "emoji")
     assert(r.named("autolink").is_some())
     assert(r.named("footnotes").is_none())
+    assert(r.named("heading_ids").is_none())
     assert(gfm_html().tagfilter)
     assert(!commonmark_html().tagfilter)
 
 @test("a document keeps the extensions it was read with")
 the_document_keeps_its_extensions()
-    assert_eq(parse_with("a\n", gfm()).exts.len(), 4)
+    assert_eq(parse_with("a\n", gfm()).exts.len(), 5)
     assert(parse("a\n").exts.is_empty())
     assert(new_doc("a").exts.is_empty())
 

@@ -11,8 +11,13 @@ import sysl.text.{Ascii, str_builder}
 // character -- zero, a surrogate, or anything past U+10FFFF -- stands for U+FFFD.
 
 /** The value of the named character reference `name`, given without its `&` and `;`. */
-private[markdown] entity(name: []const u8) -> Option[string]
-    val t = entity_records.bytes
+private[markdown] entity(name: []const u8) -> Option[string] = packed_lookup(entity_records, name)
+
+/** The value `name` has in `records`: one string of `"\u{2}name\u{1}value"` records sorted by name
+ * byte by byte, with a `"\u{2}"` after the last -- the layout of the generated entity and emoji tables.
+ */
+private[markdown] packed_lookup(records: string, name: []const u8) -> Option[string]
+    val t = records.bytes
     var lo: usize = 0
     var hi = t.len - 1
 
@@ -33,7 +38,7 @@ private[markdown] entity(name: []const u8) -> Option[string]
 
             while t[e] != 2 do e += 1
 
-            return Some(entity_records[sep + 1..<e])
+            return Some(records[sep + 1..<e])
 
         if c < 0 then
             lo = sep + 1
@@ -42,7 +47,7 @@ private[markdown] entity(name: []const u8) -> Option[string]
             hi = r
 
     None
-end entity
+end packed_lookup
 
 // Below zero where `a` sorts before `b`, zero where they are equal, above zero after.
 private compare_bytes(a: []const u8, b: []const u8) -> int
