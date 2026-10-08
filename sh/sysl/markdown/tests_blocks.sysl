@@ -181,7 +181,7 @@ paragraph_span()
     assert(d.next_sibling(two).is_none())
 end paragraph_span
 
-@test("a hard break spans the spaces or backslash before the line ending to the next line's text")
+@test("a hard break spans the spaces or backslash before the line ending, and the ending")
 hard_break_span()
     val d = parse("a  \n  b\n")
     val p = first(d, d.root())
@@ -189,7 +189,7 @@ hard_break_span()
     val br = next(d, a)
 
     assert_eq(sp(d, a), "0..1")
-    assert_eq(sp(d, br), "1..6")
+    assert_eq(sp(d, br), "1..4")
     assert_eq(sp(d, next(d, br)), "6..7")
 
     val e = parse("a\\\nb")

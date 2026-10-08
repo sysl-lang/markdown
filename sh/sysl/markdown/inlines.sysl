@@ -298,8 +298,10 @@ private struct Scan
         self.raw_from = to
 
     // A line ending at `i`, or a backslash at `at` followed by one: hard where the line ended with a
-    // backslash or with two or more spaces, soft otherwise. The spaces before it and the spaces and
-    // tabs starting the next line belong to the break.
+    // backslash or with two or more spaces, soft otherwise. The spaces and tabs starting the next line
+    // are skipped. The break spans the spaces or backslash before it and the line ending as the
+    // source writes it, `\n`, `\r\n` or `\r`, and stops there: what begins the next line may be a
+    // container's prefix (`> `, an item's indent) and is never the break's.
     line_break(*self, at: usize, i: usize) -> usize
         var t = at
 
@@ -315,8 +317,10 @@ private struct Scan
         while j < self.b.len && is_space_or_tab(self.b[j]) do j += 1
 
         val from = self.m.src(t)
-
-        self.d.append_child(self.leaf.node, if hard then HardBreak else SoftBreak, Span(from, self.m.src(j)))
+        val eol = self.m.src(i)
+        val src = self.d.src.bytes
+        val after_eol = if byte_at(src, eol) == u8('\r') && byte_at(src, eol + 1) == u8('\n') then eol + 2 else eol + 1
+        self.d.append_child(self.leaf.node, if hard then HardBreak else SoftBreak, Span(from, after_eol))
         self.restart(j)
         j
     end line_break

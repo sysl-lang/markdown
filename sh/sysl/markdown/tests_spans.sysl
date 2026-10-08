@@ -1,0 +1,95 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{Search, str_builder}
+
+// Inline spans read through the map from a leaf's text back to the source, where the leaf's lines
+// sat behind container prefixes: `> `, a list item's indent, and tabs a prefix consumes only in part.
+// Each inline node is shown with the source bytes its span names, so a span off by a prefix shows
+// up as the wrong bytes.
+
+// Every inline node under the document, in order, as `kind[source bytes]`, one per line.
+private inline_map(src: string) -> string
+    val d = parse(src)
+    var out = str_builder()
+
+    for (ev, n) in d.walk()
+        val name = d.kind(n) match
+            Text(_) -> "text"
+            SoftBreak -> "soft"
+            HardBreak -> "hard"
+            Code(_) -> "code"
+            Emph -> "em"
+            Strong -> "strong"
+            Link(_, _) -> "link"
+            Image(_, _) -> "image"
+            HtmlInline(_) -> "html"
+            _ -> ""
+
+        if name.len > 0 && ev == Enter then
+            val s = d.span(n)
+
+            out.push(name)
+            out.push("[")
+            out.push(src[s.start..<s.end])
+            out.push("]\n")
+
+    out.finish()
+end inline_map
+
+// A text node whose literal is the source it spans, as it is wherever no escape or reference changed
+// it, for every such node in `src`.
+private texts_are_their_source(src: string) -> bool
+    val d = parse(src)
+
+    for (_, n) in d.walk()
+        d.kind(n) match
+            Text(lit) ->
+                val s = d.span(n)
+                val raw = src[s.start..<s.end]
+
+                if !raw.contains("\\") && !raw.contains("&") && raw != lit then return false
+            _ -> ()
+
+    true
+
+@test("inline spans inside a block quote skip no prefix and gain none")
+spans_in_a_quote()
+    val src = "> a *b\n> c* `d\n> e` [f](g)\n"
+
+    assert_eq(inline_map(src), "text[a ]\nem[*b\n> c*]\ntext[b]\nsoft[\n]\ntext[c]\ntext[ ]\ncode[`d\n> e`]\ntext[ ]\nlink[[f](g)]\ntext[f]\n")
+    assert(texts_are_their_source(src))
+
+@test("inline spans inside list items, nested and continued")
+spans_in_list_items()
+    val src = "- a [b\n  c](u)\n  1. x\n     *y\n     z*\n"
+
+    assert_eq(inline_map(src), "text[a ]\nlink[[b\n  c](u)]\ntext[b]\nsoft[\n]\ntext[c]\ntext[x]\nsoft[\n]\nem[*y\n     z*]\ntext[y]\nsoft[\n]\ntext[z]\n")
+    assert(texts_are_their_source(src))
+
+@test("inline spans after a tab a container's prefix takes only part of")
+spans_after_partial_tabs()
+    val src = "- a\n \t*b* `c`\n>\tx *y*\n"
+
+    assert_eq(inline_map(src), "text[a]\nsoft[\n]\nem[*b*]\ntext[b]\ntext[ ]\ncode[`c`]\ntext[x ]\nem[*y*]\ntext[y]\n")
+    assert(texts_are_their_source(src))
+
+@test("inline spans under a quote inside a list item, with a lazy line")
+spans_in_quote_in_item()
+    val src = "1. > a **b\n   > c**\nd *e*\n"
+
+    assert_eq(inline_map(src), "text[a ]\nstrong[**b\n   > c**]\ntext[b]\nsoft[\n]\ntext[c]\nsoft[\n]\ntext[d ]\nem[*e*]\ntext[e]\n")
+    assert(texts_are_their_source(src))
+
+@test("hard breaks, escapes and references inside containers span their own bytes")
+spans_of_breaks_and_escapes()
+    val src = "> a  \n> b\\\n> \\* &amp; <i>\n"
+
+    assert_eq(inline_map(src), "text[a]\nhard[  \n]\ntext[b]\nhard[\\\n]\ntext[\\* &amp; ]\nhtml[<i>]\n")
+    assert(texts_are_their_source(src))
+
+@test("a paragraph's lines after a CRLF map to the bytes they came from")
+spans_after_crlf()
+    val src = "> a *b\r\n> c*\r\n"
+
+    assert_eq(inline_map(src), "text[a ]\nem[*b\r\n> c*]\ntext[b]\nsoft[\r\n]\ntext[c]\n")
