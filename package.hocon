@@ -9,7 +9,7 @@
 // This is the block a consumer writes to reach it:
 //
 //     dependencies {
-//       markdown { git = "github.com/sysl-lang/markdown", version = "0.1.0" }
+//       markdown { git = "github.com/sysl-lang/markdown", version = "0.2.0" }
 //     }
 //
 // The coordinate names the package, `markdown`; the module a program imports is `sh.sysl.markdown`.
@@ -18,7 +18,7 @@
 
 package {
   name    = "markdown"
-  version = "0.1.0"
+  version = "0.2.0"
 
   // The containers this is written against -- a `Buf` or a `Map` shared on assignment rather than
   // copied -- arrived in the 0.1.0 alphas; alpha.4 is the compiler the package is built and tested
