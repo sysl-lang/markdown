@@ -67,9 +67,12 @@ enum ClientMarkup
 commonmark() -> ParseOptions = ParseOptions(registry())
 
 /** The GitHub preset for a parse: CommonMark plus the extensions GitHub's own renderer runs --
- * `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`, `math()` and `mermaid()`, asked in
- * that order. Each is an ordinary `Extension`, so a parse wanting only some of them builds its own
- * registry.
+ * `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`, `emoji()`, `math()` and
+ * `mermaid()`, asked in that order. Each is an ordinary `Extension`, so a parse wanting only some of
+ * them builds its own registry.
+ *
+ * `heading_ids()` is not here, though GitHub gives its headings ids: GitHub's spec shows its headings
+ * without them, and this preset renders exactly what the spec shows. A parse wanting both adds it.
  */
 gfm() -> ParseOptions
     val r = registry()
@@ -78,6 +81,7 @@ gfm() -> ParseOptions
     r.add(strikethrough())
     r.add(autolinks())
     r.add(task_lists())
+    r.add(emoji())
     r.add(math())
     r.add(mermaid())
     ParseOptions(r)

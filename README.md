@@ -6,7 +6,7 @@ CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is
 CommonMark spec's 652 examples renders exactly, with the GitHub extensions off and on; every
 extension example of GitHub's spec renders exactly; hostile inputs are read in linear time; and
 differential checks against cmark and cmark-gfm agree on their whole corpora but for the cases
-listed below. Footnotes, alerts, heading ids, emoji, math and mermaid are still to come.
+listed below. Footnotes and alerts are still to come.
 
 ```hocon
 dependencies {
@@ -92,11 +92,11 @@ val d = parse_with("| a | b |\n|---|--:|\n| ~~c~~ | www.d.com |\n", gfm())
 print(to_html_with(d, gfm_html()))
 ```
 
-`gfm()` turns on the six extensions github.com renders -- cmark-gfm's four, then math and mermaid --
-and `gfm_html()` its tag filter. Each extension is an ordinary `Extension`, so a parse wanting some
-of them builds its own `Registry`: `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`,
-`math()`, `mermaid()`. **Every rule of the first four is cmark-gfm's** (0.29.0.gfm.13, which GitHub
-runs), down to the corners its spec does not write down:
+`gfm()` turns on the four extensions GitHub's own renderer runs, then GitHub's emoji shortcodes,
+math and mermaid, and `gfm_html()` its tag filter. Each extension is an ordinary `Extension`, so a
+parse wanting some of them builds its own `Registry`: `tables()`, `strikethrough()`, `autolinks()`,
+`task_lists()`, `emoji()`, `math()`, `mermaid()`. **Every rule of the first four is cmark-gfm's**
+(0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not write down:
 
 - **Tables** -- a delimiter row under a paragraph whose last line has as many cells; `\|` is a pipe
   in a cell, code spans included; a short row is filled out and a long one cut; any line that is not
@@ -110,6 +110,30 @@ runs), down to the corners its spec does not write down:
   `mailto:` and `xmpp:` forms), without trailing punctuation or an unmatched `)`.
 - **The tag filter** -- `HtmlOptions.tagfilter` writes the `<` of `title`, `textarea`, `style`,
   `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext` as `&lt;`.
+- **Emoji** -- `:smile:` is 😄, for every alias of GitHub's gemoji table; anything else between
+  colons, GitHub's own pictures such as `:octocat:` included, stays text. Read wherever text is and
+  never in code or a destination; `\:` before one keeps it text. `emoji_for("smile")` looks one up.
+
+**Heading ids** are an extension of their own, `heading_ids()`, and not in `gfm()`: GitHub's spec
+shows headings without ids, and the preset renders what the spec shows.
+
+```sysl
+val r = registry()
+
+r.add(heading_ids())
+print(to_html(parse_with("# Hello, World!\n# Hello, World!\n", ParseOptions(r))))
+// <h1 id="hello-world">Hello, World!</h1>
+// <h1 id="hello-world-1">Hello, World!</h1>
+```
+
+The slug is GitHub's (`github_slug`, github-slugger's: lowercased, punctuation and symbols dropped,
+spaces to `-`, Unicode letters kept), taken from the heading's text, a shortcode counted as written
+(`## :rocket: Go` is `rocket-go`, as on GitHub); a slug already used is numbered `-1`, `-2` in
+document order. Each heading is then `Heading(level, Some(id))` in the tree, which is what a table of
+contents reads. `heading_ids_with(HeadingIdOptions(slug, prefix, anchors))` plugs in a slug of one's
+own, writes a prefix before every id (GitHub's pages use `user-content-`), and with `anchors` gives
+each heading GitHub's `<a id="…" class="anchor" aria-hidden="true" href="#…">` link to itself, which
+then carries the id in the heading's place.
 
 **Math and mermaid** have no spec and no cmark-gfm extension; their rules are github.com's, read off
 its own renderer (`gh api markdown`, gfm mode) and written out at the top of `gfm_math.sysl`:
@@ -258,6 +282,25 @@ sha256  d741d877ac77c4194c4ad526b5b4a19aef8dfe411ab840a466891cdbb9f362e6
 recognises -- into `sh/sysl/markdown/entity_table.sysl` as one sorted string, which a lookup
 bisects. One string literal adds about 0.01 s to a cold build, where a table of pairs would add
 seconds. The generated file is committed.
+
+`spec/gemoji.json` is `db/emoji.json` of [github/gemoji](https://github.com/github/gemoji), unmodified,
+at commit `fadaeaf1f1a9be82b321316a6c5502e43138b2f6`; `spec/github-slugger-regex.js` and
+`spec/github-slugger-fixtures.json` are `regex.js` and `test/fixtures.json` of
+[Flet/github-slugger](https://github.com/Flet/github-slugger) 2.0.0, unmodified, at commit
+`3461c4350868329c8530904d170358bca1d31448`:
+
+```
+sha256  b174ae2aeb321b52f64adb9ff412f966a7f338839d780784dd15dcad702c2dd6  gemoji.json
+sha256  3bcbb3836a4e76f0f343c34d223ddd9eac83cc73a4e2c7a1118ef0829bc9129b  github-slugger-regex.js
+sha256  26e59aec9fb3adee7a56445049ef2d537126b28581802903b529d2556778b248  github-slugger-fixtures.json
+```
+
+`tools/gen_github_tables.py` writes the 1,913 aliases into `emoji_table.sysl` in the entity table's
+layout (34,775 bytes packed), the 977,500 code points a slug drops into `slug_table.sysl` as 735
+ranges -- reading the regex as JavaScript does, surrogate pairs and all, and checking the set against
+node where node is installed -- and the 78 fixtures into `tests_slug_fixtures.sysl`, run once through
+one slugger and once as headings of one document. The two tables add about 0.04 s to a cold build of a
+program using `gfm()`. The generated files are committed.
 
 ## Testing
 

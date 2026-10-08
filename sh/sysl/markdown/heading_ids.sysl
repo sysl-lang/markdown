@@ -1,0 +1,259 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+import sysl.container.{Map, map}
+import sysl.text.str_builder
+import sysl.unicode.{Category, category, to_lower}
+
+// Heading ids: every heading is given an `id` made from its text, as GitHub gives one to every
+// heading it renders, so that `#installing` reaches `## Installing`.
+//
+// **The id is GitHub's slug** (`github_slug`) unless the options give a slug of their own, and it is
+// unique in the document: a slug already taken earlier is numbered, `-1`, `-2`, in document order.
+// The extension runs after both phases, so it reads each heading's finished text (`slug_text`).
+
+/** The `tag` of the anchor `ExtNode` a heading is given when `HeadingIdOptions.anchors` is on. Its
+ * `data` is the heading's unique slug, without the prefix.
+ */
+const HEADING_ANCHOR_NODE: u32 = 0
+
+/** How heading ids are made.
+ *
+ * - `slug` -- a heading's text to its slug, before it is made unique. `github_slug` is GitHub's; a
+ *   site with its own rule hands its own, and the numbering of duplicates is applied to whatever it
+ *   answers.
+ * - `prefix` -- written before every id. GitHub's own pages write `user-content-`, so that no
+ *   heading's id can clash with one of the page's; empty is the id as it is.
+ * - `anchors` -- whether each heading is given GitHub's link to itself, an `<a>` inside the heading
+ *   before its text: `<a id="…" class="anchor" aria-hidden="true" href="#…">`, holding an empty
+ *   `<span aria-hidden="true" class="octicon octicon-link"></span>` for a stylesheet to draw. The id
+ *   moves onto the anchor, and the heading carries none, as on GitHub; the `href` is the slug without
+ *   the prefix, which is the fragment a GitHub reader links to.
+ */
+struct HeadingIdOptions
+    slug: &Fn(string) -> string
+    prefix: string
+    anchors: bool
+
+/** GitHub's slug, no prefix, no anchors: `<h2 id="installing">`. */
+github_heading_ids() -> HeadingIdOptions = HeadingIdOptions(github_slug, "", false)
+
+/** The heading-id extension with `github_heading_ids()`. It is not in the `gfm()` preset: GitHub's
+ * spec renders headings without ids, and the preset renders what the spec does.
+ */
+heading_ids() -> &Extension = heading_ids_with(github_heading_ids())
+
+/** The heading-id extension made as `opts` says.
+ *
+ * After a parse, each heading is `Heading(level, Some(id))`, `id` being the prefix and the unique slug
+ * -- the value of its `id` attribute -- whatever the heading held before. A table of contents reads
+ * them off the tree.
+ */
+heading_ids_with(opts: HeadingIdOptions) -> &Extension = HeadingIds(opts)
+
+private struct HeadingIds
+    opts: HeadingIdOptions
+
+impl Extension for HeadingIds
+    name(self) -> string = "heading_ids"
+
+    override post_pass(self, d: Doc)
+        var heads: Buf[NodeId] = buf()
+
+        for (ev, n) in d.walk()
+            if ev == Enter then
+                d.kind(n) match
+                    Heading(_, _) -> heads.push(n)
+                    _ -> ()
+
+        val s = slugger()
+
+        for h in heads.view()
+            val level = d.kind(h) match
+                Heading(l, _) -> l
+                _ -> 1
+
+            val slug = s.unique(self.opts.slug(slug_text(d, h)))
+
+            d.set_kind(h, Heading(level, Some(self.opts.prefix + slug)))
+
+            if self.opts.anchors then anchor(d, h, slug)
+    end post_pass
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val slug = d.kind(n) match
+            Ext(x) -> x.data
+            _ -> ""
+
+        val id = d.parent(n).map((h) -> d.kind(h)) match
+            Some(Heading(_, Some(i))) -> i
+            _ -> slug
+
+        w.tag("<a id=\"")
+        w.esc(id)
+        w.tag("\" class=\"anchor\" aria-hidden=\"true\" href=\"")
+        w.href("#" + slug, true)
+        w.tag("\"><span aria-hidden=\"true\" class=\"octicon octicon-link\"></span></a>")
+end HeadingIds
+
+/** The text a heading's slug is made from: its `plain_text`, except that a node an extension made
+ * with nothing under it reads as the source it was written as. That is GitHub's order of work -- the
+ * id is made before shortcodes become emoji -- so `## :rocket: Launch` is `rocket-launch`.
+ */
+private slug_text(d: Doc, h: NodeId) -> string
+    var b = str_builder()
+
+    for (_, m) in d.walk_from(h)
+        d.kind(m) match
+            Text(t) -> b.push(t)
+            Code(t) -> b.push(t)
+            SoftBreak -> b.push(" ")
+            HardBreak -> b.push("\n")
+            Ext(x) ->
+                if !x.holds then
+                    val at = d.span(m)
+
+                    b.push(d.src[at.start..<at.end])
+            _ -> ()
+
+    b.finish()
+end slug_text
+
+// Heading `h`'s anchor, made its first child.
+private anchor(d: Doc, h: NodeId, slug: string)
+    val at = d.span(h).start
+    val a = d.append_child(h, Ext(ExtNode("heading_ids", HEADING_ANCHOR_NODE, slug, false)), Span(at, at))
+
+    loop
+        d.first_child(h) match
+            Some(c) if c.i != a.i -> d.append_node(h, c)
+            _ -> break
+
+/** Whether heading `h` begins with the anchor `heading_ids` gives it, which carries the heading's id
+ * in its place.
+ */
+private[markdown] anchored(d: Doc, h: NodeId) -> bool
+    d.first_child(h) match
+        Some(c) ->
+            d.kind(c) match
+                Ext(x) -> x.ext == "heading_ids" && x.tag == HEADING_ANCHOR_NODE
+                _ -> false
+        None -> false
+
+/** Numbers slugs so that no two are the same, as GitHub's slugger does: the first `foo` is `foo`,
+ * the next `foo-1`, then `foo-2`; a numbered slug already taken -- a heading that was literally
+ * `foo-1` -- is stepped over. Each slug is looked up a bounded number of times on the whole, so a
+ * document of ten thousand identical headings costs ten thousand steps.
+ */
+struct Slugger
+    private seen: Map[string, usize]
+
+    /** `base`, or `base` numbered past every slug this slugger has already answered. */
+    unique(self, base: string) -> string
+        var result = base
+
+        while self.seen.has(result)
+            val n = self.seen.get_or(base, 0) + 1
+
+            self.seen.put(base, n)
+            result = s"${base}-${n}"
+
+        self.seen.put(result, 0)
+        result
+    end unique
+end Slugger
+
+/** A slugger that has answered nothing yet. */
+slugger() -> Slugger = Slugger(map())
+
+/** GitHub's slug of `text`, as github-slugger makes it: lowercased, every character but a letter, a
+ * mark, a decimal or letter number, a connector such as `_`, a `-` or a space dropped, and each space
+ * then a `-`. `"Hello, World!"` is `hello-world`; `"Größe"` is `größe`; `" a "` is `-a-`.
+ *
+ * **What is dropped is github-slugger 2.0.0's own set**, generated from its regex (`slug_table.sysl`),
+ * so it is Unicode 13's reading of every character, the Alphabetic ones that are symbols -- `Ⓐ` --
+ * kept. Lowercasing is JavaScript's: Unicode's case mapping, with `İ` becoming `i̇` and a word's final
+ * `Σ` becoming `ς`.
+ */
+github_slug(text: string) -> string
+    var cs: Buf[char] = buf()
+
+    for c in text.chars do cs.push(c)
+
+    val v = cs.view()
+    var out = str_builder()
+
+    for i in 0..<v.len
+        val c = v[i]
+
+        if c == 'İ' then
+            out.push("i\u{307}")
+        else
+            val l = if c == 'Σ' && final_sigma(v, i) then 'ς' else to_lower(c)
+
+            if l == ' ' then out.push("-") else if !slug_drops(l) then out.push_char(l)
+
+    out.finish()
+end github_slug
+
+// Whether the `Σ` at `i` ends a word, which JavaScript lowercases as `ς`: a cased letter comes before
+// it and none after it, either way past any characters case ignores.
+private final_sigma(v: []const char, i: usize) -> bool
+    var j = i
+    var before = false
+
+    while j > 0
+        j -= 1
+        if !case_ignorable(v[j]) then
+            before = cased(v[j])
+            break
+
+    if !before then return false
+
+    for k in i + 1..<v.len
+        if !case_ignorable(v[k]) then return !cased(v[k])
+
+    true
+end final_sigma
+
+private cased(c: char) -> bool = category(c) match
+    Category.Lu | Category.Ll | Category.Lt -> true
+    _ -> false
+
+private case_ignorable(c: char) -> bool
+    category(c) match
+        Category.Mn | Category.Me | Category.Cf | Category.Lm | Category.Sk -> return true
+        _ -> ()
+
+    c == '\'' || c == '.' || c == ':' || c == '·' || c == '\u{387}' || c == '\u{2018}' || c == '\u{2019}' || c == '\u{2024}'
+
+// Whether a slug drops `c`: a bisection of the ranges in `slug_drop_ranges`.
+private slug_drops(c: char) -> bool
+    val t = slug_drop_ranges.bytes
+    val v = u32(c)
+    var lo: usize = 0
+    var hi = t.len / 12
+
+    while lo < hi
+        val mid = (lo + hi) / 2
+
+        if v < hex6(t, mid * 12) then
+            hi = mid
+        else if v > hex6(t, mid * 12 + 6) then
+            lo = mid + 1
+        else
+            return true
+
+    false
+end slug_drops
+
+private hex6(t: []const u8, at: usize) -> u32
+    var v: u32 = 0
+
+    for i in at..<at + 6
+        val c = t[i]
+
+        v = v * 16 + u32(if c <= u8('9') then c - u8('0') else c - u8('a') + 10)
+
+    v

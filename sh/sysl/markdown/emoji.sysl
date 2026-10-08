@@ -1,0 +1,57 @@
+module sh.sysl.markdown
+
+import sysl.text.Ascii
+
+// GitHub's emoji shortcodes: `:smile:` is 😄, `:+1:` is 👍.
+//
+// **The rules are GitHub's.** A shortcode is a `:`, one of the aliases github/gemoji lists, and a
+// `:`; an alias is lowercase letters, digits, `_`, `+` and `-`, and is matched exactly, case and all.
+// Anything else -- an alias nobody lists, `:Smile:`, one of GitHub's own pictures with no Unicode
+// form such as `:octocat:` -- stays as it was written. Shortcodes are read wherever text is, so in
+// emphasis, a link's text and a table cell alike, and never in code or in a link's destination, which
+// are not text. Two may touch: `:a::b:` is two emoji.
+
+/** The emoji extension, for a `Registry`. */
+emoji() -> &Extension = Emoji()
+
+/** The `tag` of an emoji's `ExtNode`. Its `data` is the emoji, and its span covers the shortcode as
+ * written, so a reader wanting the alias back reads it there.
+ */
+const EMOJI_NODE: u32 = 0
+
+/** The emoji a shortcode's alias names, without its colons: `emoji_for("smile")` is `Some("😄")`. */
+emoji_for(alias: string) -> Option[string]
+    if alias.len == 0 || alias.len > EMOJI_NAME_MAX then return None
+
+    packed_lookup(emoji_records, alias.bytes)
+
+private struct Emoji
+end Emoji
+
+impl Extension for Emoji
+    name(self) -> string = "emoji"
+
+    override triggers(self) -> string = ":"
+
+    override inline_match(self, s: Subject) -> InlineMatch
+        val b = s.text.bytes
+        val from = s.pos + 1
+        var j = from
+
+        // An alias is never longer than the longest one listed, so a long run of name bytes costs
+        // no more than that before it is given up.
+        while j < b.len && j - from <= EMOJI_NAME_MAX && is_alias_byte(b[j]) do j += 1
+
+        if j == from || j - from > EMOJI_NAME_MAX || j >= b.len || b[j] != u8(':') then return NoMatch
+
+        packed_lookup(emoji_records, b[from..<j]) match
+            Some(e) -> Inline(Ext(ExtNode("emoji", EMOJI_NODE, e, false)), j + 1 - s.pos)
+            None -> NoMatch
+
+    // Written as text, so inside an image's alt text it is the emoji too.
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        d.kind(n) match
+            Ext(x) -> w.esc(x.data)
+            _ -> ()
+
+private is_alias_byte(c: u8) -> bool = c.is_lower() || c.is_digit() || c == u8('_') || c == u8('+') || c == u8('-')

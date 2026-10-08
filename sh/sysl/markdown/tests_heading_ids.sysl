@@ -1,0 +1,186 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.buf.{Buf, buf}
+import sysl.text.{Search, repeat, str_builder}
+import sysl.time.{monotonic, whole_micros}
+
+// Heading ids: GitHub's slug, the numbering of duplicates, the pluggable slug, the prefix and the
+// anchor. github-slugger's own fixtures are in tests_slug_fixtures.sysl.
+
+/** A parse with the heading-id extension alone. */
+heading_id_options() -> ParseOptions = id_options(github_heading_ids())
+
+private id_options(o: HeadingIdOptions) -> ParseOptions
+    val r = registry()
+
+    r.add(heading_ids_with(o))
+    ParseOptions(r)
+
+/** Every heading's id, in document order. */
+heading_ids_of(d: Doc) -> Buf[string]
+    var out: Buf[string] = buf()
+
+    for (ev, n) in d.walk()
+        if ev == Enter then
+            d.kind(n) match
+                Heading(_, Some(id)) -> out.push(id)
+                _ -> ()
+
+    out
+
+private html(src: string) -> string = to_html(parse_with(src, heading_id_options()))
+
+private joined(b: Buf[string]) -> string
+    var out = str_builder()
+
+    for i in 0..<b.len()
+        if i > 0 then out.push(" ")
+        out.push(b[i])
+
+    out.finish()
+
+private ids(src: string) -> string = joined(heading_ids_of(parse_with(src, heading_id_options())))
+
+@test("a heading's id is GitHub's slug of its text")
+a_heading_has_an_id()
+    assert_eq(html("# Hello, World!\n"), "<h1 id=\"hello-world\">Hello, World!</h1>\n")
+    assert_eq(html("Title\n=====\n"), "<h1 id=\"title\">Title</h1>\n")
+    assert_eq(html("### a_b-c d\n"), "<h3 id=\"a_b-c-d\">a_b-c d</h3>\n")
+
+@test("a slug drops punctuation and symbols and turns each space into a dash, runs included")
+the_slug()
+    assert_eq(github_slug("Hello, World!"), "hello-world")
+    assert_eq(github_slug("a  b"), "a--b")
+    assert_eq(github_slug(" a "), "-a-")
+    assert_eq(github_slug("a & b"), "a--b")
+    assert_eq(github_slug("C++ (v2.0)"), "c-v20")
+    assert_eq(github_slug("\u{1f680} Launch"), "-launch")
+    assert_eq(github_slug(""), "")
+
+@test("a later heading with a slug already taken is numbered, in document order")
+duplicates()
+    assert_eq(ids("# a\n# a\n# a-1\n# a\n"), "a a-1 a-1-1 a-2")
+    assert_eq(ids("# A\n## a\n### A!\n"), "a a-1 a-2")
+
+@test("a heading in any script keeps its letters, lowercased as JavaScript lowercases")
+non_ascii()
+    assert_eq(ids("# Größe\n# Привет мир\n# 日本語\n# Ελληνικά\n"), "größe привет-мир 日本語 ελληνικά")
+    assert_eq(github_slug("ΟΔΟΣ ΣΑΣ"), "οδος-σας")
+    assert_eq(github_slug("Σ"), "σ")
+    assert_eq(github_slug("İstanbul"), "i\u{307}stanbul")
+    assert_eq(github_slug("Ⓐ"), "ⓐ")
+    assert_eq(html("# café\n"), "<h1 id=\"café\">café</h1>\n")
+
+@test("an empty heading's id is empty, and a second one is numbered")
+empty_headings()
+    assert_eq(html("#\n"), "<h1 id=\"\"></h1>\n")
+    assert_eq(ids("#\n#\n# !\n"), " -1 -2")
+
+@test("the id is made from the heading's text, markup and all taken away")
+headings_with_markup()
+    assert_eq(html("# `code` and [link](u) and *em* ![img](i)\n"), "<h1 id=\"code-and-link-and-em-img\"><code>code</code> and <a href=\"u\">link</a> and <em>em</em> <img src=\"i\" alt=\"img\" /></h1>\n")
+    assert_eq(ids("# a &amp; b\n# x<span>y</span>z\n"), "a--b xyz")
+    assert_eq(ids("Two\nlines\n===\n"), "two-lines")
+
+@test("a shortcode is slugged as written, since GitHub makes the id before the emoji")
+shortcodes_in_headings()
+    val r = registry()
+
+    r.add(emoji())
+    r.add(heading_ids())
+
+    val d = parse_with("## :rocket: Launch\n## \u{1f680} Launch\n", ParseOptions(r))
+
+    assert_eq(joined(heading_ids_of(d)), "rocket-launch -launch")
+    assert_eq(to_html(d), "<h2 id=\"rocket-launch\">\u{1f680} Launch</h2>\n<h2 id=\"-launch\">\u{1f680} Launch</h2>\n")
+
+@test("the slug is pluggable, and duplicates of what it answers are still numbered")
+a_slug_of_ones_own()
+    val doubled = (t: string) -> t + t
+    val d = parse_with("# ab\n# ab\n", id_options(HeadingIdOptions(doubled, "", false)))
+
+    assert_eq(joined(heading_ids_of(d)), "abab abab-1")
+
+@test("a prefix goes before every id, numbering included")
+a_prefix()
+    val d = parse_with("# Hi\n# Hi\n", id_options(HeadingIdOptions(github_slug, "user-content-", false)))
+
+    assert_eq(to_html(d), "<h1 id=\"user-content-hi\">Hi</h1>\n<h1 id=\"user-content-hi-1\">Hi</h1>\n")
+
+@test("with anchors, GitHub's link to the heading comes first and carries the id")
+anchors()
+    val o = id_options(HeadingIdOptions(github_slug, "user-content-", true))
+    val d = parse_with("# Hi *there*\n\n## Größe\n", o)
+
+    assert_eq(to_html(d), "<h1><a id=\"user-content-hi-there\" class=\"anchor\" aria-hidden=\"true\" href=\"#hi-there\"><span aria-hidden=\"true\" class=\"octicon octicon-link\"></span></a>Hi <em>there</em></h1>\n<h2><a id=\"user-content-größe\" class=\"anchor\" aria-hidden=\"true\" href=\"#gr%C3%B6%C3%9Fe\"><span aria-hidden=\"true\" class=\"octicon octicon-link\"></span></a>Größe</h2>\n")
+    assert_eq(joined(heading_ids_of(d)), "user-content-hi-there user-content-größe")
+    assert_eq(plain_text(d, d.root()), "Hi there\nGröße")
+
+@test("anchors without a prefix")
+anchors_without_a_prefix()
+    val d = parse_with("# a\n", id_options(HeadingIdOptions(github_slug, "", true)))
+
+    assert_eq(to_html(d), "<h1><a id=\"a\" class=\"anchor\" aria-hidden=\"true\" href=\"#a\"><span aria-hidden=\"true\" class=\"octicon octicon-link\"></span></a>a</h1>\n")
+
+@test("headings inside containers are numbered with the rest")
+nested_headings()
+    assert_eq(ids("> # a\n\n- # a\n\n# a\n"), "a a-1 a-2")
+
+@test("off by default, and not in the GFM preset")
+heading_ids_off_by_default()
+    assert_eq(to_html(parse("# a\n")), "<h1>a</h1>\n")
+    assert_eq(to_html_with(parse_with("# a\n", gfm()), gfm_html()), "<h1>a</h1>\n")
+    assert(heading_ids_of(parse("# a\n")).len() == 0)
+
+@test("the slugger is github-slugger's")
+the_slugger()
+    val s = slugger()
+
+    assert_eq(s.unique("asd"), "asd")
+    assert_eq(s.unique("asd"), "asd-1")
+    assert_eq(s.unique("asd-1"), "asd-1-1")
+    assert_eq(s.unique("asd"), "asd-2")
+
+private const small: usize = 2000
+
+private timed(src: string, want: usize) -> long
+    val t0 = monotonic()
+    val d = parse_with(src, heading_id_options())
+    val got = heading_ids_of(d)
+    val t1 = monotonic()
+
+    assert_eq(got.len(), want)
+    whole_micros(t1 - t0)
+
+private ratio(input: usize -> string) -> long
+    val a = timed(input(small), small)
+    val b = timed(input(10 * small), 10 * small)
+
+    b / (if a < 1000 then 1000 else a)
+
+private same(n: usize) -> string = repeat("# a\n", n)
+
+private numbered_first(n: usize) -> string
+    var out = str_builder()
+
+    for i in 0..<n / 2
+        out.push("# a-")
+        out.push_uint(ulong(i + 1))
+        out.push("\n")
+
+    out.push(repeat("# a\n", n - n / 2))
+    out.finish()
+
+@test("ten thousand headings with the same text are numbered in linear time")
+same_text_is_linear()
+    val d = parse_with(same(10000), heading_id_options())
+    val got = heading_ids_of(d)
+
+    assert_eq(got[0], "a")
+    assert_eq(got[9999], "a-9999")
+    assert(ratio(same) < 20)
+
+@test("numbered slugs already taken are stepped over in linear time")
+taken_numbers_are_linear()
+    assert(ratio(numbered_first) < 20)
