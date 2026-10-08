@@ -1,0 +1,43 @@
+module sh.sysl.markdown
+
+import sysl.text.{Search, str_builder}
+
+/** The text of `n` and everything under it, with no markup: what a heading's slug, an image's alt
+ * text or a search index is made from.
+ *
+ * - **Text is what a reader sees.** Entity and numeric character references and backslash escapes
+ *   are already decoded in the tree, so `&amp;` contributes `&` and `\*` contributes `*`. A code
+ *   span contributes its content, without the backticks.
+ * - **Markup contributes nothing but its content**: emphasis, strong emphasis, a link's text and an
+ *   image's description are their text; a link's destination and title are not text.
+ * - **Raw HTML is not text**: inline HTML and HTML blocks contribute nothing.
+ * - **A soft line break is a space and a hard line break is a newline**, so a heading or paragraph
+ *   written over several lines reads as one line, as a browser shows it.
+ * - **Blocks are separated by one newline.** Each paragraph, heading and code block is one block; a
+ *   code block contributes its text without its final newline. A thematic break and an HTML block
+ *   contribute nothing, and no separator.
+ */
+plain_text(d: Doc, n: NodeId) -> string
+    var b = str_builder()
+    var started = false
+
+    for (ev, m) in d.walk_from(n)
+        val entering = ev == Enter
+
+        d.kind(m) match
+            Text(t) -> b.push(t)
+            Code(t) -> b.push(t)
+            SoftBreak -> b.push(" ")
+            HardBreak -> b.push("\n")
+            Paragraph | Heading(_, _) ->
+                if entering then
+                    if started then b.push("\n")
+                    started = true
+            CodeBlock(_, literal, _) ->
+                if started then b.push("\n")
+                started = true
+                b.push(if literal.ends_with("\n") then literal[0..<literal.len - 1] else literal)
+            _ -> ()
+
+    b.finish()
+end plain_text

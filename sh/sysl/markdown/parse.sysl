@@ -1,22 +1,24 @@
 module sh.sysl.markdown
 
+import sh.sysl.parsing.Span
+import sysl.buf.Buf
 import sysl.text.Search
 
-/** `src` read as CommonMark into a document tree.
+/** `src` read as CommonMark into a document tree: `parse_with(src, commonmark())`.
  *
  * Reading never fails: CommonMark gives every sequence of characters a meaning, so there is no
  * malformed document and no error to answer with.
  */
-parse(src: string) -> Doc = parse_with(src, registry())
+parse(src: string) -> Doc = parse_with(src, commonmark())
 
-/** `src` read as CommonMark, with the syntax the extensions in `exts` add.
+/** `src` read as CommonMark, with the syntax the extensions in `opts` add.
  *
  * A byte order mark at the start is not read as text, as cmark does not read it, and spans still
  * count from the source's first byte.
  */
-parse_with(src: string, exts: Registry) -> Doc
-    var p = parser(src, exts)
-    var at: usize = if src.starts_with("\u{feff}") then 3 else 0
+parse_with(src: string, opts: ParseOptions) -> Doc
+    var p = parser(src, opts.exts)
+    var at = start_of(src)
 
     while at < src.len
         val le = line_end(src.bytes, at)
@@ -25,3 +27,111 @@ parse_with(src: string, exts: Registry) -> Doc
         at = le.next
 
     p.finish()
+
+/** A run of lines of a source file that are not Markdown -- a woven program's code -- with what the
+ * document is to show for it.
+ *
+ * `span` is a byte range of the source holding whole lines: it starts at the beginning of a line and
+ * ends at the end of one, either just before that line's ending or just after it (or at the end of
+ * the source). `info` is the code block's info string, as a fence's would be, and `literal` its text,
+ * which need not be the bytes `span` covers: weave hands over the code with its indentation taken off.
+ */
+struct Region
+    span: Span
+    info: string
+    literal: string
+
+/** Why `parse_with_regions` refused its regions, naming the region by its place in the list. */
+enum RegionError
+    Empty(index: usize)             // the span covers no bytes
+    PastEnd(index: usize)           // the span ends past the end of the source
+    NotAtLineStart(index: usize)    // the span starts partway through a line
+    NotAtLineEnd(index: usize)      // the span ends partway through a line
+    OutOfOrder(index: usize)        // the span starts before the one listed ahead of it starts
+    Overlaps(index: usize)          // the span starts inside the one listed ahead of it
+
+/** The refusal in words, so that it can be printed without matching on it. */
+impl Display for RegionError
+    display(self, out: *Writer, fmt: FormatSpec)
+        val text = self match
+            Empty(i) -> s"region $i covers no bytes"
+            PastEnd(i) -> s"region $i ends past the end of the source"
+            NotAtLineStart(i) -> s"region $i does not start at the beginning of a line"
+            NotAtLineEnd(i) -> s"region $i does not end at the end of a line"
+            OutOfOrder(i) -> s"region $i starts before region ${i - 1}: regions are listed in source order"
+            Overlaps(i) -> s"region $i starts inside region ${i - 1}"
+
+        display_str(text, out, fmt)
+
+/** `src` read as Markdown everywhere but in `regions`, each of which becomes a code block of the
+ * document's own -- the shape a woven program has, where the compiler, not the Markdown, decides
+ * which lines are code.
+ *
+ * A region closes every block open when it is reached, so it is never inside a list item or a block
+ * quote and no paragraph runs on into or out of it; the Markdown after it starts afresh. Its node is
+ * `CodeBlock(info, literal, false)`, a child of the document, whose span is the region's own and so
+ * points into the real file.
+ *
+ * **The result is one document with one set of link reference definitions**: a definition anywhere
+ * in the Markdown is used by a reference anywhere else, regions in between or not.
+ *
+ * The regions are listed in source order and may not overlap; each is checked as `Region` describes
+ * before anything is read, and the first that fails is the answer.
+ */
+parse_with_regions(src: string, opts: ParseOptions, regions: Buf[Region]) -> Result[Doc, RegionError]
+    check_regions(src, regions)?
+
+    var p = parser(src, opts.exts)
+    var at = start_of(src)
+    var next: usize = 0
+
+    while at < src.len || next < regions.len()
+        if next < regions.len() && regions[next].span.start <= at then
+            val r = regions[next]
+
+            p.region(r)
+            at = resume_after(src.bytes, r.span.end)
+            next += 1
+        else
+            val le = line_end(src.bytes, at)
+
+            p.process(src[at..<le.end], at)
+            at = le.next
+
+    Ok(p.finish())
+end parse_with_regions
+
+// Where reading starts: past a byte order mark, if the source begins with one.
+private start_of(src: string) -> usize = if src.starts_with("\u{feff}") then 3 else 0
+
+private check_regions(src: string, regions: Buf[Region]) -> Result[unit, RegionError]
+    val b = src.bytes
+
+    for i in 0..<regions.len()
+        val s = regions[i].span
+
+        if s.end <= s.start then return Err(Empty(i))
+        if s.end > b.len then return Err(PastEnd(i))
+        if !at_line_start(b, s.start) then return Err(NotAtLineStart(i))
+        if !at_line_start(b, s.end) && line_end(b, s.end).end != s.end then return Err(NotAtLineEnd(i))
+
+        if i > 0 then
+            val before = regions[i - 1].span
+
+            if s.start < before.start then return Err(OutOfOrder(i))
+            if s.start < before.end then return Err(Overlaps(i))
+
+    Ok(())
+end check_regions
+
+// Whether `i` is where a line begins: the start of the source, or just past a line ending.
+private at_line_start(b: []const u8, i: usize) -> bool
+    if i == 0 then return true
+
+    val prev = b[i - 1]
+
+    prev == u8('\n') || prev == u8('\r') && (i == b.len || b[i] != u8('\n'))
+
+// Where the Markdown resumes after a region ending at `end`: there, if a line begins there, and
+// otherwise past the line ending `end` stands before.
+private resume_after(b: []const u8, end: usize) -> usize = if at_line_start(b, end) then end else line_end(b, end).next

@@ -2,12 +2,9 @@
 
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
-**Status: in progress.** The document tree, its walk, the HTML renderer and the extension interface
-are written and tested. The parser reads every block construct -- block quotes, lists, headings,
-code blocks, HTML blocks, thematic breaks, paragraphs -- and every inline construct but links:
-backslash escapes, entity and numeric character references, code spans, autolinks, raw HTML, line
-breaks, and emphasis and strong emphasis. Spec examples that need links are compiled but ignored,
-each naming what it waits for. Nothing is tagged.
+**Status: CommonMark complete, not yet tagged.** Every one of the spec's 652 examples renders
+exactly, cmark's pathological inputs are read in linear time, and a differential check against cmark
+agrees on its whole corpus. The GitHub extensions, math and mermaid are still to come.
 
 ```hocon
 dependencies {
@@ -18,7 +15,68 @@ dependencies {
 ```sysl
 import sh.sysl.markdown.{parse, to_html}
 
-print(to_html(parse("# Hello\n")))
+print(to_html(parse("# Hello\n")))      // <h1>Hello</h1>
+```
+
+## The API
+
+```sysl
+parse(src: string) -> Doc                                   // CommonMark: parse_with(src, commonmark())
+parse_with(src: string, opts: ParseOptions) -> Doc
+parse_with_regions(src: string, opts: ParseOptions, regions: Buf[Region]) -> Result[Doc, RegionError]
+
+to_html(d: Doc) -> string                                   // as the spec renders: to_html_with(d, commonmark_html())
+to_html_with(d: Doc, opts: HtmlOptions) -> string
+render_html(d: Doc, opts: HtmlOptions, out: *Writer)
+
+plain_text(d: Doc, n: NodeId) -> string                     // the text under a node, for slugs, alt text, search
+
+struct ParseOptions                                         // commonmark(): no extensions
+    exts: Registry
+
+struct HtmlOptions                                          // commonmark_html(): true, "\n", None
+    raw_html: bool
+    softbreak: string
+    highlight: Option[&Fn(string, string) -> Option[string]]   // (info, code) -> the block's markup
+
+struct Region                                               // a run of program lines, for weave
+    span: Span
+    info: string
+    literal: string
+```
+
+- **A parse and a rendering are told separately**, so one parse can be rendered several ways; the
+  link reference definitions live on the `Doc`.
+- **`raw_html`**: `true` passes raw HTML through as the spec renders it (the CommonMark preset);
+  `false` writes `<!-- raw HTML omitted -->` in place of each HTML block and each piece of inline
+  HTML, as cmark's "safe" mode does. It governs raw HTML only -- a `javascript:` link is written
+  either way.
+- **`highlight`** is asked about every code block with its whole info string and its text; what it
+  answers replaces the whole `<pre><code>…</code></pre>`, and `None` falls back to that.
+- **`parse_with_regions`** reads a woven file: each region -- whole lines, in source order, not
+  overlapping -- closes every open block and becomes a code block of the document whose span points
+  into the real file. The rest is Markdown, and it is one document with one set of link references.
+- **`plain_text`** is the text a reader sees: entities decoded, code spans' content, link and image
+  text but not their destinations, no raw HTML, a soft break as a space and a hard break as a
+  newline, one newline between blocks.
+
+This is checked line for line by `tests_api.sysl`'s `readme_example`:
+
+```sysl
+import sh.sysl.markdown.*
+
+val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
+
+print(to_html(d))                                       // <h1>Hello, <em>world</em></h1> <p>See <b>this</b>.</p>
+print(to_html_with(d, HtmlOptions(false, "\n", None)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
+print(plain_text(d, d.root()))                          // Hello, world / See this.
+
+val code: &Fn(string, string) -> Option[string] = (info, text) ->
+    if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
+
+val opts = HtmlOptions(true, "\n", Some(code))
+
+print(to_html_with(parse("```sysl\na < b\n```\n"), opts))   // <pre class="sysl">a &lt; b</pre>
 ```
 
 ## What it is

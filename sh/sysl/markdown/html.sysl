@@ -11,16 +11,19 @@ import sysl.text.{Search, from_utf8_unchecked}
 // compares it exactly. Where a line break goes, which tags close themselves (`<br />`, `<hr />`,
 // `<img … />`), and when a tight list's paragraphs lose their `<p>` are all its decisions, copied.
 
-/** A tree rendered to HTML, gathered into one string. */
-to_html(d: Doc) -> string
+/** A tree rendered to HTML as the spec renders it -- `commonmark_html()` -- gathered into one string. */
+to_html(d: Doc) -> string = to_html_with(d, commonmark_html())
+
+/** A tree rendered to HTML as `opts` says, gathered into one string. */
+to_html_with(d: Doc, opts: HtmlOptions) -> string
     var sink = byte_sink()
 
-    render_html(d, &sink)
+    render_html(d, opts, &sink)
     from_utf8_unchecked(sink.text())
 
-/** A tree rendered to HTML, written to `out` as it is produced. */
-render_html(d: Doc, out: *Writer)
-    var h = Html(out, u8('\n'), 0)
+/** A tree rendered to HTML as `opts` says, written to `out` as it is produced. */
+render_html(d: Doc, opts: HtmlOptions, out: *Writer)
+    var h = Html(out, u8('\n'), 0, opts)
 
     for (ev, n) in d.walk() do h.node(d, ev, n)
 
@@ -30,7 +33,7 @@ render_html(d: Doc, out: *Writer)
  */
 escape_html(s: string) -> string
     var sink = byte_sink()
-    var h = Html(&sink, 0, 0)
+    var h = Html(&sink, 0, 0, commonmark_html())
 
     h.esc(s)
     from_utf8_unchecked(sink.text())
@@ -44,7 +47,7 @@ escape_html(s: string) -> string
  */
 encode_href(s: string) -> string
     var sink = byte_sink()
-    var h = Html(&sink, 0, 0)
+    var h = Html(&sink, 0, 0, commonmark_html())
 
     h.href(s, false)
     from_utf8_unchecked(sink.text())
@@ -53,6 +56,7 @@ private struct Html
     out: *Writer
     last: u8            // the last byte written, so that `cr` writes a newline only where none is
     alt: usize          // how many images deep the walk is; inside one, text is written and tags are not
+    opts: HtmlOptions
 
     // Bytes written verbatim.
     put(*self, b: []const u8)
@@ -125,7 +129,7 @@ private struct Html
         d.kind(n) match
             Document -> ()
             Text(t) -> self.esc(t)
-            SoftBreak -> self.lit("\n")
+            SoftBreak -> self.lit(if self.alt == 0 then self.opts.softbreak else "\n")
             HardBreak ->
                 self.tag("<br />")
                 self.cr()
@@ -133,7 +137,7 @@ private struct Html
                 self.tag("<code>")
                 self.esc(t)
                 self.tag("</code>")
-            HtmlInline(t) -> self.lit(t)
+            HtmlInline(t) -> if self.opts.raw_html then self.lit(t) else self.tag(omitted())
             Emph -> self.tag(if entering then "<em>" else "</em>")
             Strong -> self.tag(if entering then "<strong>" else "</strong>")
             Link(dest, title) ->
@@ -158,7 +162,7 @@ private struct Html
             CodeBlock(info, literal, _) -> self.code_block(info, literal)
             HtmlBlock(t) ->
                 self.cr()
-                self.lit(t)
+                self.lit(if self.opts.raw_html then t else omitted())
                 self.cr()
             ThematicBreak ->
                 self.cr()
@@ -225,12 +229,24 @@ private struct Html
             self.put(digit[0..<1])
         self.tag(">")
 
-    // The info string's first word names the language, as a class on the `<code>`: `language-` and
+    // The highlighter is asked first, and what it answers stands in for the whole block. Otherwise
+    // the info string's first word names the language, as a class on the `<code>`: `language-` and
     // the word, unless the word already begins with `language-`, as cmark writes it.
     code_block(*self, info: string, literal: string)
+        self.cr()
+
+        self.opts.highlight match
+            Some(h) ->
+                h(info, literal) match
+                    Some(markup) ->
+                        self.lit(markup)
+                        self.cr()
+                        return
+                    None -> ()
+            None -> ()
+
         val word = first_word(info)
 
-        self.cr()
         self.tag("<pre>")
 
         if info.len > 0 then
@@ -263,6 +279,9 @@ private struct Html
         self.cr()
     end list
 end Html
+
+// What stands in for raw HTML when `raw_html` is off: cmark's words, so output stays comparable.
+private omitted() -> string = "<!-- raw HTML omitted -->"
 
 private entity_for(c: u8) -> string
     if c == u8('&') then "&amp;"

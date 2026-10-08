@@ -1,0 +1,43 @@
+module sh.sysl.markdown
+
+// What a parse is told and what a rendering is told are two separate things, so that one parse can
+// be rendered several ways: the link reference definitions live on the `Doc`, and nothing a renderer
+// is told reaches back into the tree.
+
+/** What `parse_with` and `parse_with_regions` are told.
+ *
+ * `exts` is the syntax read beyond CommonMark, asked in the order the extensions were added. An
+ * empty registry is CommonMark and nothing else.
+ */
+struct ParseOptions
+    exts: Registry
+
+/** What `to_html_with` and `render_html` are told.
+ *
+ * - `raw_html` -- whether raw HTML is written out. `true` passes it through as the spec renders it,
+ *   which is what the CommonMark preset does. `false` writes `<!-- raw HTML omitted -->` in place of
+ *   each HTML block and each piece of inline HTML, as cmark's default "safe" mode does; inside an
+ *   image's alt text, where no markup survives, it writes nothing. It governs raw HTML only: a link
+ *   destination such as `javascript:` is written as it is either way, so `false` alone does not make
+ *   untrusted input safe to serve.
+ * - `softbreak` -- what a soft line break is written as. The spec writes `"\n"`; `" "` joins a
+ *   paragraph's lines, and `"<br />\n"` keeps them apart as the source had them. Inside an image's
+ *   alt text, an attribute, a soft break is `"\n"` whatever this says.
+ * - `highlight` -- asked about every code block, fenced, indented or a program region, with the
+ *   block's whole info string (entities and escapes already decoded; empty for an indented block)
+ *   and its text. `Some(markup)` is written verbatim in place of the whole `<pre><code>…</code></pre>`,
+ *   on lines of its own; `None` writes the block as though there were no hook, the text escaped
+ *   inside `<pre><code class="language-…">`.
+ */
+struct HtmlOptions
+    raw_html: bool
+    softbreak: string
+    highlight: Option[&Fn(string, string) -> Option[string]]
+
+/** The CommonMark preset for a parse: no extensions. */
+commonmark() -> ParseOptions = ParseOptions(registry())
+
+/** The CommonMark preset for a rendering: raw HTML passed through, a soft break as a newline, and no
+ * highlighter -- exactly the HTML the spec's examples show.
+ */
+commonmark_html() -> HtmlOptions = HtmlOptions(true, "\n", None)

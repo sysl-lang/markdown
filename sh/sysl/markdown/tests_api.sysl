@@ -1,0 +1,291 @@
+module sh.sysl.markdown
+@tests
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf, byte_sink}
+import sysl.text.{Search, from_utf8_unchecked}
+
+// The public surface: the two option sets and their presets, raw HTML on and off, the soft break,
+// the highlight hook, program regions, and `plain_text`.
+
+private html(src: string, opts: HtmlOptions) -> string = to_html_with(parse(src), opts)
+
+private safe() -> HtmlOptions = HtmlOptions(false, "\n", None)
+
+private first(d: Doc) -> NodeId
+    d.first_child(d.root()) match
+        Some(n) -> n
+        None -> d.root()
+
+// What `parse_with_regions` answered, as one string: the HTML, or the refusal's words.
+private woven(src: string, regions: Buf[Region]) -> string
+    parse_with_regions(src, commonmark(), regions) match
+        Ok(d) -> to_html(d)
+        Err(e) -> str(e)
+
+private regions_of(spans: []const Span) -> Buf[Region]
+    var rs: Buf[Region] = buf()
+
+    for s in spans do rs.push(Region(s, "sysl", "code\n"))
+    rs
+
+// --- presets ---
+
+@test("parse is parse_with under the CommonMark preset")
+parse_is_the_preset()
+    val src = "# a\n\n- b\n- c\n\n[d]: /e\n\n[d]\n"
+
+    assert_eq(to_html(parse_with(src, commonmark())), to_html(parse(src)))
+    assert(commonmark().exts.is_empty())
+
+@test("to_html is to_html_with under the CommonMark preset")
+to_html_is_the_preset()
+    val d = parse("a <b>c</b>\nd\n\n<div>\n</div>\n\n```x\ny\n```\n")
+    val o = commonmark_html()
+
+    assert(o.raw_html)
+    assert_eq(o.softbreak, "\n")
+    assert(o.highlight.is_none())
+    assert_eq(to_html_with(d, o), to_html(d))
+
+@test("render_html writes what to_html_with answers, under any options")
+render_html_takes_options()
+    val d = parse("a <i>b</i>\nc\n")
+    var sink = byte_sink()
+
+    render_html(d, safe(), &sink)
+    assert_eq(from_utf8_unchecked(sink.text()), to_html_with(d, safe()))
+
+// --- raw HTML ---
+
+@test("raw HTML passes through under the preset")
+raw_html_on()
+    assert_eq(html("<div>\n*x*\n</div>\n", commonmark_html()), "<div>\n*x*\n</div>\n")
+    assert_eq(html("a <b>c</b>\n", commonmark_html()), "<p>a <b>c</b></p>\n")
+
+@test("raw_html off writes cmark's placeholder for an HTML block")
+raw_html_off_block()
+    assert_eq(html("<div>\n*x*\n</div>\n", safe()), "<!-- raw HTML omitted -->\n")
+    assert_eq(html("a\n\n<!-- note -->\n\nb\n", safe()), "<p>a</p>\n<!-- raw HTML omitted -->\n<p>b</p>\n")
+
+@test("raw_html off writes cmark's placeholder for each piece of inline HTML")
+raw_html_off_inline()
+    assert_eq(html("a <b>c</b> d\n", safe()), "<p>a <!-- raw HTML omitted -->c<!-- raw HTML omitted --> d</p>\n")
+
+@test("raw_html off leaves text that only looks like HTML escaped as before")
+raw_html_off_text()
+    assert_eq(html("a < b > c and `<b>`\n", safe()), "<p>a &lt; b &gt; c and <code>&lt;b&gt;</code></p>\n")
+    assert_eq(html("<http://x.y>\n", safe()), "<p><a href=\"http://x.y\">http://x.y</a></p>\n")
+
+@test("inside an image's alt text, raw HTML off writes nothing")
+raw_html_off_alt()
+    assert_eq(html("![a <b>c</b>](i)\n", commonmark_html()), "<p><img src=\"i\" alt=\"a <b>c</b>\" /></p>\n")
+    assert_eq(html("![a <b>c</b>](i)\n", safe()), "<p><img src=\"i\" alt=\"a c\" /></p>\n")
+
+// --- the soft break ---
+
+@test("the soft break is written as the options say")
+softbreak_option()
+    assert_eq(html("a\nb\n", HtmlOptions(true, " ", None)), "<p>a b</p>\n")
+    assert_eq(html("a\nb\n", HtmlOptions(true, "<br />\n", None)), "<p>a<br />\nb</p>\n")
+
+@test("a hard break is not a soft break")
+softbreak_leaves_hard_breaks()
+    assert_eq(html("a  \nb\n", HtmlOptions(true, " ", None)), "<p>a<br />\nb</p>\n")
+
+@test("inside an image's alt text a soft break is a newline whatever the option says")
+softbreak_in_alt()
+    assert_eq(html("![a\nb](i)\n", HtmlOptions(true, "<br />\n", None)), "<p><img src=\"i\" alt=\"a\nb\" /></p>\n")
+
+// --- the highlight hook ---
+
+@test("the highlighter is asked about every code block, with its whole info string and its text")
+highlight_called()
+    var seen: Buf[string] = buf()
+
+    val hl: &Fn(string, string) -> Option[string] = (info, code) ->
+        seen.push("[" + info + "|" + code + "]")
+        None
+
+    html("```sysl  title=a&amp;b\nval x = 1\n```\n\n    indented\n\n~~~\nbare\n~~~\n", HtmlOptions(true, "\n", Some(hl)))
+
+    assert_eq(seen.len(), 3)
+    assert_eq(seen[0], "[sysl  title=a&b|val x = 1\n]")
+    assert_eq(seen[1], "[|indented\n]")
+    assert_eq(seen[2], "[|bare\n]")
+
+@test("what the highlighter answers stands in for the whole block, and None falls back")
+highlight_replaces()
+    val hl: &Fn(string, string) -> Option[string] = (info, code) ->
+        if info.starts_with("sysl") then Some("<div class=\"hl\">" + code.trim() + "</div>") else None
+
+    val out = html("a\n```sysl\nx < 1\n```\n```py\ny < 2\n```\nb\n", HtmlOptions(true, "\n", Some(hl)))
+
+    assert_eq(out, "<p>a</p>\n<div class=\"hl\">x < 1</div>\n<pre><code class=\"language-py\">y &lt; 2\n</code></pre>\n<p>b</p>\n")
+
+@test("a highlighter that always declines renders as no highlighter")
+highlight_declines()
+    val src = "```sysl\nx\n```\n\n    y\n"
+    val none: &Fn(string, string) -> Option[string] = (info, code) -> None
+
+    assert_eq(html(src, HtmlOptions(true, "\n", Some(none))), html(src, commonmark_html()))
+
+// --- regions ---
+
+@test("a region becomes a code block of the document, closing the list and the quote before it")
+regions_close_blocks()
+    val a = "- one\n  two\n"
+    val r1 = "PROGRAM\n"
+    val b = "- three\n> q\n"
+    val r2 = "X\nY\n"
+    val c = "lazy\n"
+    val s2 = a.len + r1.len + b.len
+    var rs: Buf[Region] = buf()
+
+    rs.push(Region(Span(a.len, a.len + r1.len), "sysl", "program\n"))
+    rs.push(Region(Span(s2, s2 + r2.len), "sysl", "x\ny\n"))
+
+    assert_eq(woven(a + r1 + b + r2 + c, rs), "<ul>\n<li>one\ntwo</li>\n</ul>\n"
+        + "<pre><code class=\"language-sysl\">program\n</code></pre>\n"
+        + "<ul>\n<li>three</li>\n</ul>\n<blockquote>\n<p>q</p>\n</blockquote>\n"
+        + "<pre><code class=\"language-sysl\">x\ny\n</code></pre>\n<p>lazy</p>\n")
+
+@test("lines a region interrupts do not continue the item they would have")
+regions_end_an_item()
+    val a = "1. x\n"
+    val r = "CODE\n"
+    var rs: Buf[Region] = buf()
+
+    rs.push(Region(Span(a.len, a.len + r.len), "sysl", "code\n"))
+
+    assert_eq(woven(a + r + "   y\n", rs), "<ol>\n<li>x</li>\n</ol>\n<pre><code class=\"language-sysl\">code\n</code></pre>\n<p>y</p>\n")
+    assert_eq(to_html(parse(a + "   y\n")), "<ol>\n<li>x\ny</li>\n</ol>\n")
+
+@test("one document, one set of references: definitions on either side of a region are used across it")
+regions_share_references()
+    val a = "[before]: /b\n\n[after] [before]\n"
+    val r = "CODE\n"
+    val c = "[before] [after]\n\n[after]: /a\n"
+    var rs: Buf[Region] = buf()
+
+    rs.push(Region(Span(a.len, a.len + r.len), "", "code\n"))
+
+    assert_eq(woven(a + r + c, rs), "<p><a href=\"/a\">after</a> <a href=\"/b\">before</a></p>\n"
+        + "<pre><code>code\n</code></pre>\n<p><a href=\"/b\">before</a> <a href=\"/a\">after</a></p>\n")
+
+@test("a region's node is a child of the document, spanning the region in the real file")
+regions_span_the_file()
+    val a = "> q\n"
+    val r = "    fn main()\n    x\n"
+    val src = a + r + "tail\n"
+    var rs: Buf[Region] = buf()
+
+    rs.push(Region(Span(a.len, a.len + r.len), "sysl", "fn main()\nx\n"))
+
+    val d = parse_with_regions(src, commonmark(), rs) match
+        Ok(doc) -> doc
+        Err(_) -> new_doc("")
+
+    var n = d.first_child(d.root())
+    var found = false
+
+    loop
+        n match
+            None -> break
+            Some(m) ->
+                d.kind(m) match
+                    CodeBlock(info, literal, _) ->
+                        found = true
+                        assert_eq(info, "sysl")
+                        assert_eq(literal, "fn main()\nx\n")
+                        assert_eq(d.span(m).start, a.len)
+                        assert_eq(d.span(m).end, a.len + r.len)
+                        assert_eq(src[d.span(m).start..<d.span(m).end], r)
+                        assert_eq(d.parent(m).is_some(), true)
+                    _ -> ()
+                n = d.next_sibling(m)
+
+    assert(found)
+
+@test("a region may end before its last line's ending, at the end of the source, or at the start")
+regions_boundaries()
+    val src = "a\nCODE\nb\n"
+    val want = "<p>a</p>\n<pre><code class=\"language-sysl\">code\n</code></pre>\n<p>b</p>\n"
+
+    assert_eq(woven(src, regions_of([Span(2, 7)])), want)
+    assert_eq(woven(src, regions_of([Span(2, 6)])), want)
+    assert_eq(woven("CODE", regions_of([Span(0, 4)])), "<pre><code class=\"language-sysl\">code\n</code></pre>\n")
+    assert_eq(woven("CODE\nb\n", regions_of([Span(0, 5)])), "<pre><code class=\"language-sysl\">code\n</code></pre>\n<p>b</p>\n")
+    assert_eq(woven("a\r\nCODE\r\nb\r\n", regions_of([Span(3, 9)])), want)
+
+@test("two regions back to back are two code blocks, and no regions is a plain parse")
+regions_adjacent()
+    assert_eq(woven("A\nB\n", regions_of([Span(0, 2), Span(2, 4)])),
+        "<pre><code class=\"language-sysl\">code\n</code></pre>\n<pre><code class=\"language-sysl\">code\n</code></pre>\n")
+    assert_eq(woven("# h\n- x\n", buf()), to_html(parse("# h\n- x\n")))
+
+@test("regions that are not whole lines, in order and apart are refused, naming the region")
+regions_refused()
+    val src = "ab\ncd\nef\n"
+
+    assert_eq(woven(src, regions_of([Span(3, 3)])), "region 0 covers no bytes")
+    assert_eq(woven(src, regions_of([Span(6, 99)])), "region 0 ends past the end of the source")
+    assert_eq(woven(src, regions_of([Span(1, 3)])), "region 0 does not start at the beginning of a line")
+    assert_eq(woven(src, regions_of([Span(3, 4)])), "region 0 does not end at the end of a line")
+    assert_eq(woven(src, regions_of([Span(6, 9), Span(0, 3)])), "region 1 starts before region 0: regions are listed in source order")
+    assert_eq(woven(src, regions_of([Span(0, 6), Span(3, 9)])), "region 1 starts inside region 0")
+    assert_eq(woven("a\r\nb\r\n", regions_of([Span(2, 6)])), "region 0 does not start at the beginning of a line")
+
+@test("a refusal is a value to match on as well as words")
+regions_refusal_value()
+    parse_with_regions("ab\n", commonmark(), regions_of([Span(1, 3)])) match
+        Err(NotAtLineStart(i)) -> assert_eq(i, 0)
+        _ -> assert(false)
+
+// --- plain_text ---
+
+@test("plain_text of a heading: text, code content, decoded entities, link and image text")
+plain_text_inlines()
+    val d = parse("# Hello *big* `co de` &amp; \\* [link](/u \"t\") ![alt *x*](i)\n")
+
+    assert_eq(plain_text(d, first(d)), "Hello big co de & * link alt x")
+
+@test("plain_text: a soft break is a space, a hard break a newline, raw HTML nothing")
+plain_text_breaks()
+    val d = parse("a\nb  \nc <b>d</b>\n")
+
+    assert_eq(plain_text(d, first(d)), "a b\nc d")
+
+@test("plain_text of a document: one newline between blocks; breaks and HTML blocks are nothing")
+plain_text_blocks()
+    val d = parse("# T\n\npara\n\n---\n\n```\ncode\n```\n\n<div>x</div>\n\n> q\n\n- a\n- b\n")
+
+    assert_eq(plain_text(d, d.root()), "T\npara\ncode\nq\na\nb")
+
+@test("plain_text of an empty document and of a single text node")
+plain_text_small()
+    val e = parse("")
+    val d = parse("just text\n")
+
+    assert_eq(plain_text(e, e.root()), "")
+
+    d.first_child(first(d)) match
+        Some(t) -> assert_eq(plain_text(d, t), "just text")
+        None -> assert(false)
+
+// --- the README's example, line for line ---
+
+@test("the README's API example answers what the README says")
+readme_example()
+    val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
+
+    assert_eq(to_html(d), "<h1>Hello, <em>world</em></h1>\n<p>See <b>this</b>.</p>\n")
+    assert_eq(to_html_with(d, HtmlOptions(false, "\n", None)), "<h1>Hello, <em>world</em></h1>\n<p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>\n")
+    assert_eq(plain_text(d, d.root()), "Hello, world\nSee this.")
+
+    val code: &Fn(string, string) -> Option[string] = (info, text) ->
+        if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
+
+    val opts = HtmlOptions(true, "\n", Some(code))
+
+    assert_eq(to_html_with(parse("```sysl\na < b\n```\n"), opts), "<pre class=\"sysl\">a &lt; b\n</pre>\n")

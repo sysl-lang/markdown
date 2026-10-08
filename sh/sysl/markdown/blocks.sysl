@@ -159,6 +159,15 @@ private[markdown] struct Parser
                 self.add_line()
     end process
 
+    /** A region of program lines in place of the lines it covers: every open block closes, and the
+     * region becomes a code block of the document's own.
+     */
+    region(*self, r: Region)
+        self.close_to(1)
+        self.doc.append_child(self.doc.root(), CodeBlock(r.info, r.literal, false), r.span)
+        self.reach(1, r.span.end)
+        self.marked = 0
+
     /** Close every open block, then read each leaf's text into inlines. */
     finish(*self) -> Doc
         self.close_to(1)

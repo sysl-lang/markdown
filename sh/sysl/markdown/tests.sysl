@@ -272,7 +272,7 @@ render_to_a_writer()
     val d = para("hi")
     var sink = byte_sink()
 
-    render_html(d, &sink)
+    render_html(d, commonmark_html(), &sink)
     assert_eq(from_utf8_unchecked(sink.text()), to_html(d))
 
 @test("headings, breaks, a thematic break and a block quote")
