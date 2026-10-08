@@ -203,6 +203,15 @@ impl Extension for Tables
             w.tag(">")
     end render
 
+    // Each row a line of its own and each cell after the first a tab: the table's shape survives
+    // into the text, and a cell's own spaces stay distinguishable from the boundary between cells.
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        val t = tag_of(d, n)
+
+        if t == TABLE_HEAD_NODE || t == TABLE_ROW_NODE then return Block("")
+
+        if t == TABLE_CELL_NODE && d.prev_sibling(n).is_some() then Words("\t") else Unseen
+
 private table_node(tag: u32, data: string) -> Kind = Ext(ExtNode("table", tag, data, true))
 
 // The tag of one of the table's own nodes, or `NOT_TABLE` for any other node.

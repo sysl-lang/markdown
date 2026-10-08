@@ -116,7 +116,26 @@ impl Extension for Math
             _ -> return
 
         if w.options().math == GitHub then github_math(w, d, n, x) else standard_math(w, x)
+
+    // The TeX as written, without the dollar signs or the fence: a formula in a line is words in
+    // it, and a fenced block or a paragraph of display math is a block of its own, without the line
+    // endings that separated it from its delimiters.
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        d.kind(n) match
+            Ext(x) -> if x.tag == MATH_BLOCK || x.tag == MATH_PARAGRAPH then Block(without_line_ends(x.data)) else Words(x.data)
+            _ -> Unseen
 end Math
+
+// `t` without the line endings at either end.
+private without_line_ends(t: string) -> string
+    val b = t.bytes
+    var i: usize = 0
+    var j = b.len
+
+    while i < j && (b[i] == u8('\n') || b[i] == u8('\r')) do i += 1
+    while j > i && (b[j - 1] == u8('\n') || b[j - 1] == u8('\r')) do j -= 1
+
+    t[i..<j]
 
 // `\(…\)` and `\[…\]` inside a classed element: what KaTeX's and MathJax's auto-render find with their
 // default delimiters, and a class a stylesheet or a script can select on.

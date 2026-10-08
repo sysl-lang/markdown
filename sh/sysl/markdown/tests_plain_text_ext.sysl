@@ -1,0 +1,102 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.str_builder
+
+// `plain_text` over every built-in extension's nodes, and the heading slug each one gives: the text
+// a reader sees, and GitHub's id for a heading holding the syntax.
+
+private gfm_text(src: string) -> string
+    val d = parse_with(src, gfm())
+
+    plain_text(d, d.root())
+
+// The gfm() preset with heading ids added last, after every extension whose post-pass changes what
+// a heading reads as.
+private slugs(src: string) -> string
+    val o = gfm()
+
+    o.exts.add(heading_ids())
+
+    val d = parse_with(src, o)
+    var out = str_builder()
+
+    for (ev, n) in d.walk()
+        if ev == Enter then
+            d.kind(n) match
+                Heading(_, Some(id)) ->
+                    if out.len > 0 then out.push(" ")
+                    out.push(id)
+                _ -> ()
+
+    out.finish()
+
+@test("a table is a block: a row a line, its cells separated by a tab")
+plain_text_table()
+    assert_eq(gfm_text("before\n\n| a | b c |\n|---|---|\n| 1 | *2* |\n| | x |\n\nafter\n"), "before\na\tb c\n1\t2\n\tx\nafter")
+
+@test("a table first in the document starts with no newline")
+plain_text_table_first()
+    assert_eq(gfm_text("| a |\n|---|\n| b |\n"), "a\nb")
+
+@test("a strikethrough is its text")
+plain_text_strikethrough()
+    assert_eq(gfm_text("A ~~b~~ c\n"), "A b c")
+
+@test("a task item is its text; the checkbox is nothing")
+plain_text_task_list()
+    assert_eq(gfm_text("- [ ] one\n- [x] two\n"), "one\ntwo")
+
+@test("an inline formula is its TeX without the dollar signs, in the line")
+plain_text_inline_math()
+    assert_eq(gfm_text("area $x^2$ and $`y`$ and $$z$$ here\n"), "area x^2 and y and z here")
+
+@test("a fenced math block and a paragraph of display math are blocks of their TeX")
+plain_text_block_math()
+    assert_eq(gfm_text("a\n\n```math\n\\frac{1}{2}\n```\n\n$$\nq\n$$\n\nb\n"), "a\n\\frac{1}{2}\nq\nb")
+
+@test("an emoji is its character")
+plain_text_emoji()
+    assert_eq(gfm_text("Go :rocket: now\n"), "Go \u{1f680} now")
+
+@test("a footnote reference is its number; a definition is its text, without the back-reference")
+plain_text_footnotes()
+    assert_eq(gfm_text("x[^b] y[^a]\n\n[^a]: first\n[^b]: second\n"), "x1 y2\nsecond\nfirst")
+
+@test("an alert is its title, a line of its own, then its body")
+plain_text_alert()
+    assert_eq(gfm_text("p\n\n> [!WARNING]\n> Hot *stuff*\n>\n> More\n"), "p\nWarning\nHot stuff\nMore")
+
+@test("a mermaid diagram is nothing")
+plain_text_mermaid()
+    assert_eq(gfm_text("a\n\n```mermaid\ngraph TD; A-->B\n```\n\nb\n"), "a\nb")
+
+@test("an autolink is its text")
+plain_text_autolink()
+    assert_eq(gfm_text("see www.a.com or b@c.de\n"), "see www.a.com or b@c.de")
+
+@test("an Ext node of an extension the parse did not use is read as its children")
+plain_text_unregistered_extension()
+    val d = parse("# A ~~b~~ c\n")
+
+    assert_eq(plain_text(d, d.root()), "A ~~b~~ c")
+
+@test("a heading's slug reads strikethrough as its text")
+slug_strikethrough()
+    assert_eq(slugs("## A ~~b~~ c\n"), "a-b-c")
+
+@test("a heading's slug reads a formula as its TeX, GitHub's dropping the dollar signs either way")
+slug_math()
+    assert_eq(slugs("## Area $x^2$ and $$y$$\n"), "area-x2-and-y")
+
+@test("a heading's slug reads an emoji as its shortcode, GitHub slugging before emoji")
+slug_emoji()
+    assert_eq(slugs("## :rocket: Launch\n"), "rocket-launch")
+
+@test("a heading's slug reads a footnote reference as its rendered number, not its label")
+slug_footnote()
+    assert_eq(slugs("## Notes[^note]\n\n[^note]: n\n"), "notes1")
+
+@test("a heading's slug reads an autolink as its text")
+slug_autolink()
+    assert_eq(slugs("## See www.a.com\n"), "see-wwwacom")

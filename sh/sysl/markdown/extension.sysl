@@ -221,6 +221,28 @@ trait Extension
      */
     render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = ()
 
+    /** What a reader sees of an `Ext` node this extension made, for `plain_text`: asked once, on
+     * entering the node, and written there. A node that holds children has their text after it, so
+     * a strikethrough answers `Unseen` and is still read as its text, and an alert answers its title
+     * as a `Block` with its paragraphs following. A leaf answers what the page shows in its place --
+     * an emoji's character, a formula's TeX. `Unseen`, the default, is nothing of the node's own:
+     * an extension that says nothing here keeps its `data` out of titles and search, `data` being
+     * whatever rendering needed rather than text.
+     */
+    plain_text(self, d: Doc, n: NodeId) -> Seen = Unseen
+
+/** What a reader sees of an `Ext` node, as `Extension.plain_text` answers it.
+ *
+ * - `Unseen` -- nothing of its own; what the node holds is still read.
+ * - `Words(text)` -- text in the run around the node, as a `Text` is.
+ * - `Block(text)` -- a block of its own, separated from the block before by a newline as a paragraph
+ *   is, and starting with `text`. Empty, it is the separation and nothing else: a table's row.
+ */
+enum Seen
+    Unseen
+    Words(text: string)
+    Block(text: string)
+
 /** The extensions one parse uses, in the order they are asked. Empty is pure CommonMark. */
 struct Registry
     private exts: Buf[&Extension]

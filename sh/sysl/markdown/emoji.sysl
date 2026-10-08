@@ -54,4 +54,10 @@ impl Extension for Emoji
             Ext(x) -> w.esc(x.data)
             _ -> ()
 
+    // The character the page shows.
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        d.kind(n) match
+            Ext(x) -> Words(x.data)
+            _ -> Unseen
+
 private is_alias_byte(c: u8) -> bool = c.is_lower() || c.is_digit() || c == u8('_') || c == u8('+') || c == u8('-')

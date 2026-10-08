@@ -97,28 +97,13 @@ impl Extension for HeadingIds
         w.tag("\"><span aria-hidden=\"true\" class=\"octicon octicon-link\"></span></a>")
 end HeadingIds
 
-/** The text a heading's slug is made from: its `plain_text`, except that a node an extension made
- * with nothing under it reads as the source it was written as. That is GitHub's order of work -- the
- * id is made before shortcodes become emoji -- so `## :rocket: Launch` is `rocket-launch`.
+/** The text a heading's slug is made from: the text content of the heading GitHub renders, which is
+ * its `plain_text` -- a footnote reference its number, a formula its TeX -- except that an emoji
+ * reads as the shortcode it was written as. That is GitHub's order of work: the id is made from the
+ * rendered heading before shortcodes become emoji, so `## :rocket: Launch` is `rocket-launch` and
+ * `## Notes[^a]` is `notes1`.
  */
-private slug_text(d: Doc, h: NodeId) -> string
-    var b = str_builder()
-
-    for (_, m) in d.walk_from(h)
-        d.kind(m) match
-            Text(t) -> b.push(t)
-            Code(t) -> b.push(t)
-            SoftBreak -> b.push(" ")
-            HardBreak -> b.push("\n")
-            Ext(x) ->
-                if !x.holds then
-                    val at = d.span(m)
-
-                    b.push(d.src[at.start..<at.end])
-            _ -> ()
-
-    b.finish()
-end slug_text
+private slug_text(d: Doc, h: NodeId) -> string = reader_text(d, h, true)
 
 // Heading `h`'s anchor, made its first child.
 private anchor(d: Doc, h: NodeId, slug: string)

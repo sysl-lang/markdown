@@ -16,8 +16,21 @@ import sysl.text.{Search, str_builder}
  * - **Blocks are separated by one newline.** Each paragraph, heading and code block is one block; a
  *   code block contributes its text without its final newline. A thematic break and an HTML block
  *   contribute nothing, and no separator.
+ * - **A node an extension made reads as that extension's `plain_text` says**, and what it holds is
+ *   read after it. The built-in ones: a strikethrough, an autolink and a task item are their text; a
+ *   table is a block, each row a line and its cells separated by a tab; an alert is its title as a
+ *   block, then its body; a formula is its TeX without the dollar signs or the fence, inline in a
+ *   line or a block of its own as it was written; an emoji is its character; a footnote reference
+ *   is its number, as the page shows it, and a footnote's text is a block like any other, without
+ *   its back-reference arrows; a mermaid diagram is nothing. A node made by an extension the
+ *   document was not parsed with is read as its children.
  */
-plain_text(d: Doc, n: NodeId) -> string
+plain_text(d: Doc, n: NodeId) -> string = reader_text(d, n, false)
+
+/** `plain_text`, except that, with `emoji_source`, an emoji reads as the shortcode it was written
+ * as. That is the text GitHub makes a heading's slug from, its emoji being written after the slug.
+ */
+private[markdown] reader_text(d: Doc, n: NodeId, emoji_source: bool) -> string
     var b = str_builder()
     var started = false
 
@@ -37,7 +50,25 @@ plain_text(d: Doc, n: NodeId) -> string
                 if started then b.push("\n")
                 started = true
                 b.push(if literal.ends_with("\n") then literal[0..<literal.len - 1] else literal)
+            Ext(x) ->
+                if entering then
+                    if emoji_source && x.ext == "emoji" then
+                        val at = d.span(m)
+
+                        b.push(d.src[at.start..<at.end])
+                    else
+                        val seen = d.exts.named(x.ext) match
+                            Some(e) -> e.plain_text(d, m)
+                            None -> Unseen
+
+                        seen match
+                            Unseen -> ()
+                            Words(t) -> b.push(t)
+                            Block(t) ->
+                                if started then b.push("\n")
+                                started = true
+                                b.push(t)
             _ -> ()
 
     b.finish()
-end plain_text
+end reader_text

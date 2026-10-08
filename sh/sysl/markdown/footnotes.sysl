@@ -215,6 +215,16 @@ impl Extension for Footnotes
             w.tag("\n")
     end render
 
+    // A reference is the number the page shows; a definition is read as the blocks it holds, its
+    // back-reference arrows being navigation rather than text.
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        d.kind(n) match
+            Ext(x) if x.tag == FOOTNOTE_REF ->
+                val (number, _, _) = fields(x.data)
+
+                Words(number)
+            _ -> Unseen
+
 // A footnote's back-references: one to each reference to it, `count` of them.
 private backrefs(w: *HtmlWriter, number: string, count: string, l: string)
     w.tag(s"<a href=\"#fnref-$l\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"$number\" aria-label=\"Back to reference $number\">↩</a>")

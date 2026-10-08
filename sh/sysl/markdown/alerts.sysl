@@ -69,6 +69,12 @@ impl Extension for Alerts
 
         w.cr()
 
+    // The title the page shows, a line of its own above the alert's body.
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        d.kind(n) match
+            Ext(x) -> Block(title(x.data))
+            _ -> Unseen
+
 // The block quote `n` made an alert, where its first line is a marker and something follows it.
 private alert(d: Doc, n: NodeId)
     d.kind(n) match

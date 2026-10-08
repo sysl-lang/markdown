@@ -63,7 +63,10 @@ struct Region                                               // a run of program 
   into the real file. The rest is Markdown, and it is one document with one set of link references.
 - **`plain_text`** is the text a reader sees: entities decoded, code spans' content, link and image
   text but not their destinations, no raw HTML, a soft break as a space and a hard break as a
-  newline, one newline between blocks.
+  newline, one newline between blocks. A node an extension made reads as its `Extension.plain_text`
+  answers (`Unseen`, `Words(text)` or `Block(text)`), followed by what it holds: a table is a row a
+  line with its cells separated by a tab, an alert its title and then its body, a formula its TeX, an
+  emoji its character, a footnote reference its number, a mermaid diagram nothing.
 
 This is checked line for line by `tests_api.sysl`'s `readme_example`:
 
@@ -198,6 +201,12 @@ trait Extension
     bracket(self, s: Subject, from: usize) -> Option[Kind] = None
     post_pass(self, d: Doc) = ()
     render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = ()
+    plain_text(self, d: Doc, n: NodeId) -> Seen = Unseen         // what a reader sees, for plain_text
+
+enum Seen                                                       // Unseen: nothing of its own; children still read
+    Unseen
+    Words(text: string)                                         // in the run of text
+    Block(text: string)                                         // a block of its own; "" is a row's separation
 
 enum BlockStart
     Declined
