@@ -172,12 +172,23 @@ struct HtmlWriter
                     self.tag("</a>")
             Image(dest, title) -> self.image(entering, dest, title)
             Paragraph -> self.paragraph(d, entering, n)
-            Heading(level, _) ->
+            Heading(level, id) ->
                 if entering then
                     self.cr()
                     self.heading_tag("<h", level)
+
+                    // An anchor heading_ids put inside the heading carries the id in its place.
+                    id match
+                        Some(s) if !anchored(d, n) ->
+                            self.tag(" id=\"")
+                            if self.alt == 0 then self.esc(s)
+                            self.tag("\"")
+                        _ -> ()
+
+                    self.tag(">")
                 else
                     self.heading_tag("</h", level)
+                    self.tag(">")
                     self.cr()
             CodeBlock(info, literal, _) -> self.code_block(info, literal)
             HtmlBlock(t) ->
@@ -278,7 +289,6 @@ struct HtmlWriter
         if self.alt == 0 then
             var digit: [1]u8 = [u8('0') + level]
             self.put(digit[0..<1])
-        self.tag(">")
 
     // The highlighter is asked first, and what it answers stands in for the whole block. Otherwise
     // the info string's first word names the language, as a class on the `<code>`: `language-` and
@@ -355,7 +365,7 @@ private keeps(c: u8) -> bool
 
 // The info string up to its first ASCII whitespace -- a space, or a byte from tab to carriage return
 // -- as cmark cuts it. A non-breaking space or any other Unicode space is part of the word.
-private first_word(info: string) -> string
+private[markdown] first_word(info: string) -> string
     val b = info.bytes
 
     for i in 0..<b.len

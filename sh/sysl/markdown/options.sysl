@@ -32,20 +32,48 @@ struct ParseOptions
  *   `title`, `textarea`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext`
  *   (or closing one) is written `&lt;`, so the page shows the tag rather than obeying it. Every
  *   other tag passes as written. Off in the CommonMark preset and on in the GFM one.
+ * - `math` -- the markup the `math()` extension's nodes are written in; see `ClientMarkup`.
+ * - `mermaid` -- the markup the `mermaid()` extension's diagrams are written in; see `ClientMarkup`.
  */
 struct HtmlOptions
     raw_html: bool
     softbreak: string
     highlight: Option[&Fn(string, string) -> Option[string]]
     tagfilter: bool
+    math: ClientMarkup
+    mermaid: ClientMarkup
+
+/** How math and diagrams are written for the script that draws them in the browser. Both presets
+ * use `Standard`.
+ *
+ * | | `Standard` | `GitHub` |
+ * |---|---|---|
+ * | `$x$` | `<span class="math math-inline">\(x\)</span>` | `<math-renderer class="js-inline-math" style="display: inline-block">$x$</math-renderer>` |
+ * | `$$x$$` in a line | `<span class="math math-display">\[x\]</span>` | the same `js-inline-math` element, holding `$$x$$` |
+ * | a paragraph of `$$x$$` | `<div class="math math-display">\[x\]</div>` | `<p><math-renderer class="js-display-math" style="display: block">$$x$$</math-renderer></p>` |
+ * | a `math` fence | the same `<div>` | the `js-display-math` element, without the `<p>` |
+ * | a `mermaid` fence | `<pre class="mermaid">…</pre>` | `<pre lang="mermaid"><code>…</code></pre>` |
+ *
+ * `Standard` is what KaTeX's and MathJax's auto-render find with their default delimiters, and what
+ * mermaid.js finds with `startOnLoad`, so a page needs nothing but those scripts. `GitHub` is what
+ * github.com's renderer writes (less its per-render `data-run-id`), for a page using GitHub's own
+ * scripts or styles. In both, the TeX and the diagram source are escaped and otherwise as written.
+ */
+enum ClientMarkup
+    Standard
+    GitHub
 
 /** The CommonMark preset for a parse: no extensions. */
 commonmark() -> ParseOptions = ParseOptions(registry())
 
 /** The GitHub preset for a parse: CommonMark plus the extensions GitHub's own renderer runs --
- * `footnotes()`, `tables()`, `strikethrough()`, `autolinks()`, `task_lists()` and `alerts()`, asked
- * in that order. Each is an ordinary `Extension`, so a parse wanting only some of them builds its own
- * registry.
+ * `footnotes()`, `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`, `emoji()`, `math()`,
+ * `mermaid()` and `alerts()`, asked in that order. Each is an ordinary `Extension`, so a parse
+ * wanting only some of them builds its own registry. `footnotes()` comes first because cmark-gfm
+ * settles footnotes before any other extension looks at the finished tree.
+ *
+ * `heading_ids()` is not here, though GitHub gives its headings ids: GitHub's spec shows its headings
+ * without them, and this preset renders exactly what the spec shows. A parse wanting both adds it.
  */
 gfm() -> ParseOptions
     val r = registry()
@@ -55,15 +83,19 @@ gfm() -> ParseOptions
     r.add(strikethrough())
     r.add(autolinks())
     r.add(task_lists())
+    r.add(emoji())
+    r.add(math())
+    r.add(mermaid())
     r.add(alerts())
     ParseOptions(r)
 
 /** The CommonMark preset for a rendering: raw HTML passed through, a soft break as a newline, and no
  * highlighter -- exactly the HTML the spec's examples show.
  */
-commonmark_html() -> HtmlOptions = HtmlOptions(true, "\n", None, false)
+commonmark_html() -> HtmlOptions = HtmlOptions(true, "\n", None, false, Standard, Standard)
 
 /** The GitHub preset for a rendering: the CommonMark one with the tag filter on, which is what GitHub
- * Flavored Markdown's spec shows.
+ * Flavored Markdown's spec shows. Math and diagrams are written in the `Standard` markup, which works
+ * with KaTeX, MathJax and mermaid.js as they come; `GitHub` is the choice for GitHub's own scripts.
  */
-gfm_html() -> HtmlOptions = HtmlOptions(true, "\n", None, true)
+gfm_html() -> HtmlOptions = HtmlOptions(true, "\n", None, true, Standard, Standard)

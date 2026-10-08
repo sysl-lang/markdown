@@ -1,0 +1,55 @@
+module sh.sysl.markdown
+
+import sysl.buf.{Buf, buf}
+
+// Mermaid diagrams: a fenced code block whose info string's first word is `mermaid` is a diagram,
+// its source passed through, escaped, for mermaid.js to draw in the browser (`HtmlOptions.mermaid`
+// chooses the markup).
+//
+// **The block is turned into a diagram when the parse finishes**, so the renderer never sees a code
+// block there and a `highlight` hook is not asked about it -- with this extension on, a `mermaid`
+// fence is a diagram whatever the hook would have said. With it off, the fence is an ordinary code
+// block and the hook is asked as usual. An indented code block is never a diagram: it has no info
+// string.
+
+/** The mermaid extension, for a `Registry`. */
+mermaid() -> &Extension = Mermaid()
+
+/** The `tag` of a diagram's `ExtNode`; its `data` is the source, final line ending included. */
+const MERMAID_DIAGRAM: u32 = 0
+
+private struct Mermaid
+end Mermaid
+
+impl Extension for Mermaid
+    name(self) -> string = "mermaid"
+
+    override post_pass(self, d: Doc)
+        var found: Buf[NodeId] = buf()
+
+        for (ev, n) in d.walk()
+            if ev == Enter then
+                d.kind(n) match
+                    CodeBlock(info, _, fenced) -> if fenced && first_word(info) == "mermaid" then found.push(n)
+                    _ -> ()
+
+        for n in found.view()
+            d.kind(n) match
+                CodeBlock(_, literal, _) -> d.set_kind(n, Ext(ExtNode("mermaid", MERMAID_DIAGRAM, literal, false)))
+                _ -> ()
+
+    // `<pre class="mermaid">` is what mermaid.js's `startOnLoad` looks for. GitHub's form is the code
+    // block its own renderer writes for a language it is handed, `<pre lang="mermaid"><code>`, which
+    // github.com's page script then draws.
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val src = d.kind(n) match
+            Ext(x) -> x.data
+            _ -> return
+
+        val github = w.options().mermaid == GitHub
+
+        w.cr()
+        w.tag(if github then "<pre lang=\"mermaid\"><code>" else "<pre class=\"mermaid\">")
+        w.esc(src)
+        w.tag(if github then "</code></pre>" else "</pre>")
+        w.cr()

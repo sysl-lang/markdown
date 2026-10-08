@@ -1,0 +1,161 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{Search, repeat}
+import sysl.time.{monotonic, whole_micros}
+
+// GitHub's emoji shortcodes, read with the emoji extension alone and with the whole GFM preset.
+
+private emoji_only() -> ParseOptions
+    val r = registry()
+
+    r.add(emoji())
+    ParseOptions(r)
+
+private html(src: string) -> string = to_html(parse_with(src, emoji_only()))
+
+private gfm_page(src: string) -> string = to_html_with(parse_with(src, gfm()), gfm_html())
+
+@test("a shortcode is its emoji")
+a_shortcode_is_its_emoji()
+    assert_eq(html(":smile:\n"), "<p>\u{1f604}</p>\n")
+    assert_eq(html("I :heart: it\n"), "<p>I \u{2764}\u{fe0f} it</p>\n")
+
+@test("the first and the last alias in the table are found")
+the_ends_of_the_table()
+    assert_eq(html(":+1:\n"), "<p>\u{1f44d}</p>\n")
+    assert_eq(html(":-1:\n"), "<p>\u{1f44e}</p>\n")
+    assert_eq(html(":zzz:\n"), "<p>\u{1f4a4}</p>\n")
+    assert_eq(html(":zombie_woman:\n"), "<p>\u{1f9df}\u{200d}\u{2640}\u{fe0f}</p>\n")
+    assert_eq(html(":hand_with_index_finger_and_thumb_crossed:\n"), "<p>\u{1faf0}</p>\n")
+
+@test("every alias of an emoji names it")
+aliases()
+    assert_eq(html(":laughing: :satisfied:\n"), "<p>\u{1f606} \u{1f606}</p>\n")
+    assert_eq(html(":thumbsup:\n"), html(":+1:\n"))
+
+@test("a shortcode nobody lists stays as it was written")
+unknown_shortcodes_stay()
+    assert_eq(html(":nope_not_an_emoji:\n"), "<p>:nope_not_an_emoji:</p>\n")
+    assert_eq(html(":Smile:\n"), "<p>:Smile:</p>\n")
+    assert_eq(html(":smile\n"), "<p>:smile</p>\n")
+    assert_eq(html("smile:\n"), "<p>smile:</p>\n")
+    assert_eq(html("::\n"), "<p>::</p>\n")
+    assert_eq(html(": smile:\n"), "<p>: smile:</p>\n")
+    assert_eq(html(":hand_with_index_finger_and_thumb_crossedx:\n"), "<p>:hand_with_index_finger_and_thumb_crossedx:</p>\n")
+
+@test("GitHub's own pictures have no Unicode form and stay text")
+custom_emoji_stay()
+    assert_eq(html(":octocat: :shipit:\n"), "<p>:octocat: :shipit:</p>\n")
+    assert(emoji_for("octocat").is_none())
+
+@test("two shortcodes may touch, and a stray colon before one does not hide it")
+adjacent_shortcodes()
+    assert_eq(html(":smile::zzz:\n"), "<p>\u{1f604}\u{1f4a4}</p>\n")
+    assert_eq(html("::smile:\n"), "<p>:\u{1f604}</p>\n")
+    assert_eq(html(":x:smile:\n"), "<p>\u{274c}smile:</p>\n")
+    assert_eq(html(":nope:smile:\n"), "<p>:nope\u{1f604}</p>\n")
+    assert_eq(html("a:smile:b\n"), "<p>a\u{1f604}b</p>\n")
+
+@test("a shortcode is read inside emphasis, links' text and table cells")
+inside_markup()
+    assert_eq(html("*:smile:* **:zzz:**\n"), "<p><em>\u{1f604}</em> <strong>\u{1f4a4}</strong></p>\n")
+    assert_eq(html("[:smile:](u)\n"), "<p><a href=\"u\">\u{1f604}</a></p>\n")
+    assert_eq(gfm_page("| a |\n|-|\n| :smile: |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>\u{1f604}</td>\n</tr>\n</tbody>\n</table>\n")
+    assert_eq(gfm_page("~~:zzz:~~\n"), "<p><del>\u{1f4a4}</del></p>\n")
+
+@test("never in code, a link's destination or title, or an autolink")
+not_in_code_or_destinations()
+    assert_eq(html("`:smile:`\n"), "<p><code>:smile:</code></p>\n")
+    assert_eq(html("    :smile:\n"), "<pre><code>:smile:\n</code></pre>\n")
+    assert_eq(html("[a](/:smile: \":zzz:\")\n"), "<p><a href=\"/:smile:\" title=\":zzz:\">a</a></p>\n")
+    assert_eq(html("<http://a/:smile:>\n"), "<p><a href=\"http://a/:smile:\">http://a/:smile:</a></p>\n")
+
+@test("an escaped colon opens no shortcode, which is how one is written as text")
+escaped_colon()
+    assert_eq(html("\\:smile:\n"), "<p>:smile:</p>\n")
+    assert_eq(html(":smile\\:\n"), "<p>:smile:</p>\n")
+
+@test("inside an image's description it is the emoji, written as text")
+inside_alt_text()
+    assert_eq(html("![:smile:](i)\n"), "<p><img src=\"i\" alt=\"\u{1f604}\" /></p>\n")
+
+@test("an emoji is an Ext node holding the emoji, spanning the shortcode as written")
+the_node()
+    val d = parse_with("a :smile: b\n", emoji_only())
+    var found = false
+
+    for (_, n) in d.walk()
+        d.kind(n) match
+            Ext(x) ->
+                assert_eq(x.ext, "emoji")
+                assert_eq(x.tag, EMOJI_NODE)
+                assert_eq(x.data, "\u{1f604}")
+                assert(!x.holds)
+
+                val s = d.span(n)
+
+                assert_eq(d.src[s.start..<s.end], ":smile:")
+                found = true
+            _ -> ()
+
+    assert(found)
+
+@test("off by default, and on in the GFM preset")
+emoji_off_by_default()
+    assert_eq(to_html(parse(":smile:\n")), "<p>:smile:</p>\n")
+    assert_eq(gfm_page(":smile:\n"), "<p>\u{1f604}</p>\n")
+
+@test("emoji_for looks an alias up")
+emoji_for_looks_up()
+    assert_eq(emoji_for("smile"), Some("\u{1f604}"))
+    assert_eq(emoji_for("+1"), Some("\u{1f44d}"))
+    assert(emoji_for("").is_none())
+    assert(emoji_for(":smile:").is_none())
+    assert(emoji_for(repeat("a", 100)).is_none())
+
+private const small: usize = 5000
+
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = html(src)
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+private ratio(input: usize -> string, output: usize -> string) -> long
+    val a = timed(input(small), output(small))
+    val b = timed(input(10 * small), output(10 * small))
+
+    b / (if a < 1000 then 1000 else a)
+
+private colons(n: usize) -> string = repeat(":", n) + "\n"
+
+private colons_out(n: usize) -> string = "<p>" + repeat(":", n) + "</p>\n"
+
+// Every `:smil:` is closed, and names nothing.
+private near_misses(n: usize) -> string = repeat(":smil", n) + "\n"
+
+private near_misses_out(n: usize) -> string = "<p>" + repeat(":smil", n) + "</p>\n"
+
+private long_names(n: usize) -> string = repeat(":" + repeat("a", 39), n) + "\n"
+
+private long_names_out(n: usize) -> string = "<p>" + repeat(":" + repeat("a", 39), n) + "</p>\n"
+
+private many(n: usize) -> string = repeat(":smile:", n) + "\n"
+
+private many_out(n: usize) -> string = "<p>" + repeat("\u{1f604}", n) + "</p>\n"
+
+@test("a run of colons is linear")
+colon_runs_are_linear()
+    assert(ratio(colons, colons_out) < 20)
+
+@test("shortcodes that never close are linear")
+near_misses_are_linear()
+    assert(ratio(near_misses, near_misses_out) < 20)
+    assert(ratio(long_names, long_names_out) < 20)
+
+@test("many emoji are linear")
+many_emoji_are_linear()
+    assert(ratio(many, many_out) < 20)

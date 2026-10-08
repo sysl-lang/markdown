@@ -20,12 +20,12 @@
 # package does. Our side is a small program written into a scratch directory and built against this
 # checkout with --lib, so the package's own tree holds no program for `sysl test .` to walk.
 #
-# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm() less its alerts
-# (GitHub adds alerts after cmark-gfm, which does not read them) and renders with gfm_html(), and
-# the other side is cmark-gfm (`CMARK_GFM` names another binary) run as `cmark-gfm --unsafe
-# -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter`. The default corpus
-# then also holds every example of GitHub's spec (spec/gfm-spec.txt) and of cmark-gfm's own
-# extension tests (spec/cmark-gfm-extensions.txt).
+# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm()'s first five
+# extensions (emoji, math, mermaid and alerts are github.com's, not cmark-gfm's) and renders with
+# gfm_html(), and the other side is cmark-gfm (`CMARK_GFM` names another binary) run as
+# `cmark-gfm --unsafe -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter`.
+# The default corpus then also holds every example of GitHub's spec (spec/gfm-spec.txt) and of
+# cmark-gfm's own extension tests (spec/cmark-gfm-extensions.txt).
 #
 # The report names each differing file, and a unified diff of the two outputs is kept beside it in
 # the scratch directory, whose path is printed last. Exits 1 if any file differs.
@@ -44,10 +44,9 @@ fi
 if (( gfm )); then
     cmark_bin=${CMARK_GFM:-cmark-gfm}
     cmark_args=(--unsafe -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
-    imports='ParseOptions, autolinks, footnotes, gfm_html, parse_with, registry, strikethrough, tables, task_lists, to_html_with'
+    imports='ParseOptions, parse_with, to_html_with, gfm_html, registry, footnotes, tables, strikethrough, autolinks, task_lists'
     render='to_html_with(parse_with(src, cmark_gfm()), gfm_html())'
-    helper='
-// gfm() without its alerts, which GitHub adds after cmark-gfm and cmark-gfm does not read.
+    prelude='// gfm() less emoji(), math(), mermaid() and alerts(), which cmark-gfm does not have.
 cmark_gfm() -> ParseOptions
     val r = registry()
 
@@ -56,13 +55,14 @@ cmark_gfm() -> ParseOptions
     r.add(strikethrough())
     r.add(autolinks())
     r.add(task_lists())
-    ParseOptions(r)'
+    ParseOptions(r)
+'
 else
     cmark_bin=${CMARK:-cmark}
     cmark_args=(--unsafe)
     imports='parse, to_html'
     render='to_html(parse(src))'
-    helper=''
+    prelude=''
 fi
 
 if ! command -v $cmark_bin > /dev/null; then
@@ -90,12 +90,12 @@ dependencies {
 print -r -- "import sh.sysl.markdown.{$imports}
 import sysl.io.{read_all_text, stdin}
 
+$prelude
 var input = stdin()
 
 read_all_text(&input) match
     Ok(src) -> prints($render)
-    Err(_) -> eprints(\"md2html: the input is not UTF-8\\n\")
-$helper" > $prog/main.sysl
+    Err(_) -> eprints(\"md2html: the input is not UTF-8\\n\")" > $prog/main.sysl
 
 $sysl_bin build --lib $root -o $work/md2html.bin $prog > $work/build.log 2>&1 || {
     print -u2 "differential: building the renderer failed; see $work/build.log"

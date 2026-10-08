@@ -1,0 +1,230 @@
+module sh.sysl.markdown
+@tests
+
+import sh.sysl.parsing.Span
+
+// The math and mermaid extensions. There is no spec, so the oracle is github.com: every input of
+// `prices`, `openers` and `github_markup`, and those of the other tests that GitHub's own rules decide
+// (`$a $b$`, `($x$)`, `$a$$`, `` $`a`$b ``, the display blocks), were rendered by its `POST /markdown`
+// API in gfm mode and are asserted to read as it read them; `github_markup` checks the markup it
+// wrote, less its per-render `data-run-id`. Where this package differs from github.com on purpose
+// (math inside emphasis, an escaped dollar), gfm_math.sysl's opening comment says so.
+
+private only(e: &Extension) -> ParseOptions
+    val r = registry()
+
+    r.add(e)
+    ParseOptions(r)
+
+private math_of(src: string) -> string = to_html(parse_with(src, only(math())))
+
+private github() -> HtmlOptions = HtmlOptions(true, "\n", None, false, GitHub, GitHub)
+
+private gh_math(src: string) -> string = to_html_with(parse_with(src, gfm()), github())
+
+private para(body: string) -> string = "<p>" + body + "</p>\n"
+
+private im(tex: string) -> string = "<span class=\"math math-inline\">\\(" + tex + "\\)</span>"
+
+private dm(tex: string) -> string = "<span class=\"math math-display\">\\[" + tex + "\\]</span>"
+
+private block(tex: string) -> string = "<div class=\"math math-display\">\\[" + tex + "\\]</div>\n"
+
+private gh_inline(tex: string) -> string = "<math-renderer class=\"js-inline-math\" style=\"display: inline-block\">" + tex + "</math-renderer>"
+
+private gh_display(tex: string) -> string = "<math-renderer class=\"js-display-math\" style=\"display: block\">" + tex + "</math-renderer>"
+
+private ext_of(d: Doc, n: NodeId) -> ExtNode
+    d.kind(n) match
+        Ext(x) -> x
+        _ -> ExtNode("", 99, "", false)
+
+@test("GitHub's documented examples: inline, the backtick form, display, a math fence, an escaped dollar")
+documented_examples()
+    assert_eq(math_of("$\\sqrt{3x-1}+(1+x)^2$\n"), para(im("\\sqrt{3x-1}+(1+x)^2")))
+    assert_eq(math_of("$`\\sqrt{3x-1}+(1+x)^2`$\n"), para(im("\\sqrt{3x-1}+(1+x)^2")))
+    assert_eq(math_of("$$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq 1$$\n"), block("\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq 1"))
+    assert_eq(math_of("```math\n\\sqrt{3}\n```\n"), block("\\sqrt{3}"))
+    assert_eq(math_of("$`\\sqrt{\\$4}`$\n"), para(im("\\sqrt{\\$4}")))
+    assert_eq(math_of("To split <span>$</span>100 in half, we calculate $100/2$\n"), para("To split <span>$</span>100 in half, we calculate " + im("100/2")))
+
+@test("prices are text: a closing dollar may not follow a space or come before a digit or a letter")
+prices()
+    assert_eq(math_of("$5 and $10\n"), para("$5 and $10"))
+    assert_eq(math_of("It costs $5, or $10.\n"), para("It costs $5, or $10."))
+    assert_eq(math_of("$x$5\n"), para("$x$5"))
+    assert_eq(math_of("$x$y\n"), para("$x$y"))
+    assert_eq(math_of("$x $ y\n"), para("$x $ y"))
+    assert_eq(math_of("$5 and $ 6\n"), para("$5 and $ 6"))
+    assert_eq(math_of("$$a$$5\n"), para("$$a$$5"))
+
+@test("an opening dollar is followed by no space and preceded by no letter, digit or non-ASCII byte")
+openers()
+    assert_eq(math_of("$ x$\n"), para("$ x$"))
+    assert_eq(math_of("a$x$b\n"), para("a$x$b"))
+    assert_eq(math_of("x$a$\n"), para("x$a$"))
+    assert_eq(math_of("1$x$\n"), para("1$x$"))
+    assert_eq(math_of("é$x$\n"), para("é$x$"))
+    assert_eq(math_of("$$ a$$\n"), para("$$ a$$"))
+
+@test("punctuation may touch either dollar, and a failed closer is tried again as an opener")
+punctuation_and_retries()
+    assert_eq(math_of("($x$)\n"), para("(" + im("x") + ")"))
+    assert_eq(math_of("$x$, $y$; $z$! $w$?\n"), para(im("x") + ", " + im("y") + "; " + im("z") + "! " + im("w") + "?"))
+    assert_eq(math_of("a $x$, b\n"), para("a " + im("x") + ", b"))
+    assert_eq(math_of("$a $b$\n"), para("$a " + im("b")))
+    assert_eq(math_of("$a$ $b$\n"), para(im("a") + " " + im("b")))
+    assert_eq(math_of("$1$\n"), para(im("1")))
+
+@test("math is literal: no emphasis, entity or escape is read inside it, and the TeX is escaped for HTML")
+literal_content()
+    assert_eq(math_of("$a_1$ and $b_2$\n"), para(im("a_1") + " and " + im("b_2")))
+    assert_eq(math_of("$*a*$\n"), para(im("*a*")))
+    assert_eq(math_of("$a\\_b$\n"), para(im("a\\_b")))
+    assert_eq(math_of("$&amp;$\n"), para(im("&amp;amp;")))
+    assert_eq(math_of("$a<b$\n"), para(im("a&lt;b")))
+    assert_eq(math_of("$x\\$y$\n"), para(im("x\\$y")))
+    assert_eq(math_of("$\\\\$ z\n"), para(im("\\\\") + " z"))
+
+@test("a backslash-escaped dollar opens nothing")
+escaped_dollars()
+    assert_eq(math_of("\\$x$\n"), para("$x$"))
+    assert_eq(math_of("\\$x\\$\n"), para("$x$"))
+    assert_eq(math_of("a \\$x$ b\n"), para("a $x$ b"))
+
+@test("no math inside a code span, raw HTML or an autolink, and none that would cut one in half")
+markdown_first()
+    assert_eq(math_of("`$x$`\n"), para("<code>$x$</code>"))
+    assert_eq(math_of("$a `b$`\n"), para("$a <code>b$</code>"))
+    assert_eq(math_of("$`a`b$\n"), para("$<code>a</code>b$"))
+    assert_eq(math_of("$<b>$\n"), para("$<b>$"))
+    assert_eq(math_of("$a <b> c$\n"), para("$a <b> c$"))
+    assert_eq(math_of("<span title=\"$a$\">$b$</span>\n"), para("<span title=\"$a$\">" + im("b") + "</span>"))
+    assert_eq(math_of("<http://a.b/$x$>\n"), para("<a href=\"http://a.b/$x$\">http://a.b/$x$</a>"))
+    assert_eq(math_of("$<http://a.b>$\n"), para("$<a href=\"http://a.b\">http://a.b</a>$"))
+
+@test("math inside emphasis, strong emphasis, links and an image's description")
+inside_other_inlines()
+    assert_eq(math_of("*$a*b$*\n"), para("<em>" + im("a*b") + "</em>"))
+    assert_eq(math_of("**$e$**\n"), para("<strong>" + im("e") + "</strong>"))
+    assert_eq(math_of("*x $f$ y*\n"), para("<em>x " + im("f") + " y</em>"))
+    assert_eq(math_of("_$x$_\n"), para("<em>" + im("x") + "</em>"))
+    assert_eq(math_of("[$x$](u)\n"), para("<a href=\"u\">" + im("x") + "</a>"))
+    assert_eq(math_of("[link $g$](u)\n"), para("<a href=\"u\">link " + im("g") + "</a>"))
+    assert_eq(math_of("![$x$](i)\n"), para("<img src=\"i\" alt=\"x\" />"))
+    assert_eq(math_of("# $E=mc^2$\n"), "<h1>" + im("E=mc^2") + "</h1>\n")
+
+@test("math in a table cell, and a pipe between two dollars splits the cell as on GitHub")
+in_tables()
+    val got = to_html(parse_with("| a | b |\n|---|---|\n| $x$ | $y|z$ |\n", gfm()))
+
+    assert_eq(got, "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>" + im("x") + "</td>\n<td>$y</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("$$…$$ inside a line is display math in running text")
+display_in_a_line()
+    assert_eq(math_of("$$a$$ text\n"), para(dm("a") + " text"))
+    assert_eq(math_of("text $$a$$\n"), para("text " + dm("a")))
+    assert_eq(math_of("$a$ and $$b$$ and $`c`$\n"), para(im("a") + " and " + dm("b") + " and " + im("c")))
+    assert_eq(math_of("x $$a $$ y\n"), para("x " + dm("a ") + " y"))
+
+@test("a paragraph of nothing but $$…$$ is a display block, and only it may run over several lines")
+display_blocks()
+    assert_eq(math_of("$$a$$\n"), block("a"))
+    assert_eq(math_of("$$a $$\n"), block("a "))
+    assert_eq(math_of("$$a\nb$$\n"), block("a\nb"))
+    assert_eq(math_of("$$\nz_1\n$$\n"), block("\nz_1\n"))
+    assert_eq(math_of("> $$\n> a\n> $$\n"), "<blockquote>\n" + block("\na\n") + "</blockquote>\n")
+    assert_eq(math_of("$$\na\n$$ tail\n"), para("$$\na\n$$ tail"))
+    assert_eq(math_of("lead\n$$\na\n$$\n"), para("lead\n$$\na\n$$"))
+    assert_eq(math_of("- $$a$$\n"), "<ul>\n<li>\n" + block("a") + "</li>\n</ul>\n")
+
+@test("an unclosed dollar, a run of three or more, and an empty pair are text; inline math keeps to one line")
+unclosed_and_runs()
+    assert_eq(math_of("$x\n"), para("$x"))
+    assert_eq(math_of("$$x\n"), para("$$x"))
+    assert_eq(math_of("$$$x$$$\n"), para("$$$x$$$"))
+    assert_eq(math_of("$$$$\n"), para("$$$$"))
+    assert_eq(math_of("$$\n"), para("$$"))
+    assert_eq(math_of("$$ $$\n"), para("$$ $$"))
+    assert_eq(math_of("$a$$\n"), para("$a$$"))
+    assert_eq(math_of("$$a$\n"), para("$$a$"))
+    assert_eq(math_of("$a\nb$\n"), para("$a\nb$"))
+    assert_eq(math_of("$a\n$\n"), para("$a\n$"))
+    assert_eq(math_of("$``$\n"), para("$``$"))
+    assert_eq(math_of("$`a $`\n"), para("$<code>a $</code>"))
+    assert_eq(math_of("$`a`$b\n"), para("$<code>a</code>$b"))
+    assert_eq(math_of("a$`b`$\n"), para("a$<code>b</code>$"))
+
+@test("a math fence: any fence character, extra words after 'math', and the TeX escaped")
+math_fences()
+    assert_eq(math_of("```math extra words\nq < 1\n```\n"), block("q &lt; 1"))
+    assert_eq(math_of("~~~math\na\nb\n~~~\n"), block("a\nb"))
+    assert_eq(math_of("```math\n```\n"), block(""))
+    assert_eq(math_of("```mathematics\nx\n```\n"), "<pre><code class=\"language-mathematics\">x\n</code></pre>\n")
+    assert_eq(math_of("    $x$\n"), "<pre><code>$x$\n</code></pre>\n")
+    assert_eq(math_of("```\n$x$\n```\n"), "<pre><code>$x$\n</code></pre>\n")
+
+@test("mermaid fences are diagrams for mermaid.js: any fence character, extra words, the source escaped")
+mermaid_fences()
+    val only_mermaid = (s: string) -> to_html(parse_with(s, only(mermaid())))
+
+    assert_eq(only_mermaid("```mermaid\ngraph TD; A-->B\n```\n"), "<pre class=\"mermaid\">graph TD; A--&gt;B\n</pre>\n")
+    assert_eq(only_mermaid("~~~mermaid theme=dark\na<b\n~~~\n"), "<pre class=\"mermaid\">a&lt;b\n</pre>\n")
+    assert_eq(only_mermaid("- ```mermaid\n  a\n  ```\n"), "<ul>\n<li>\n<pre class=\"mermaid\">a\n</pre>\n</li>\n</ul>\n")
+    assert_eq(only_mermaid("```mermaidx\na\n```\n"), "<pre><code class=\"language-mermaidx\">a\n</code></pre>\n")
+    assert_eq(only_mermaid("$x$\n"), para("$x$"))
+
+@test("math and mermaid fences are never shown to the highlighter; other fences still are")
+precedence_over_highlight()
+    val hl: &Fn(string, string) -> Option[string] = (info, code) -> Some("<div class=\"hl\">" + info + "</div>")
+    val opts = HtmlOptions(true, "\n", Some(hl), false, Standard, Standard)
+    val src = "```math\nx\n```\n\n```mermaid\na\n```\n\n```py\ny\n```\n"
+
+    assert_eq(to_html_with(parse_with(src, gfm()), opts), block("x") + "<pre class=\"mermaid\">a\n</pre>\n<div class=\"hl\">py</div>\n")
+    assert_eq(to_html_with(parse(src), opts), "<div class=\"hl\">math</div>\n<div class=\"hl\">mermaid</div>\n<div class=\"hl\">py</div>\n")
+
+@test("both are off unless a parse asks for them, and the GFM preset asks for both")
+off_by_default()
+    val src = "$x$ and $$y$$\n\n```math\nz\n```\n\n```mermaid\nw\n```\n"
+
+    assert_eq(to_html(parse(src)), "<p>$x$ and $$y$$</p>\n<pre><code class=\"language-math\">z\n</code></pre>\n<pre><code class=\"language-mermaid\">w\n</code></pre>\n")
+    assert_eq(to_html_with(parse_with(src, gfm()), gfm_html()), para(im("x") + " and " + dm("y")) + block("z") + "<pre class=\"mermaid\">w\n</pre>\n")
+    assert(commonmark_html().math == Standard && gfm_html().mermaid == Standard)
+
+@test("the GitHub markup is what github.com writes, less its data-run-id")
+github_markup()
+    assert_eq(gh_math("a $x^2$ b $$y$$ c $5 and $10 $`a*b`$ d\n"), para("a " + gh_inline("$x^2$") + " b " + gh_inline("$$y$$") + " c $5 and $10 " + gh_inline("$a*b$") + " d"))
+    assert_eq(gh_math("$$\nz_1\n$$\n"), para(gh_display("$$\nz_1\n$$")))
+    assert_eq(gh_math("$$a$$\n"), para(gh_display("$$a$$")))
+    assert_eq(gh_math("> $$\n> a\n> $$\n"), "<blockquote>\n" + para(gh_display("$$\na\n$$")) + "</blockquote>\n")
+    assert_eq(gh_math("```math extra words\nq < 1\n```\n"), gh_display("$$q &lt; 1$$") + "\n")
+    assert_eq(gh_math("- $$a$$\n"), "<ul>\n<li>\n" + gh_display("$$a$$") + "\n</li>\n</ul>\n")
+    assert_eq(gh_math("```mermaid\na<b\n```\n"), "<pre lang=\"mermaid\"><code>a&lt;b\n</code></pre>\n")
+
+@test("a math node is an Ext node holding its TeX, with the span of its delimiters")
+the_nodes()
+    val d = parse_with("a $x$ $$y$$\n", only(math()))
+    val p = d.first_child(d.root()).unwrap()
+    val first = d.next_sibling(d.first_child(p).unwrap()).unwrap()
+    val x = ext_of(d, first)
+
+    assert_eq(x.ext, "math")
+    assert_eq(x.tag, MATH_INLINE)
+    assert_eq(x.data, "x")
+    assert(!x.holds)
+    assert_eq(d.span(first), Span(2, 5))
+
+    val second = d.next_sibling(d.next_sibling(first).unwrap()).unwrap()
+
+    assert_eq(ext_of(d, second).tag, MATH_DISPLAY)
+    assert_eq(ext_of(d, second).data, "y")
+    assert_eq(d.span(second), Span(6, 11))
+
+    val b = parse_with("$$a$$\n\n```math\nb\n```\n", only(math()))
+    val one = b.first_child(b.root()).unwrap()
+
+    assert_eq(ext_of(b, one).tag, MATH_PARAGRAPH)
+    assert_eq(ext_of(b, one).data, "a")
+    assert(b.first_child(one).is_none())
+    assert_eq(ext_of(b, b.next_sibling(one).unwrap()).tag, MATH_BLOCK)
+    assert_eq(ext_of(b, b.next_sibling(one).unwrap()).data, "b")

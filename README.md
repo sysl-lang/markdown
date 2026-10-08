@@ -6,7 +6,7 @@ CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is
 CommonMark spec's 652 examples renders exactly, with the GitHub extensions off and on; every
 extension example of GitHub's spec renders exactly; hostile inputs are read in linear time; and
 differential checks against cmark and cmark-gfm agree on their whole corpora but for the cases
-listed below. Footnotes, alerts, heading ids, emoji, math and mermaid are still to come.
+listed below. Footnotes and alerts are still to come.
 
 ```hocon
 dependencies {
@@ -34,13 +34,15 @@ render_html(d: Doc, opts: HtmlOptions, out: *Writer)
 plain_text(d: Doc, n: NodeId) -> string                     // the text under a node, for slugs, alt text, search
 
 struct ParseOptions                                         // commonmark(): no extensions
-    exts: Registry                                          // gfm(): tables, strikethrough, autolinks, task lists
+    exts: Registry                                          // gfm(): tables, strikethrough, autolinks, task lists, math, mermaid
 
-struct HtmlOptions                                          // commonmark_html(): true, "\n", None, false
-    raw_html: bool                                          // gfm_html(): true, "\n", None, true
+struct HtmlOptions                                          // commonmark_html(): true, "\n", None, false, Standard, Standard
+    raw_html: bool                                          // gfm_html(): true, "\n", None, true, Standard, Standard
     softbreak: string
     highlight: Option[&Fn(string, string) -> Option[string]]   // (info, code) -> the block's markup
     tagfilter: bool                                         // GitHub's filter on raw HTML
+    math: ClientMarkup                                      // Standard (KaTeX/MathJax auto-render) or GitHub
+    mermaid: ClientMarkup                                   // Standard (mermaid.js) or GitHub
 
 struct Region                                               // a run of program lines, for weave
     span: Span
@@ -71,13 +73,13 @@ import sh.sysl.markdown.*
 val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
 
 print(to_html(d))                                       // <h1>Hello, <em>world</em></h1> <p>See <b>this</b>.</p>
-print(to_html_with(d, HtmlOptions(false, "\n", None, false)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
+print(to_html_with(d, HtmlOptions(false, "\n", None, false, Standard, Standard)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
 print(plain_text(d, d.root()))                          // Hello, world / See this.
 
 val code: &Fn(string, string) -> Option[string] = (info, text) ->
     if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
 
-val opts = HtmlOptions(true, "\n", Some(code), false)
+val opts = HtmlOptions(true, "\n", Some(code), false, Standard, Standard)
 
 print(to_html_with(parse("```sysl\na < b\n```\n"), opts))   // <pre class="sysl">a &lt; b</pre>
 ```
@@ -90,12 +92,12 @@ val d = parse_with("| a | b |\n|---|--:|\n| ~~c~~ | www.d.com |\n", gfm())
 print(to_html_with(d, gfm_html()))
 ```
 
-`gfm()` turns on the six extensions GitHub renders with, and `gfm_html()` its tag filter. Each
-extension is an ordinary `Extension`, so a parse wanting some of them builds its own `Registry`:
-`footnotes()` (first, as cmark-gfm settles footnotes before the others look at the tree),
-`tables()`, `strikethrough()`, `autolinks()`, `task_lists()`, `alerts()`. **Every rule but the
-alerts' is cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not
-write down:
+`gfm()` turns on the five extensions cmark-gfm has, then GitHub's emoji shortcodes, math, mermaid
+and alerts, and `gfm_html()` its tag filter. Each extension is an ordinary `Extension`, so a parse
+wanting some of them builds its own `Registry`: `footnotes()` (first, as cmark-gfm settles footnotes
+before the others look at the tree), `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`,
+`emoji()`, `math()`, `mermaid()`, `alerts()`. **Every rule of the first five is cmark-gfm's**
+(0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not write down:
 
 - **Tables** -- a delimiter row under a paragraph whose last line has as many cells; `\|` is a pipe
   in a cell, code spans included; a short row is filled out and a long one cut; any line that is not
@@ -118,6 +120,9 @@ write down:
   back-references, the second and later references to a footnote taking ids `fnref-label-2`…
   The one place this departs from cmark-gfm is a reference with a line break inside it, whose label
   cmark-gfm measures by column and loses (`tests_gfm_deviations.sysl`).
+- **Emoji** -- `:smile:` is 😄, for every alias of GitHub's gemoji table; anything else between
+  colons, GitHub's own pictures such as `:octocat:` included, stays text. Read wherever text is and
+  never in code or a destination; `\:` before one keeps it text. `emoji_for("smile")` looks one up.
 - **Alerts** -- a block quote directly in the document whose first line is `[!NOTE]`, `[!TIP]`,
   `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]` (any case, nothing else on the line) and which holds
   something more. cmark-gfm does not read these -- GitHub adds them afterwards -- so the rules are
@@ -133,6 +138,47 @@ write down:
   <p>body</p>
   </div>
   ```
+
+**Heading ids** are an extension of their own, `heading_ids()`, and not in `gfm()`: GitHub's spec
+shows headings without ids, and the preset renders what the spec shows.
+
+```sysl
+val r = registry()
+
+r.add(heading_ids())
+print(to_html(parse_with("# Hello, World!\n# Hello, World!\n", ParseOptions(r))))
+// <h1 id="hello-world">Hello, World!</h1>
+// <h1 id="hello-world-1">Hello, World!</h1>
+```
+
+The slug is GitHub's (`github_slug`, github-slugger's: lowercased, punctuation and symbols dropped,
+spaces to `-`, Unicode letters kept), taken from the heading's text, a shortcode counted as written
+(`## :rocket: Go` is `rocket-go`, as on GitHub); a slug already used is numbered `-1`, `-2` in
+document order. Each heading is then `Heading(level, Some(id))` in the tree, which is what a table of
+contents reads. `heading_ids_with(HeadingIdOptions(slug, prefix, anchors))` plugs in a slug of one's
+own, writes a prefix before every id (GitHub's pages use `user-content-`), and with `anchors` gives
+each heading GitHub's `<a id="…" class="anchor" aria-hidden="true" href="#…">` link to itself, which
+then carries the id in the heading's place.
+
+**Math and mermaid** have no spec and no cmark-gfm extension; their rules are github.com's, read off
+its own renderer (`gh api markdown`, gfm mode) and written out at the top of `gfm_math.sysl`:
+
+- **Math** -- `$…$` and `` $`…`$ `` inline, `$$…$$` for display, and a fence whose info string
+  begins `math`. An opening `$` is not followed by a space and not preceded by a letter or digit; its
+  closing `$` is the next unescaped one, not preceded by a space and not followed by a letter or
+  digit -- so `$5 and $10` is text. A paragraph of nothing but `$$…$$` is a display block and may
+  run over several lines. The TeX is literal: no emphasis or escape is read inside it (`\$` stays
+  `\$`, TeX's dollar), and a code span, raw HTML or autolink is never cut in half by a `$`.
+- **Mermaid** -- a fence whose info string begins `mermaid` is a diagram.
+- **Both take precedence over `highlight`**: the fences become `Ext` nodes when the parse finishes,
+  so the renderer never shows them to the hook. With the extensions off they are ordinary code
+  blocks, and the hook is asked.
+- **The markup is the rendering's** -- `HtmlOptions.math` and `.mermaid`, each a `ClientMarkup`.
+  `Standard` (both presets) writes `<span class="math math-inline">\(x\)</span>`,
+  `<div class="math math-display">\[x\]</div>` (`<span>` for `$$…$$` inside a line) and
+  `<pre class="mermaid">…</pre>`: what KaTeX's or MathJax's auto-render and mermaid.js find with
+  their defaults. `GitHub` writes github.com's `<math-renderer class="js-inline-math">$x$</math-renderer>`
+  and `js-display-math` elements, and `<pre lang="mermaid"><code>…</code></pre>`.
 
 ## Writing an extension
 
@@ -254,7 +300,8 @@ examples are 0.29's and are not taken; instead `tests_gfm_commonmark.sysl` reads
 CommonMark 0.31.2's with every extension on. Eleven render differently, as cmark-gfm's own runner
 lists such examples -- six HTML blocks the tag filter rewrites and five autolink examples whose text
 an extended autolink now links -- and each asserts what cmark-gfm renders with the same extensions.
-None of the 652 changes with footnotes and alerts on.
+Math and mermaid change none of the 652: no example's `$` meets the delimiter rules, and none has a
+`math` or `mermaid` fence. Footnotes and alerts change none either.
 
 `spec/cmark-gfm-extensions.txt` is cmark-gfm's own extension tests, unmodified, as
 `test/extensions.txt` at the same tag:
@@ -278,6 +325,25 @@ recognises -- into `sh/sysl/markdown/entity_table.sysl` as one sorted string, wh
 bisects. One string literal adds about 0.01 s to a cold build, where a table of pairs would add
 seconds. The generated file is committed.
 
+`spec/gemoji.json` is `db/emoji.json` of [github/gemoji](https://github.com/github/gemoji), unmodified,
+at commit `fadaeaf1f1a9be82b321316a6c5502e43138b2f6`; `spec/github-slugger-regex.js` and
+`spec/github-slugger-fixtures.json` are `regex.js` and `test/fixtures.json` of
+[Flet/github-slugger](https://github.com/Flet/github-slugger) 2.0.0, unmodified, at commit
+`3461c4350868329c8530904d170358bca1d31448`:
+
+```
+sha256  b174ae2aeb321b52f64adb9ff412f966a7f338839d780784dd15dcad702c2dd6  gemoji.json
+sha256  3bcbb3836a4e76f0f343c34d223ddd9eac83cc73a4e2c7a1118ef0829bc9129b  github-slugger-regex.js
+sha256  26e59aec9fb3adee7a56445049ef2d537126b28581802903b529d2556778b248  github-slugger-fixtures.json
+```
+
+`tools/gen_github_tables.py` writes the 1,913 aliases into `emoji_table.sysl` in the entity table's
+layout (34,775 bytes packed), the 977,500 code points a slug drops into `slug_table.sysl` as 735
+ranges -- reading the regex as JavaScript does, surrogate pairs and all, and checking the set against
+node where node is installed -- and the 78 fixtures into `tests_slug_fixtures.sysl`, run once through
+one slugger and once as headings of one document. The two tables add about 0.04 s to a cold build of a
+program using `gfm()`. The generated files are committed.
+
 ## Testing
 
 ```
@@ -291,13 +357,19 @@ and a tenth of it, with the HTML checked exactly at both and the time checked ag
 growth: a ratio under 20 where linear reading gives about 10 and quadratic about 100.
 `tests_gfm_scaling.sysl` does the same for the extensions' own hostile inputs: tables of 50,000
 columns and of 50,000 rows, a cell of escaped pipes, a paragraph of mismatched delimiter rows, runs of
-`~`, and text an autolink almost starts in at every byte. `tests_footnote_scaling.sysl` does it for
+`~`, and text an autolink almost starts in at every byte. `tests_gfm_math_scaling.sysl` adds math's:
+runs of 50,000 `$`, and openers that never close or whose closers each fail a different rule.
+`tests_footnote_scaling.sysl` does it for
 footnotes and alerts: 20,000 references to one footnote, 20,000 footnotes, 20,000 unreferenced
 definitions, 20,000 definitions nested one inside the next, undefined references and unclosed `[^`,
 20,000 alerts and a 20,000-byte almost-marker.
 
 `tests_footnotes.sysl` holds 36 footnote cases, each asserting the HTML cmark-gfm writes for it, and
 `tests_alerts.sysl` 34 alert cases asserting the HTML GitHub writes (less the icon).
+
+`tests_gfm_math.sysl` holds math's and mermaid's rules as exact HTML. Neither has a spec or a
+cmark-gfm extension, so the oracle is github.com itself: the delimiter cases its header names were
+rendered by `gh api markdown -f mode=gfm`, and the `GitHub` markup is asserted against what it wrote.
 
 `tests_gfm_edges.sysl` holds 187 corner cases for the extensions, each asserting the HTML cmark-gfm
 writes for it -- the inputs `tools/differential.sh --gfm` was run over while they were written.
@@ -314,13 +386,13 @@ regression examples, the README of every repository under `~/dev/sysl-lang` and 
 `~/dev/sysl-lang/sysl-census-34/docs/content`; it needs `cmark` on the `PATH` (`brew install
 cmark`) and `python3`. `SYSL` and `CMARK` name other binaries.
 
-**`--gfm`** compares GitHub Flavored Markdown: `gfm()` less its alerts (which cmark-gfm does not
-read) and `gfm_html()` here against `cmark-gfm --unsafe -e footnotes -e table -e strikethrough -e
+**`--gfm`** compares GitHub Flavored Markdown: `gfm()` less emoji, math, mermaid and alerts
+(which cmark-gfm does not read) and `gfm_html()` here against `cmark-gfm --unsafe -e footnotes -e table -e strikethrough -e
 autolink -e tasklist -e tagfilter` (`brew install cmark-gfm`; `CMARK_GFM` names another binary),
 with GitHub's spec examples and cmark-gfm's extension tests added to the corpus. cmark-gfm reads
 CommonMark 0.29, so a file on which it and cmark 0.31.2 disagree with every extension off is marked
 as such: there the difference is the CommonMark version's, and this package renders as cmark 0.31.2
-does. Over the whole corpus -- 1,590 files -- every difference is one of those.
+does. Over the whole corpus -- 1,591 files -- every difference is one of those.
 
 `spec/cmark-regression.txt` is cmark 0.31.2's `test/regression.txt`, unmodified:
 
