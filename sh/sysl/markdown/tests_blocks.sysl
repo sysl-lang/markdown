@@ -215,3 +215,141 @@ crlf_span()
     assert_eq(sp(d, soft), "1..3")
     assert_eq(sp(d, next(d, soft)), "3..4")
     assert_eq(sp(d, p), "0..4")
+
+// ----- code blocks -----
+
+@test("an indented code block takes four columns of indentation, a tab counting to the next stop")
+indented_code_tabs()
+    assert_eq(to_html(parse("\tfoo\tbar\n")), "<pre><code>foo\tbar\n</code></pre>\n")
+    assert_eq(to_html(parse("  \tfoo\n")), "<pre><code>foo\n</code></pre>\n")
+    assert_eq(to_html(parse("    a\n\t\tb\n")), "<pre><code>a\n\tb\n</code></pre>\n")
+
+@test("an indented code block keeps blank lines inside it and drops those at its end")
+indented_code_blank_lines()
+    assert_eq(to_html(parse("    a\n\n      \n    b\n\n  \n")), "<pre><code>a\n\n  \nb\n</code></pre>\n")
+    assert_eq(to_html(parse("    a  \n\nb")), "<pre><code>a  \n</code></pre>\n<p>b</p>\n")
+
+@test("indentation does not open a code block while a paragraph is open")
+indented_code_no_interrupt()
+    assert_eq(to_html(parse("a\n    b\n")), "<p>a\nb</p>\n")
+
+@test("a fence of the other character, or a shorter one, is content of the open fence")
+fence_inside_fence()
+    assert_eq(to_html(parse("~~~\n```\nx\n```\n~~~\n")), "<pre><code>```\nx\n```\n</code></pre>\n")
+    assert_eq(to_html(parse("````\n```\n````\n")), "<pre><code>```\n</code></pre>\n")
+    assert_eq(to_html(parse("```\na\n``` x\n```\n")), "<pre><code>a\n``` x\n</code></pre>\n")
+
+@test("CRLF and CR inside code end its lines as LF does")
+code_crlf()
+    assert_eq(to_html(parse("```\r\na\r\nb\r\n```\r\nc")), "<pre><code>a\nb\n</code></pre>\n<p>c</p>\n")
+    assert_eq(to_html(parse("    a\r\n    b\r")), "<pre><code>a\nb\n</code></pre>\n")
+
+@test("an unclosed fence runs to the end of the document, blank lines and all")
+fence_unclosed()
+    assert_eq(to_html(parse("```\na\n\n")), "<pre><code>a\n\n</code></pre>\n")
+    assert_eq(to_html(parse("~~~ info\n")), "<pre><code class=\"language-info\"></code></pre>\n")
+
+@test("a fence's content loses as much indentation as the fence had, and no more")
+fence_indentation()
+    assert_eq(to_html(parse("  ```\n    a\n b\nc\n  ```\n")), "<pre><code>  a\nb\nc\n</code></pre>\n")
+
+@test("a long unclosed fence, and one whose lines are all too short to close it, read in one pass")
+fence_long_unclosed()
+    var a = str_builder()
+    var t = str_builder()
+    var want = str_builder()
+
+    a.push("```\n")
+    t.push("~~~~\n")
+    want.push("<pre><code>")
+
+    for _ in 0..<10000
+        a.push("a\n")
+        t.push("~~~\n")
+        want.push("a\n")
+
+    assert_eq(to_html(parse(a.finish())), want.finish() + "</code></pre>\n")
+
+    val d = parse(t.finish())
+    val code = first(d, d.root())
+
+    d.kind(code) match
+        CodeBlock(_, lit, _) -> assert_eq(lit.len, 40000)
+        _ -> assert(false)
+end fence_long_unclosed
+
+// ----- HTML blocks -----
+
+@test("each start condition is told apart, without regard to case where the spec says so")
+html_start_conditions()
+    assert_eq(html_block_start("<PRE class=x>".bytes, 0, false), 1)
+    assert_eq(html_block_start("<textarea".bytes, 0, false), 1)
+    assert_eq(html_block_start("<!-- x".bytes, 0, false), 2)
+    assert_eq(html_block_start("<?php".bytes, 0, false), 3)
+    assert_eq(html_block_start("<!DOCTYPE html>".bytes, 0, false), 4)
+    assert_eq(html_block_start("<![CDATA[".bytes, 0, false), 5)
+    assert_eq(html_block_start("<![cdata[".bytes, 0, false), 0)
+    assert_eq(html_block_start("</DIV>".bytes, 0, false), 6)
+    assert_eq(html_block_start("<hr/>".bytes, 0, true), 6)
+    assert_eq(html_block_start("<a href='x' b c=d>  ".bytes, 0, false), 7)
+    assert_eq(html_block_start("</x-y >".bytes, 0, false), 7)
+    assert_eq(html_block_start("<a href='x'>".bytes, 0, true), 0)
+    assert_eq(html_block_start("<a> b".bytes, 0, false), 0)
+    assert_eq(html_block_start("<pre/>".bytes, 0, false), 0)
+    assert_eq(html_block_start("<a href='x>".bytes, 0, false), 0)
+    assert_eq(html_block_start("<divx>".bytes, 0, false), 7)
+end html_start_conditions
+
+@test("an HTML block of each kind left open runs to the end of the document")
+html_unclosed_each_kind()
+    assert_eq(to_html(parse("<pre>\nx")), "<pre>\nx\n")
+    assert_eq(to_html(parse("<!--\nx")), "<!--\nx\n")
+    assert_eq(to_html(parse("<?\nx")), "<?\nx\n")
+    assert_eq(to_html(parse("<!X\nx")), "<!X\nx\n")
+    assert_eq(to_html(parse("<![CDATA[\nx")), "<![CDATA[\nx\n")
+    assert_eq(to_html(parse("<div>\nx")), "<div>\nx\n")
+    assert_eq(to_html(parse("<x-y>\nx")), "<x-y>\nx\n")
+
+@test("the first five kinds end on the line holding their marker, even the line they began on")
+html_end_markers()
+    assert_eq(to_html(parse("<script>\na\n\nb</SCRIPT> c\nd")), "<script>\na\n\nb</SCRIPT> c\n<p>d</p>\n")
+    assert_eq(to_html(parse("<!-- a -->\nd")), "<!-- a -->\n<p>d</p>\n")
+    assert_eq(to_html(parse("<?a?>\nd")), "<?a?>\n<p>d</p>\n")
+    assert_eq(to_html(parse("<!A>\nd")), "<!A>\n<p>d</p>\n")
+    assert_eq(to_html(parse("<![CDATA[]]>\nd")), "<![CDATA[]]>\n<p>d</p>\n")
+    assert_eq(to_html(parse("<div>\na\n\nd")), "<div>\na\n<p>d</p>\n")
+
+// ----- spans of leaves read verbatim -----
+
+@test("a fenced code block spans its opening fence to its closing fence")
+fenced_code_span()
+    val d = parse("```x\na\n```\nb")
+    val code = first(d, d.root())
+
+    assert_eq(sp(d, code), "0..10")
+    assert_eq(sp(d, next(d, code)), "11..12")
+
+    val e = parse(" ~~~\na\n")
+    assert_eq(sp(e, first(e, e.root())), "1..6")
+
+@test("an indented code block's span stops at its last line that is not blank")
+indented_code_span()
+    val d = parse("    a\n\n      \nb")
+    val code = first(d, d.root())
+
+    assert_eq(sp(d, code), "0..5")
+    assert_eq(sp(d, next(d, code)), "14..15")
+
+@test("an HTML block spans its indentation and every line it took")
+html_block_span()
+    val d = parse("  <div>\nx\n\ny")
+    assert_eq(sp(d, first(d, d.root())), "0..9")
+
+@test("a setext heading spans its text and its underline, and its text only the text")
+setext_span()
+    val d = parse("Foo\nbar  \n===\n")
+    val h = first(d, d.root())
+
+    assert_eq(to_html(d), "<h1>Foo\nbar</h1>\n")
+    assert_eq(sp(d, h), "0..13")
+    assert_eq(sp(d, first(d, h)), "0..3")

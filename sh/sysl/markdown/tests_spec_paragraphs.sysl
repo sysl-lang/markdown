@@ -28,7 +28,7 @@ example_223()
 example_224()
     assert_eq(to_html(parse("   aaa\nbbb\n")), "<p>aaa\nbbb</p>\n")
 
-@test("example 225", ignore: "needs indented code blocks")
+@test("example 225")
 example_225()
     assert_eq(to_html(parse("    aaa\nbbb\n")), "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n")
 

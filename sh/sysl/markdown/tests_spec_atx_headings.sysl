@@ -32,7 +32,7 @@ example_67()
 example_68()
     assert_eq(to_html(parse(" ### foo\n  ## foo\n   # foo\n")), "<h3>foo</h3>\n<h2>foo</h2>\n<h1>foo</h1>\n")
 
-@test("example 69", ignore: "needs indented code blocks")
+@test("example 69")
 example_69()
     assert_eq(to_html(parse("    # foo\n")), "<pre><code># foo\n</code></pre>\n")
 

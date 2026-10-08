@@ -24,7 +24,7 @@ example_46()
 example_47()
     assert_eq(to_html(parse(" ***\n  ***\n   ***\n")), "<hr />\n<hr />\n<hr />\n")
 
-@test("example 48", ignore: "needs indented code blocks")
+@test("example 48")
 example_48()
     assert_eq(to_html(parse("    ***\n")), "<pre><code>***\n</code></pre>\n")
 
@@ -68,7 +68,7 @@ example_57()
 example_58()
     assert_eq(to_html(parse("Foo\n***\nbar\n")), "<p>Foo</p>\n<hr />\n<p>bar</p>\n")
 
-@test("example 59", ignore: "needs setext headings")
+@test("example 59")
 example_59()
     assert_eq(to_html(parse("Foo\n---\nbar\n")), "<h2>Foo</h2>\n<p>bar</p>\n")
 

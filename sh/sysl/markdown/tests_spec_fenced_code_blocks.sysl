@@ -4,118 +4,118 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Fenced code blocks', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 119", ignore: "the parser does not read Fenced code blocks")
+@test("example 119")
 example_119()
     assert_eq(to_html(parse("```\n<\n >\n```\n")), "<pre><code>&lt;\n &gt;\n</code></pre>\n")
 
-@test("example 120", ignore: "the parser does not read Fenced code blocks")
+@test("example 120")
 example_120()
     assert_eq(to_html(parse("~~~\n<\n >\n~~~\n")), "<pre><code>&lt;\n &gt;\n</code></pre>\n")
 
-@test("example 121", ignore: "the parser does not read Fenced code blocks")
+@test("example 121", ignore: "needs code spans")
 example_121()
     assert_eq(to_html(parse("``\nfoo\n``\n")), "<p><code>foo</code></p>\n")
 
-@test("example 122", ignore: "the parser does not read Fenced code blocks")
+@test("example 122")
 example_122()
     assert_eq(to_html(parse("```\naaa\n~~~\n```\n")), "<pre><code>aaa\n~~~\n</code></pre>\n")
 
-@test("example 123", ignore: "the parser does not read Fenced code blocks")
+@test("example 123")
 example_123()
     assert_eq(to_html(parse("~~~\naaa\n```\n~~~\n")), "<pre><code>aaa\n```\n</code></pre>\n")
 
-@test("example 124", ignore: "the parser does not read Fenced code blocks")
+@test("example 124")
 example_124()
     assert_eq(to_html(parse("````\naaa\n```\n``````\n")), "<pre><code>aaa\n```\n</code></pre>\n")
 
-@test("example 125", ignore: "the parser does not read Fenced code blocks")
+@test("example 125")
 example_125()
     assert_eq(to_html(parse("~~~~\naaa\n~~~\n~~~~\n")), "<pre><code>aaa\n~~~\n</code></pre>\n")
 
-@test("example 126", ignore: "the parser does not read Fenced code blocks")
+@test("example 126")
 example_126()
     assert_eq(to_html(parse("```\n")), "<pre><code></code></pre>\n")
 
-@test("example 127", ignore: "the parser does not read Fenced code blocks")
+@test("example 127")
 example_127()
     assert_eq(to_html(parse("`````\n\n```\naaa\n")), "<pre><code>\n```\naaa\n</code></pre>\n")
 
-@test("example 128", ignore: "the parser does not read Fenced code blocks")
+@test("example 128", ignore: "needs block quotes")
 example_128()
     assert_eq(to_html(parse("> ```\n> aaa\n\nbbb\n")), "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n")
 
-@test("example 129", ignore: "the parser does not read Fenced code blocks")
+@test("example 129")
 example_129()
     assert_eq(to_html(parse("```\n\n  \n```\n")), "<pre><code>\n  \n</code></pre>\n")
 
-@test("example 130", ignore: "the parser does not read Fenced code blocks")
+@test("example 130")
 example_130()
     assert_eq(to_html(parse("```\n```\n")), "<pre><code></code></pre>\n")
 
-@test("example 131", ignore: "the parser does not read Fenced code blocks")
+@test("example 131")
 example_131()
     assert_eq(to_html(parse(" ```\n aaa\naaa\n```\n")), "<pre><code>aaa\naaa\n</code></pre>\n")
 
-@test("example 132", ignore: "the parser does not read Fenced code blocks")
+@test("example 132")
 example_132()
     assert_eq(to_html(parse("  ```\naaa\n  aaa\naaa\n  ```\n")), "<pre><code>aaa\naaa\naaa\n</code></pre>\n")
 
-@test("example 133", ignore: "the parser does not read Fenced code blocks")
+@test("example 133")
 example_133()
     assert_eq(to_html(parse("   ```\n   aaa\n    aaa\n  aaa\n   ```\n")), "<pre><code>aaa\n aaa\naaa\n</code></pre>\n")
 
-@test("example 134", ignore: "the parser does not read Fenced code blocks")
+@test("example 134")
 example_134()
     assert_eq(to_html(parse("    ```\n    aaa\n    ```\n")), "<pre><code>```\naaa\n```\n</code></pre>\n")
 
-@test("example 135", ignore: "the parser does not read Fenced code blocks")
+@test("example 135")
 example_135()
     assert_eq(to_html(parse("```\naaa\n  ```\n")), "<pre><code>aaa\n</code></pre>\n")
 
-@test("example 136", ignore: "the parser does not read Fenced code blocks")
+@test("example 136")
 example_136()
     assert_eq(to_html(parse("   ```\naaa\n  ```\n")), "<pre><code>aaa\n</code></pre>\n")
 
-@test("example 137", ignore: "the parser does not read Fenced code blocks")
+@test("example 137")
 example_137()
     assert_eq(to_html(parse("```\naaa\n    ```\n")), "<pre><code>aaa\n    ```\n</code></pre>\n")
 
-@test("example 138", ignore: "the parser does not read Fenced code blocks")
+@test("example 138", ignore: "needs code spans")
 example_138()
     assert_eq(to_html(parse("``` ```\naaa\n")), "<p><code> </code>\naaa</p>\n")
 
-@test("example 139", ignore: "the parser does not read Fenced code blocks")
+@test("example 139")
 example_139()
     assert_eq(to_html(parse("~~~~~~\naaa\n~~~ ~~\n")), "<pre><code>aaa\n~~~ ~~\n</code></pre>\n")
 
-@test("example 140", ignore: "the parser does not read Fenced code blocks")
+@test("example 140")
 example_140()
     assert_eq(to_html(parse("foo\n```\nbar\n```\nbaz\n")), "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n")
 
-@test("example 141", ignore: "the parser does not read Fenced code blocks")
+@test("example 141")
 example_141()
     assert_eq(to_html(parse("foo\n---\n~~~\nbar\n~~~\n# baz\n")), "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n")
 
-@test("example 142", ignore: "the parser does not read Fenced code blocks")
+@test("example 142")
 example_142()
     assert_eq(to_html(parse("```ruby\ndef foo(x)\n  return 3\nend\n```\n")), "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n")
 
-@test("example 143", ignore: "the parser does not read Fenced code blocks")
+@test("example 143")
 example_143()
     assert_eq(to_html(parse("~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~\n")), "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n")
 
-@test("example 144", ignore: "the parser does not read Fenced code blocks")
+@test("example 144")
 example_144()
     assert_eq(to_html(parse("````;\n````\n")), "<pre><code class=\"language-;\"></code></pre>\n")
 
-@test("example 145", ignore: "the parser does not read Fenced code blocks")
+@test("example 145", ignore: "needs code spans")
 example_145()
     assert_eq(to_html(parse("``` aa ```\nfoo\n")), "<p><code>aa</code>\nfoo</p>\n")
 
-@test("example 146", ignore: "the parser does not read Fenced code blocks")
+@test("example 146")
 example_146()
     assert_eq(to_html(parse("~~~ aa ``` ~~~\nfoo\n~~~\n")), "<pre><code class=\"language-aa\">foo\n</code></pre>\n")
 
-@test("example 147", ignore: "the parser does not read Fenced code blocks")
+@test("example 147")
 example_147()
     assert_eq(to_html(parse("```\n``` aaa\n```\n")), "<pre><code>``` aaa\n</code></pre>\n")

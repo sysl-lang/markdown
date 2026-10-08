@@ -4,110 +4,110 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Setext headings', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 80", ignore: "the parser does not read Setext headings")
+@test("example 80", ignore: "needs emphasis")
 example_80()
     assert_eq(to_html(parse("Foo *bar*\n=========\n\nFoo *bar*\n---------\n")), "<h1>Foo <em>bar</em></h1>\n<h2>Foo <em>bar</em></h2>\n")
 
-@test("example 81", ignore: "the parser does not read Setext headings")
+@test("example 81", ignore: "needs emphasis")
 example_81()
     assert_eq(to_html(parse("Foo *bar\nbaz*\n====\n")), "<h1>Foo <em>bar\nbaz</em></h1>\n")
 
-@test("example 82", ignore: "the parser does not read Setext headings")
+@test("example 82", ignore: "needs emphasis")
 example_82()
     assert_eq(to_html(parse("  Foo *bar\nbaz*\t\n====\n")), "<h1>Foo <em>bar\nbaz</em></h1>\n")
 
-@test("example 83", ignore: "the parser does not read Setext headings")
+@test("example 83")
 example_83()
     assert_eq(to_html(parse("Foo\n-------------------------\n\nFoo\n=\n")), "<h2>Foo</h2>\n<h1>Foo</h1>\n")
 
-@test("example 84", ignore: "the parser does not read Setext headings")
+@test("example 84")
 example_84()
     assert_eq(to_html(parse("   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===\n")), "<h2>Foo</h2>\n<h2>Foo</h2>\n<h1>Foo</h1>\n")
 
-@test("example 85", ignore: "the parser does not read Setext headings")
+@test("example 85")
 example_85()
     assert_eq(to_html(parse("    Foo\n    ---\n\n    Foo\n---\n")), "<pre><code>Foo\n---\n\nFoo\n</code></pre>\n<hr />\n")
 
-@test("example 86", ignore: "the parser does not read Setext headings")
+@test("example 86")
 example_86()
     assert_eq(to_html(parse("Foo\n   ----      \n")), "<h2>Foo</h2>\n")
 
-@test("example 87", ignore: "the parser does not read Setext headings")
+@test("example 87")
 example_87()
     assert_eq(to_html(parse("Foo\n    ---\n")), "<p>Foo\n---</p>\n")
 
-@test("example 88", ignore: "the parser does not read Setext headings")
+@test("example 88")
 example_88()
     assert_eq(to_html(parse("Foo\n= =\n\nFoo\n--- -\n")), "<p>Foo\n= =</p>\n<p>Foo</p>\n<hr />\n")
 
-@test("example 89", ignore: "the parser does not read Setext headings")
+@test("example 89")
 example_89()
     assert_eq(to_html(parse("Foo  \n-----\n")), "<h2>Foo</h2>\n")
 
-@test("example 90", ignore: "the parser does not read Setext headings")
+@test("example 90")
 example_90()
     assert_eq(to_html(parse("Foo\\\n----\n")), "<h2>Foo\\</h2>\n")
 
-@test("example 91", ignore: "the parser does not read Setext headings")
+@test("example 91")
 example_91()
     assert_eq(to_html(parse("`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n")), "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n")
 
-@test("example 92", ignore: "the parser does not read Setext headings")
+@test("example 92", ignore: "needs block quotes")
 example_92()
     assert_eq(to_html(parse("> Foo\n---\n")), "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr />\n")
 
-@test("example 93", ignore: "the parser does not read Setext headings")
+@test("example 93", ignore: "needs block quotes")
 example_93()
     assert_eq(to_html(parse("> foo\nbar\n===\n")), "<blockquote>\n<p>foo\nbar\n===</p>\n</blockquote>\n")
 
-@test("example 94", ignore: "the parser does not read Setext headings")
+@test("example 94", ignore: "needs list items")
 example_94()
     assert_eq(to_html(parse("- Foo\n---\n")), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n")
 
-@test("example 95", ignore: "the parser does not read Setext headings")
+@test("example 95")
 example_95()
     assert_eq(to_html(parse("Foo\nBar\n---\n")), "<h2>Foo\nBar</h2>\n")
 
-@test("example 96", ignore: "the parser does not read Setext headings")
+@test("example 96")
 example_96()
     assert_eq(to_html(parse("---\nFoo\n---\nBar\n---\nBaz\n")), "<hr />\n<h2>Foo</h2>\n<h2>Bar</h2>\n<p>Baz</p>\n")
 
-@test("example 97", ignore: "the parser does not read Setext headings")
+@test("example 97")
 example_97()
     assert_eq(to_html(parse("\n====\n")), "<p>====</p>\n")
 
-@test("example 98", ignore: "the parser does not read Setext headings")
+@test("example 98")
 example_98()
     assert_eq(to_html(parse("---\n---\n")), "<hr />\n<hr />\n")
 
-@test("example 99", ignore: "the parser does not read Setext headings")
+@test("example 99", ignore: "needs list items")
 example_99()
     assert_eq(to_html(parse("- foo\n-----\n")), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n")
 
-@test("example 100", ignore: "the parser does not read Setext headings")
+@test("example 100")
 example_100()
     assert_eq(to_html(parse("    foo\n---\n")), "<pre><code>foo\n</code></pre>\n<hr />\n")
 
-@test("example 101", ignore: "the parser does not read Setext headings")
+@test("example 101", ignore: "needs block quotes")
 example_101()
     assert_eq(to_html(parse("> foo\n-----\n")), "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n")
 
-@test("example 102", ignore: "the parser does not read Setext headings")
+@test("example 102", ignore: "needs backslash escapes")
 example_102()
     assert_eq(to_html(parse("\\> foo\n------\n")), "<h2>&gt; foo</h2>\n")
 
-@test("example 103", ignore: "the parser does not read Setext headings")
+@test("example 103")
 example_103()
     assert_eq(to_html(parse("Foo\n\nbar\n---\nbaz\n")), "<p>Foo</p>\n<h2>bar</h2>\n<p>baz</p>\n")
 
-@test("example 104", ignore: "the parser does not read Setext headings")
+@test("example 104")
 example_104()
     assert_eq(to_html(parse("Foo\nbar\n\n---\n\nbaz\n")), "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n")
 
-@test("example 105", ignore: "the parser does not read Setext headings")
+@test("example 105")
 example_105()
     assert_eq(to_html(parse("Foo\nbar\n* * *\nbaz\n")), "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n")
 
-@test("example 106", ignore: "the parser does not read Setext headings")
+@test("example 106", ignore: "needs backslash escapes")
 example_106()
     assert_eq(to_html(parse("Foo\nbar\n\\---\nbaz\n")), "<p>Foo\nbar\n---\nbaz</p>\n")
