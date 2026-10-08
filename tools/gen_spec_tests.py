@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Write the CommonMark spec examples as sysl tests, one file per spec section.
+
+    python3 tools/gen_spec_tests.py
+
+Reads spec/spec.json (CommonMark 0.31.2) and writes sh/sysl/markdown/tests_spec_<section>.sysl, each
+example a `@test` asserting that parsing its Markdown and rendering the tree gives the spec's HTML
+exactly -- no normalisation, since the spec's HTML is the reference renderer's own output.
+
+A section not named in ENABLED is still generated, with every example marked `ignore`: the
+assertion is the correct one and compiles, and it runs once the section is listed. The generated
+files are committed; rerun this after changing ENABLED or the spec.
+"""
+
+import json
+import os
+import re
+import sys
+
+# The spec sections the parser reads, by their name in spec.json. Their examples run.
+ENABLED = set()
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SPEC = os.path.join(ROOT, "spec", "spec.json")
+OUT = os.path.join(ROOT, "sh", "sysl", "markdown")
+PREFIX = "tests_spec_"
+
+
+def lit(s):
+    """A sysl string literal holding exactly s."""
+    out = []
+    for c in s:
+        if c == "\\":
+            out.append("\\\\")
+        elif c == '"':
+            out.append('\\"')
+        elif c == "\n":
+            out.append("\\n")
+        elif c == "\t":
+            out.append("\\t")
+        elif ord(c) < 32 or ord(c) > 126:
+            out.append("\\u{%x}" % ord(c))
+        else:
+            out.append(c)
+    return '"' + "".join(out) + '"'
+
+
+def slug(section):
+    return re.sub(r"[^a-z0-9]+", "_", section.lower()).strip("_")
+
+
+def main():
+    examples = json.load(open(SPEC, encoding="utf-8"))
+
+    sections = {}
+    for e in examples:
+        sections.setdefault(e["section"], []).append(e)
+
+    unknown = ENABLED - set(sections)
+    if unknown:
+        sys.exit("ENABLED names sections the spec does not have: %s" % sorted(unknown))
+
+    for name in os.listdir(OUT):
+        if name.startswith(PREFIX) and name.endswith(".sysl"):
+            os.remove(os.path.join(OUT, name))
+
+    for section, exs in sections.items():
+        on = section in ENABLED
+        body = [
+            "module sh.sysl.markdown",
+            "@tests",
+            "",
+            "// The CommonMark 0.31.2 spec's examples from '%s', each rendered and compared exactly." % section,
+            "// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.",
+        ]
+        for e in exs:
+            n = e["example"]
+            attr = '@test("example %d")' % n
+            if not on:
+                attr = '@test("example %d", ignore: "the parser does not read %s")' % (n, section)
+            body += [
+                "",
+                attr,
+                "example_%d()" % n,
+                "    assert_eq(to_html(parse(%s)), %s)" % (lit(e["markdown"]), lit(e["html"])),
+            ]
+        with open(os.path.join(OUT, PREFIX + slug(section) + ".sysl"), "w", encoding="utf-8") as f:
+            f.write("\n".join(body) + "\n")
+
+    total = len(examples)
+    live = sum(len(sections[s]) for s in ENABLED)
+    print("%d sections, %d examples: %d run, %d ignored" % (len(sections), total, live, total - live))
+
+
+main()

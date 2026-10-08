@@ -1,0 +1,365 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Links', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 482", ignore: "the parser does not read Links")
+example_482()
+    assert_eq(to_html(parse("[link](/uri \"title\")\n")), "<p><a href=\"/uri\" title=\"title\">link</a></p>\n")
+
+@test("example 483", ignore: "the parser does not read Links")
+example_483()
+    assert_eq(to_html(parse("[link](/uri)\n")), "<p><a href=\"/uri\">link</a></p>\n")
+
+@test("example 484", ignore: "the parser does not read Links")
+example_484()
+    assert_eq(to_html(parse("[](./target.md)\n")), "<p><a href=\"./target.md\"></a></p>\n")
+
+@test("example 485", ignore: "the parser does not read Links")
+example_485()
+    assert_eq(to_html(parse("[link]()\n")), "<p><a href=\"\">link</a></p>\n")
+
+@test("example 486", ignore: "the parser does not read Links")
+example_486()
+    assert_eq(to_html(parse("[link](<>)\n")), "<p><a href=\"\">link</a></p>\n")
+
+@test("example 487", ignore: "the parser does not read Links")
+example_487()
+    assert_eq(to_html(parse("[]()\n")), "<p><a href=\"\"></a></p>\n")
+
+@test("example 488", ignore: "the parser does not read Links")
+example_488()
+    assert_eq(to_html(parse("[link](/my uri)\n")), "<p>[link](/my uri)</p>\n")
+
+@test("example 489", ignore: "the parser does not read Links")
+example_489()
+    assert_eq(to_html(parse("[link](</my uri>)\n")), "<p><a href=\"/my%20uri\">link</a></p>\n")
+
+@test("example 490", ignore: "the parser does not read Links")
+example_490()
+    assert_eq(to_html(parse("[link](foo\nbar)\n")), "<p>[link](foo\nbar)</p>\n")
+
+@test("example 491", ignore: "the parser does not read Links")
+example_491()
+    assert_eq(to_html(parse("[link](<foo\nbar>)\n")), "<p>[link](<foo\nbar>)</p>\n")
+
+@test("example 492", ignore: "the parser does not read Links")
+example_492()
+    assert_eq(to_html(parse("[a](<b)c>)\n")), "<p><a href=\"b)c\">a</a></p>\n")
+
+@test("example 493", ignore: "the parser does not read Links")
+example_493()
+    assert_eq(to_html(parse("[link](<foo\\>)\n")), "<p>[link](&lt;foo&gt;)</p>\n")
+
+@test("example 494", ignore: "the parser does not read Links")
+example_494()
+    assert_eq(to_html(parse("[a](<b)c\n[a](<b)c>\n[a](<b>c)\n")), "<p>[a](&lt;b)c\n[a](&lt;b)c&gt;\n[a](<b>c)</p>\n")
+
+@test("example 495", ignore: "the parser does not read Links")
+example_495()
+    assert_eq(to_html(parse("[link](\\(foo\\))\n")), "<p><a href=\"(foo)\">link</a></p>\n")
+
+@test("example 496", ignore: "the parser does not read Links")
+example_496()
+    assert_eq(to_html(parse("[link](foo(and(bar)))\n")), "<p><a href=\"foo(and(bar))\">link</a></p>\n")
+
+@test("example 497", ignore: "the parser does not read Links")
+example_497()
+    assert_eq(to_html(parse("[link](foo(and(bar))\n")), "<p>[link](foo(and(bar))</p>\n")
+
+@test("example 498", ignore: "the parser does not read Links")
+example_498()
+    assert_eq(to_html(parse("[link](foo\\(and\\(bar\\))\n")), "<p><a href=\"foo(and(bar)\">link</a></p>\n")
+
+@test("example 499", ignore: "the parser does not read Links")
+example_499()
+    assert_eq(to_html(parse("[link](<foo(and(bar)>)\n")), "<p><a href=\"foo(and(bar)\">link</a></p>\n")
+
+@test("example 500", ignore: "the parser does not read Links")
+example_500()
+    assert_eq(to_html(parse("[link](foo\\)\\:)\n")), "<p><a href=\"foo):\">link</a></p>\n")
+
+@test("example 501", ignore: "the parser does not read Links")
+example_501()
+    assert_eq(to_html(parse("[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n")), "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"https://example.com#fragment\">link</a></p>\n<p><a href=\"https://example.com?foo=3#frag\">link</a></p>\n")
+
+@test("example 502", ignore: "the parser does not read Links")
+example_502()
+    assert_eq(to_html(parse("[link](foo\\bar)\n")), "<p><a href=\"foo%5Cbar\">link</a></p>\n")
+
+@test("example 503", ignore: "the parser does not read Links")
+example_503()
+    assert_eq(to_html(parse("[link](foo%20b&auml;)\n")), "<p><a href=\"foo%20b%C3%A4\">link</a></p>\n")
+
+@test("example 504", ignore: "the parser does not read Links")
+example_504()
+    assert_eq(to_html(parse("[link](\"title\")\n")), "<p><a href=\"%22title%22\">link</a></p>\n")
+
+@test("example 505", ignore: "the parser does not read Links")
+example_505()
+    assert_eq(to_html(parse("[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))\n")), "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n")
+
+@test("example 506", ignore: "the parser does not read Links")
+example_506()
+    assert_eq(to_html(parse("[link](/url \"title \\\"&quot;\")\n")), "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n")
+
+@test("example 507", ignore: "the parser does not read Links")
+example_507()
+    assert_eq(to_html(parse("[link](/url\u{a0}\"title\")\n")), "<p><a href=\"/url%C2%A0%22title%22\">link</a></p>\n")
+
+@test("example 508", ignore: "the parser does not read Links")
+example_508()
+    assert_eq(to_html(parse("[link](/url \"title \"and\" title\")\n")), "<p>[link](/url &quot;title &quot;and&quot; title&quot;)</p>\n")
+
+@test("example 509", ignore: "the parser does not read Links")
+example_509()
+    assert_eq(to_html(parse("[link](/url 'title \"and\" title')\n")), "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n")
+
+@test("example 510", ignore: "the parser does not read Links")
+example_510()
+    assert_eq(to_html(parse("[link](   /uri\n  \"title\"  )\n")), "<p><a href=\"/uri\" title=\"title\">link</a></p>\n")
+
+@test("example 511", ignore: "the parser does not read Links")
+example_511()
+    assert_eq(to_html(parse("[link] (/uri)\n")), "<p>[link] (/uri)</p>\n")
+
+@test("example 512", ignore: "the parser does not read Links")
+example_512()
+    assert_eq(to_html(parse("[link [foo [bar]]](/uri)\n")), "<p><a href=\"/uri\">link [foo [bar]]</a></p>\n")
+
+@test("example 513", ignore: "the parser does not read Links")
+example_513()
+    assert_eq(to_html(parse("[link] bar](/uri)\n")), "<p>[link] bar](/uri)</p>\n")
+
+@test("example 514", ignore: "the parser does not read Links")
+example_514()
+    assert_eq(to_html(parse("[link [bar](/uri)\n")), "<p>[link <a href=\"/uri\">bar</a></p>\n")
+
+@test("example 515", ignore: "the parser does not read Links")
+example_515()
+    assert_eq(to_html(parse("[link \\[bar](/uri)\n")), "<p><a href=\"/uri\">link [bar</a></p>\n")
+
+@test("example 516", ignore: "the parser does not read Links")
+example_516()
+    assert_eq(to_html(parse("[link *foo **bar** `#`*](/uri)\n")), "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n")
+
+@test("example 517", ignore: "the parser does not read Links")
+example_517()
+    assert_eq(to_html(parse("[![moon](moon.jpg)](/uri)\n")), "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n")
+
+@test("example 518", ignore: "the parser does not read Links")
+example_518()
+    assert_eq(to_html(parse("[foo [bar](/uri)](/uri)\n")), "<p>[foo <a href=\"/uri\">bar</a>](/uri)</p>\n")
+
+@test("example 519", ignore: "the parser does not read Links")
+example_519()
+    assert_eq(to_html(parse("[foo *[bar [baz](/uri)](/uri)*](/uri)\n")), "<p>[foo <em>[bar <a href=\"/uri\">baz</a>](/uri)</em>](/uri)</p>\n")
+
+@test("example 520", ignore: "the parser does not read Links")
+example_520()
+    assert_eq(to_html(parse("![[[foo](uri1)](uri2)](uri3)\n")), "<p><img src=\"uri3\" alt=\"[foo](uri2)\" /></p>\n")
+
+@test("example 521", ignore: "the parser does not read Links")
+example_521()
+    assert_eq(to_html(parse("*[foo*](/uri)\n")), "<p>*<a href=\"/uri\">foo*</a></p>\n")
+
+@test("example 522", ignore: "the parser does not read Links")
+example_522()
+    assert_eq(to_html(parse("[foo *bar](baz*)\n")), "<p><a href=\"baz*\">foo *bar</a></p>\n")
+
+@test("example 523", ignore: "the parser does not read Links")
+example_523()
+    assert_eq(to_html(parse("*foo [bar* baz]\n")), "<p><em>foo [bar</em> baz]</p>\n")
+
+@test("example 524", ignore: "the parser does not read Links")
+example_524()
+    assert_eq(to_html(parse("[foo <bar attr=\"](baz)\">\n")), "<p>[foo <bar attr=\"](baz)\"></p>\n")
+
+@test("example 525", ignore: "the parser does not read Links")
+example_525()
+    assert_eq(to_html(parse("[foo`](/uri)`\n")), "<p>[foo<code>](/uri)</code></p>\n")
+
+@test("example 526", ignore: "the parser does not read Links")
+example_526()
+    assert_eq(to_html(parse("[foo<https://example.com/?search=](uri)>\n")), "<p>[foo<a href=\"https://example.com/?search=%5D(uri)\">https://example.com/?search=](uri)</a></p>\n")
+
+@test("example 527", ignore: "the parser does not read Links")
+example_527()
+    assert_eq(to_html(parse("[foo][bar]\n\n[bar]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 528", ignore: "the parser does not read Links")
+example_528()
+    assert_eq(to_html(parse("[link [foo [bar]]][ref]\n\n[ref]: /uri\n")), "<p><a href=\"/uri\">link [foo [bar]]</a></p>\n")
+
+@test("example 529", ignore: "the parser does not read Links")
+example_529()
+    assert_eq(to_html(parse("[link \\[bar][ref]\n\n[ref]: /uri\n")), "<p><a href=\"/uri\">link [bar</a></p>\n")
+
+@test("example 530", ignore: "the parser does not read Links")
+example_530()
+    assert_eq(to_html(parse("[link *foo **bar** `#`*][ref]\n\n[ref]: /uri\n")), "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n")
+
+@test("example 531", ignore: "the parser does not read Links")
+example_531()
+    assert_eq(to_html(parse("[![moon](moon.jpg)][ref]\n\n[ref]: /uri\n")), "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n")
+
+@test("example 532", ignore: "the parser does not read Links")
+example_532()
+    assert_eq(to_html(parse("[foo [bar](/uri)][ref]\n\n[ref]: /uri\n")), "<p>[foo <a href=\"/uri\">bar</a>]<a href=\"/uri\">ref</a></p>\n")
+
+@test("example 533", ignore: "the parser does not read Links")
+example_533()
+    assert_eq(to_html(parse("[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri\n")), "<p>[foo <em>bar <a href=\"/uri\">baz</a></em>]<a href=\"/uri\">ref</a></p>\n")
+
+@test("example 534", ignore: "the parser does not read Links")
+example_534()
+    assert_eq(to_html(parse("*[foo*][ref]\n\n[ref]: /uri\n")), "<p>*<a href=\"/uri\">foo*</a></p>\n")
+
+@test("example 535", ignore: "the parser does not read Links")
+example_535()
+    assert_eq(to_html(parse("[foo *bar][ref]*\n\n[ref]: /uri\n")), "<p><a href=\"/uri\">foo *bar</a>*</p>\n")
+
+@test("example 536", ignore: "the parser does not read Links")
+example_536()
+    assert_eq(to_html(parse("[foo <bar attr=\"][ref]\">\n\n[ref]: /uri\n")), "<p>[foo <bar attr=\"][ref]\"></p>\n")
+
+@test("example 537", ignore: "the parser does not read Links")
+example_537()
+    assert_eq(to_html(parse("[foo`][ref]`\n\n[ref]: /uri\n")), "<p>[foo<code>][ref]</code></p>\n")
+
+@test("example 538", ignore: "the parser does not read Links")
+example_538()
+    assert_eq(to_html(parse("[foo<https://example.com/?search=][ref]>\n\n[ref]: /uri\n")), "<p>[foo<a href=\"https://example.com/?search=%5D%5Bref%5D\">https://example.com/?search=][ref]</a></p>\n")
+
+@test("example 539", ignore: "the parser does not read Links")
+example_539()
+    assert_eq(to_html(parse("[foo][BaR]\n\n[bar]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 540", ignore: "the parser does not read Links")
+example_540()
+    assert_eq(to_html(parse("[\u{1e9e}]\n\n[SS]: /url\n")), "<p><a href=\"/url\">\u{1e9e}</a></p>\n")
+
+@test("example 541", ignore: "the parser does not read Links")
+example_541()
+    assert_eq(to_html(parse("[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n")), "<p><a href=\"/url\">Baz</a></p>\n")
+
+@test("example 542", ignore: "the parser does not read Links")
+example_542()
+    assert_eq(to_html(parse("[foo] [bar]\n\n[bar]: /url \"title\"\n")), "<p>[foo] <a href=\"/url\" title=\"title\">bar</a></p>\n")
+
+@test("example 543", ignore: "the parser does not read Links")
+example_543()
+    assert_eq(to_html(parse("[foo]\n[bar]\n\n[bar]: /url \"title\"\n")), "<p>[foo]\n<a href=\"/url\" title=\"title\">bar</a></p>\n")
+
+@test("example 544", ignore: "the parser does not read Links")
+example_544()
+    assert_eq(to_html(parse("[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]\n")), "<p><a href=\"/url1\">bar</a></p>\n")
+
+@test("example 545", ignore: "the parser does not read Links")
+example_545()
+    assert_eq(to_html(parse("[bar][foo\\!]\n\n[foo!]: /url\n")), "<p>[bar][foo!]</p>\n")
+
+@test("example 546", ignore: "the parser does not read Links")
+example_546()
+    assert_eq(to_html(parse("[foo][ref[]\n\n[ref[]: /uri\n")), "<p>[foo][ref[]</p>\n<p>[ref[]: /uri</p>\n")
+
+@test("example 547", ignore: "the parser does not read Links")
+example_547()
+    assert_eq(to_html(parse("[foo][ref[bar]]\n\n[ref[bar]]: /uri\n")), "<p>[foo][ref[bar]]</p>\n<p>[ref[bar]]: /uri</p>\n")
+
+@test("example 548", ignore: "the parser does not read Links")
+example_548()
+    assert_eq(to_html(parse("[[[foo]]]\n\n[[[foo]]]: /url\n")), "<p>[[[foo]]]</p>\n<p>[[[foo]]]: /url</p>\n")
+
+@test("example 549", ignore: "the parser does not read Links")
+example_549()
+    assert_eq(to_html(parse("[foo][ref\\[]\n\n[ref\\[]: /uri\n")), "<p><a href=\"/uri\">foo</a></p>\n")
+
+@test("example 550", ignore: "the parser does not read Links")
+example_550()
+    assert_eq(to_html(parse("[bar\\\\]: /uri\n\n[bar\\\\]\n")), "<p><a href=\"/uri\">bar\\</a></p>\n")
+
+@test("example 551", ignore: "the parser does not read Links")
+example_551()
+    assert_eq(to_html(parse("[]\n\n[]: /uri\n")), "<p>[]</p>\n<p>[]: /uri</p>\n")
+
+@test("example 552", ignore: "the parser does not read Links")
+example_552()
+    assert_eq(to_html(parse("[\n ]\n\n[\n ]: /uri\n")), "<p>[\n]</p>\n<p>[\n]: /uri</p>\n")
+
+@test("example 553", ignore: "the parser does not read Links")
+example_553()
+    assert_eq(to_html(parse("[foo][]\n\n[foo]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 554", ignore: "the parser does not read Links")
+example_554()
+    assert_eq(to_html(parse("[*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\"><em>foo</em> bar</a></p>\n")
+
+@test("example 555", ignore: "the parser does not read Links")
+example_555()
+    assert_eq(to_html(parse("[Foo][]\n\n[foo]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n")
+
+@test("example 556", ignore: "the parser does not read Links")
+example_556()
+    assert_eq(to_html(parse("[foo] \n[]\n\n[foo]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">foo</a>\n[]</p>\n")
+
+@test("example 557", ignore: "the parser does not read Links")
+example_557()
+    assert_eq(to_html(parse("[foo]\n\n[foo]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 558", ignore: "the parser does not read Links")
+example_558()
+    assert_eq(to_html(parse("[*foo* bar]\n\n[*foo* bar]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\"><em>foo</em> bar</a></p>\n")
+
+@test("example 559", ignore: "the parser does not read Links")
+example_559()
+    assert_eq(to_html(parse("[[*foo* bar]]\n\n[*foo* bar]: /url \"title\"\n")), "<p>[<a href=\"/url\" title=\"title\"><em>foo</em> bar</a>]</p>\n")
+
+@test("example 560", ignore: "the parser does not read Links")
+example_560()
+    assert_eq(to_html(parse("[[bar [foo]\n\n[foo]: /url\n")), "<p>[[bar <a href=\"/url\">foo</a></p>\n")
+
+@test("example 561", ignore: "the parser does not read Links")
+example_561()
+    assert_eq(to_html(parse("[Foo]\n\n[foo]: /url \"title\"\n")), "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n")
+
+@test("example 562", ignore: "the parser does not read Links")
+example_562()
+    assert_eq(to_html(parse("[foo] bar\n\n[foo]: /url\n")), "<p><a href=\"/url\">foo</a> bar</p>\n")
+
+@test("example 563", ignore: "the parser does not read Links")
+example_563()
+    assert_eq(to_html(parse("\\[foo]\n\n[foo]: /url \"title\"\n")), "<p>[foo]</p>\n")
+
+@test("example 564", ignore: "the parser does not read Links")
+example_564()
+    assert_eq(to_html(parse("[foo*]: /url\n\n*[foo*]\n")), "<p>*<a href=\"/url\">foo*</a></p>\n")
+
+@test("example 565", ignore: "the parser does not read Links")
+example_565()
+    assert_eq(to_html(parse("[foo][bar]\n\n[foo]: /url1\n[bar]: /url2\n")), "<p><a href=\"/url2\">foo</a></p>\n")
+
+@test("example 566", ignore: "the parser does not read Links")
+example_566()
+    assert_eq(to_html(parse("[foo][]\n\n[foo]: /url1\n")), "<p><a href=\"/url1\">foo</a></p>\n")
+
+@test("example 567", ignore: "the parser does not read Links")
+example_567()
+    assert_eq(to_html(parse("[foo]()\n\n[foo]: /url1\n")), "<p><a href=\"\">foo</a></p>\n")
+
+@test("example 568", ignore: "the parser does not read Links")
+example_568()
+    assert_eq(to_html(parse("[foo](not a link)\n\n[foo]: /url1\n")), "<p><a href=\"/url1\">foo</a>(not a link)</p>\n")
+
+@test("example 569", ignore: "the parser does not read Links")
+example_569()
+    assert_eq(to_html(parse("[foo][bar][baz]\n\n[baz]: /url\n")), "<p>[foo]<a href=\"/url\">bar</a></p>\n")
+
+@test("example 570", ignore: "the parser does not read Links")
+example_570()
+    assert_eq(to_html(parse("[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2\n")), "<p><a href=\"/url2\">foo</a><a href=\"/url1\">baz</a></p>\n")
+
+@test("example 571", ignore: "the parser does not read Links")
+example_571()
+    assert_eq(to_html(parse("[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2\n")), "<p>[foo]<a href=\"/url1\">bar</a></p>\n")

@@ -1,0 +1,65 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Hard line breaks', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 633", ignore: "the parser does not read Hard line breaks")
+example_633()
+    assert_eq(to_html(parse("foo  \nbaz\n")), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 634", ignore: "the parser does not read Hard line breaks")
+example_634()
+    assert_eq(to_html(parse("foo\\\nbaz\n")), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 635", ignore: "the parser does not read Hard line breaks")
+example_635()
+    assert_eq(to_html(parse("foo       \nbaz\n")), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 636", ignore: "the parser does not read Hard line breaks")
+example_636()
+    assert_eq(to_html(parse("foo  \n     bar\n")), "<p>foo<br />\nbar</p>\n")
+
+@test("example 637", ignore: "the parser does not read Hard line breaks")
+example_637()
+    assert_eq(to_html(parse("foo\\\n     bar\n")), "<p>foo<br />\nbar</p>\n")
+
+@test("example 638", ignore: "the parser does not read Hard line breaks")
+example_638()
+    assert_eq(to_html(parse("*foo  \nbar*\n")), "<p><em>foo<br />\nbar</em></p>\n")
+
+@test("example 639", ignore: "the parser does not read Hard line breaks")
+example_639()
+    assert_eq(to_html(parse("*foo\\\nbar*\n")), "<p><em>foo<br />\nbar</em></p>\n")
+
+@test("example 640", ignore: "the parser does not read Hard line breaks")
+example_640()
+    assert_eq(to_html(parse("`code  \nspan`\n")), "<p><code>code   span</code></p>\n")
+
+@test("example 641", ignore: "the parser does not read Hard line breaks")
+example_641()
+    assert_eq(to_html(parse("`code\\\nspan`\n")), "<p><code>code\\ span</code></p>\n")
+
+@test("example 642", ignore: "the parser does not read Hard line breaks")
+example_642()
+    assert_eq(to_html(parse("<a href=\"foo  \nbar\">\n")), "<p><a href=\"foo  \nbar\"></p>\n")
+
+@test("example 643", ignore: "the parser does not read Hard line breaks")
+example_643()
+    assert_eq(to_html(parse("<a href=\"foo\\\nbar\">\n")), "<p><a href=\"foo\\\nbar\"></p>\n")
+
+@test("example 644", ignore: "the parser does not read Hard line breaks")
+example_644()
+    assert_eq(to_html(parse("foo\\\n")), "<p>foo\\</p>\n")
+
+@test("example 645", ignore: "the parser does not read Hard line breaks")
+example_645()
+    assert_eq(to_html(parse("foo  \n")), "<p>foo</p>\n")
+
+@test("example 646", ignore: "the parser does not read Hard line breaks")
+example_646()
+    assert_eq(to_html(parse("### foo\\\n")), "<h3>foo\\</h3>\n")
+
+@test("example 647", ignore: "the parser does not read Hard line breaks")
+example_647()
+    assert_eq(to_html(parse("### foo  \n")), "<h3>foo</h3>\n")

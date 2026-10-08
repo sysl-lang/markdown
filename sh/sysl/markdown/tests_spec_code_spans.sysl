@@ -1,0 +1,93 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Code spans', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 328", ignore: "the parser does not read Code spans")
+example_328()
+    assert_eq(to_html(parse("`foo`\n")), "<p><code>foo</code></p>\n")
+
+@test("example 329", ignore: "the parser does not read Code spans")
+example_329()
+    assert_eq(to_html(parse("`` foo ` bar ``\n")), "<p><code>foo ` bar</code></p>\n")
+
+@test("example 330", ignore: "the parser does not read Code spans")
+example_330()
+    assert_eq(to_html(parse("` `` `\n")), "<p><code>``</code></p>\n")
+
+@test("example 331", ignore: "the parser does not read Code spans")
+example_331()
+    assert_eq(to_html(parse("`  ``  `\n")), "<p><code> `` </code></p>\n")
+
+@test("example 332", ignore: "the parser does not read Code spans")
+example_332()
+    assert_eq(to_html(parse("` a`\n")), "<p><code> a</code></p>\n")
+
+@test("example 333", ignore: "the parser does not read Code spans")
+example_333()
+    assert_eq(to_html(parse("`\u{a0}b\u{a0}`\n")), "<p><code>\u{a0}b\u{a0}</code></p>\n")
+
+@test("example 334", ignore: "the parser does not read Code spans")
+example_334()
+    assert_eq(to_html(parse("`\u{a0}`\n`  `\n")), "<p><code>\u{a0}</code>\n<code>  </code></p>\n")
+
+@test("example 335", ignore: "the parser does not read Code spans")
+example_335()
+    assert_eq(to_html(parse("``\nfoo\nbar  \nbaz\n``\n")), "<p><code>foo bar   baz</code></p>\n")
+
+@test("example 336", ignore: "the parser does not read Code spans")
+example_336()
+    assert_eq(to_html(parse("``\nfoo \n``\n")), "<p><code>foo </code></p>\n")
+
+@test("example 337", ignore: "the parser does not read Code spans")
+example_337()
+    assert_eq(to_html(parse("`foo   bar \nbaz`\n")), "<p><code>foo   bar  baz</code></p>\n")
+
+@test("example 338", ignore: "the parser does not read Code spans")
+example_338()
+    assert_eq(to_html(parse("`foo\\`bar`\n")), "<p><code>foo\\</code>bar`</p>\n")
+
+@test("example 339", ignore: "the parser does not read Code spans")
+example_339()
+    assert_eq(to_html(parse("``foo`bar``\n")), "<p><code>foo`bar</code></p>\n")
+
+@test("example 340", ignore: "the parser does not read Code spans")
+example_340()
+    assert_eq(to_html(parse("` foo `` bar `\n")), "<p><code>foo `` bar</code></p>\n")
+
+@test("example 341", ignore: "the parser does not read Code spans")
+example_341()
+    assert_eq(to_html(parse("*foo`*`\n")), "<p>*foo<code>*</code></p>\n")
+
+@test("example 342", ignore: "the parser does not read Code spans")
+example_342()
+    assert_eq(to_html(parse("[not a `link](/foo`)\n")), "<p>[not a <code>link](/foo</code>)</p>\n")
+
+@test("example 343", ignore: "the parser does not read Code spans")
+example_343()
+    assert_eq(to_html(parse("`<a href=\"`\">`\n")), "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n")
+
+@test("example 344", ignore: "the parser does not read Code spans")
+example_344()
+    assert_eq(to_html(parse("<a href=\"`\">`\n")), "<p><a href=\"`\">`</p>\n")
+
+@test("example 345", ignore: "the parser does not read Code spans")
+example_345()
+    assert_eq(to_html(parse("`<https://foo.bar.`baz>`\n")), "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n")
+
+@test("example 346", ignore: "the parser does not read Code spans")
+example_346()
+    assert_eq(to_html(parse("<https://foo.bar.`baz>`\n")), "<p><a href=\"https://foo.bar.%60baz\">https://foo.bar.`baz</a>`</p>\n")
+
+@test("example 347", ignore: "the parser does not read Code spans")
+example_347()
+    assert_eq(to_html(parse("```foo``\n")), "<p>```foo``</p>\n")
+
+@test("example 348", ignore: "the parser does not read Code spans")
+example_348()
+    assert_eq(to_html(parse("`foo\n")), "<p>`foo</p>\n")
+
+@test("example 349", ignore: "the parser does not read Code spans")
+example_349()
+    assert_eq(to_html(parse("`foo``bar``\n")), "<p>`foo<code>bar</code></p>\n")

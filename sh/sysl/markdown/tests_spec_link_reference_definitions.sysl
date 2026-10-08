@@ -1,0 +1,113 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Link reference definitions', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 192", ignore: "the parser does not read Link reference definitions")
+example_192()
+    assert_eq(to_html(parse("[foo]: /url \"title\"\n\n[foo]\n")), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 193", ignore: "the parser does not read Link reference definitions")
+example_193()
+    assert_eq(to_html(parse("   [foo]: \n      /url  \n           'the title'  \n\n[foo]\n")), "<p><a href=\"/url\" title=\"the title\">foo</a></p>\n")
+
+@test("example 194", ignore: "the parser does not read Link reference definitions")
+example_194()
+    assert_eq(to_html(parse("[Foo*bar\\]]:my_(url) 'title (with parens)'\n\n[Foo*bar\\]]\n")), "<p><a href=\"my_(url)\" title=\"title (with parens)\">Foo*bar]</a></p>\n")
+
+@test("example 195", ignore: "the parser does not read Link reference definitions")
+example_195()
+    assert_eq(to_html(parse("[Foo bar]:\n<my url>\n'title'\n\n[Foo bar]\n")), "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n")
+
+@test("example 196", ignore: "the parser does not read Link reference definitions")
+example_196()
+    assert_eq(to_html(parse("[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n")), "<p><a href=\"/url\" title=\"\ntitle\nline1\nline2\n\">foo</a></p>\n")
+
+@test("example 197", ignore: "the parser does not read Link reference definitions")
+example_197()
+    assert_eq(to_html(parse("[foo]: /url 'title\n\nwith blank line'\n\n[foo]\n")), "<p>[foo]: /url 'title</p>\n<p>with blank line'</p>\n<p>[foo]</p>\n")
+
+@test("example 198", ignore: "the parser does not read Link reference definitions")
+example_198()
+    assert_eq(to_html(parse("[foo]:\n/url\n\n[foo]\n")), "<p><a href=\"/url\">foo</a></p>\n")
+
+@test("example 199", ignore: "the parser does not read Link reference definitions")
+example_199()
+    assert_eq(to_html(parse("[foo]:\n\n[foo]\n")), "<p>[foo]:</p>\n<p>[foo]</p>\n")
+
+@test("example 200", ignore: "the parser does not read Link reference definitions")
+example_200()
+    assert_eq(to_html(parse("[foo]: <>\n\n[foo]\n")), "<p><a href=\"\">foo</a></p>\n")
+
+@test("example 201", ignore: "the parser does not read Link reference definitions")
+example_201()
+    assert_eq(to_html(parse("[foo]: <bar>(baz)\n\n[foo]\n")), "<p>[foo]: <bar>(baz)</p>\n<p>[foo]</p>\n")
+
+@test("example 202", ignore: "the parser does not read Link reference definitions")
+example_202()
+    assert_eq(to_html(parse("[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n")), "<p><a href=\"/url%5Cbar*baz\" title=\"foo&quot;bar\\baz\">foo</a></p>\n")
+
+@test("example 203", ignore: "the parser does not read Link reference definitions")
+example_203()
+    assert_eq(to_html(parse("[foo]\n\n[foo]: url\n")), "<p><a href=\"url\">foo</a></p>\n")
+
+@test("example 204", ignore: "the parser does not read Link reference definitions")
+example_204()
+    assert_eq(to_html(parse("[foo]\n\n[foo]: first\n[foo]: second\n")), "<p><a href=\"first\">foo</a></p>\n")
+
+@test("example 205", ignore: "the parser does not read Link reference definitions")
+example_205()
+    assert_eq(to_html(parse("[FOO]: /url\n\n[Foo]\n")), "<p><a href=\"/url\">Foo</a></p>\n")
+
+@test("example 206", ignore: "the parser does not read Link reference definitions")
+example_206()
+    assert_eq(to_html(parse("[\u{391}\u{393}\u{3a9}]: /\u{3c6}\u{3bf}\u{3c5}\n\n[\u{3b1}\u{3b3}\u{3c9}]\n")), "<p><a href=\"/%CF%86%CE%BF%CF%85\">\u{3b1}\u{3b3}\u{3c9}</a></p>\n")
+
+@test("example 207", ignore: "the parser does not read Link reference definitions")
+example_207()
+    assert_eq(to_html(parse("[foo]: /url\n")), "")
+
+@test("example 208", ignore: "the parser does not read Link reference definitions")
+example_208()
+    assert_eq(to_html(parse("[\nfoo\n]: /url\nbar\n")), "<p>bar</p>\n")
+
+@test("example 209", ignore: "the parser does not read Link reference definitions")
+example_209()
+    assert_eq(to_html(parse("[foo]: /url \"title\" ok\n")), "<p>[foo]: /url &quot;title&quot; ok</p>\n")
+
+@test("example 210", ignore: "the parser does not read Link reference definitions")
+example_210()
+    assert_eq(to_html(parse("[foo]: /url\n\"title\" ok\n")), "<p>&quot;title&quot; ok</p>\n")
+
+@test("example 211", ignore: "the parser does not read Link reference definitions")
+example_211()
+    assert_eq(to_html(parse("    [foo]: /url \"title\"\n\n[foo]\n")), "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n<p>[foo]</p>\n")
+
+@test("example 212", ignore: "the parser does not read Link reference definitions")
+example_212()
+    assert_eq(to_html(parse("```\n[foo]: /url\n```\n\n[foo]\n")), "<pre><code>[foo]: /url\n</code></pre>\n<p>[foo]</p>\n")
+
+@test("example 213", ignore: "the parser does not read Link reference definitions")
+example_213()
+    assert_eq(to_html(parse("Foo\n[bar]: /baz\n\n[bar]\n")), "<p>Foo\n[bar]: /baz</p>\n<p>[bar]</p>\n")
+
+@test("example 214", ignore: "the parser does not read Link reference definitions")
+example_214()
+    assert_eq(to_html(parse("# [Foo]\n[foo]: /url\n> bar\n")), "<h1><a href=\"/url\">Foo</a></h1>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
+
+@test("example 215", ignore: "the parser does not read Link reference definitions")
+example_215()
+    assert_eq(to_html(parse("[foo]: /url\nbar\n===\n[foo]\n")), "<h1>bar</h1>\n<p><a href=\"/url\">foo</a></p>\n")
+
+@test("example 216", ignore: "the parser does not read Link reference definitions")
+example_216()
+    assert_eq(to_html(parse("[foo]: /url\n===\n[foo]\n")), "<p>===\n<a href=\"/url\">foo</a></p>\n")
+
+@test("example 217", ignore: "the parser does not read Link reference definitions")
+example_217()
+    assert_eq(to_html(parse("[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]\n")), "<p><a href=\"/foo-url\" title=\"foo\">foo</a>,\n<a href=\"/bar-url\" title=\"bar\">bar</a>,\n<a href=\"/baz-url\">baz</a></p>\n")
+
+@test("example 218", ignore: "the parser does not read Link reference definitions")
+example_218()
+    assert_eq(to_html(parse("[foo]\n\n> [foo]: /url\n")), "<p><a href=\"/url\">foo</a></p>\n<blockquote>\n</blockquote>\n")

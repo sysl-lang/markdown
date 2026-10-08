@@ -1,0 +1,85 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Raw HTML', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 613", ignore: "the parser does not read Raw HTML")
+example_613()
+    assert_eq(to_html(parse("<a><bab><c2c>\n")), "<p><a><bab><c2c></p>\n")
+
+@test("example 614", ignore: "the parser does not read Raw HTML")
+example_614()
+    assert_eq(to_html(parse("<a/><b2/>\n")), "<p><a/><b2/></p>\n")
+
+@test("example 615", ignore: "the parser does not read Raw HTML")
+example_615()
+    assert_eq(to_html(parse("<a  /><b2\ndata=\"foo\" >\n")), "<p><a  /><b2\ndata=\"foo\" ></p>\n")
+
+@test("example 616", ignore: "the parser does not read Raw HTML")
+example_616()
+    assert_eq(to_html(parse("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n")), "<p><a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 /></p>\n")
+
+@test("example 617", ignore: "the parser does not read Raw HTML")
+example_617()
+    assert_eq(to_html(parse("Foo <responsive-image src=\"foo.jpg\" />\n")), "<p>Foo <responsive-image src=\"foo.jpg\" /></p>\n")
+
+@test("example 618", ignore: "the parser does not read Raw HTML")
+example_618()
+    assert_eq(to_html(parse("<33> <__>\n")), "<p>&lt;33&gt; &lt;__&gt;</p>\n")
+
+@test("example 619", ignore: "the parser does not read Raw HTML")
+example_619()
+    assert_eq(to_html(parse("<a h*#ref=\"hi\">\n")), "<p>&lt;a h*#ref=&quot;hi&quot;&gt;</p>\n")
+
+@test("example 620", ignore: "the parser does not read Raw HTML")
+example_620()
+    assert_eq(to_html(parse("<a href=\"hi'> <a href=hi'>\n")), "<p>&lt;a href=&quot;hi'&gt; &lt;a href=hi'&gt;</p>\n")
+
+@test("example 621", ignore: "the parser does not read Raw HTML")
+example_621()
+    assert_eq(to_html(parse("< a><\nfoo><bar/ >\n<foo bar=baz\nbim!bop />\n")), "<p>&lt; a&gt;&lt;\nfoo&gt;&lt;bar/ &gt;\n&lt;foo bar=baz\nbim!bop /&gt;</p>\n")
+
+@test("example 622", ignore: "the parser does not read Raw HTML")
+example_622()
+    assert_eq(to_html(parse("<a href='bar'title=title>\n")), "<p>&lt;a href='bar'title=title&gt;</p>\n")
+
+@test("example 623", ignore: "the parser does not read Raw HTML")
+example_623()
+    assert_eq(to_html(parse("</a></foo >\n")), "<p></a></foo ></p>\n")
+
+@test("example 624", ignore: "the parser does not read Raw HTML")
+example_624()
+    assert_eq(to_html(parse("</a href=\"foo\">\n")), "<p>&lt;/a href=&quot;foo&quot;&gt;</p>\n")
+
+@test("example 625", ignore: "the parser does not read Raw HTML")
+example_625()
+    assert_eq(to_html(parse("foo <!-- this is a --\ncomment - with hyphens -->\n")), "<p>foo <!-- this is a --\ncomment - with hyphens --></p>\n")
+
+@test("example 626", ignore: "the parser does not read Raw HTML")
+example_626()
+    assert_eq(to_html(parse("foo <!--> foo -->\n\nfoo <!---> foo -->\n")), "<p>foo <!--> foo --&gt;</p>\n<p>foo <!---> foo --&gt;</p>\n")
+
+@test("example 627", ignore: "the parser does not read Raw HTML")
+example_627()
+    assert_eq(to_html(parse("foo <?php echo $a; ?>\n")), "<p>foo <?php echo $a; ?></p>\n")
+
+@test("example 628", ignore: "the parser does not read Raw HTML")
+example_628()
+    assert_eq(to_html(parse("foo <!ELEMENT br EMPTY>\n")), "<p>foo <!ELEMENT br EMPTY></p>\n")
+
+@test("example 629", ignore: "the parser does not read Raw HTML")
+example_629()
+    assert_eq(to_html(parse("foo <![CDATA[>&<]]>\n")), "<p>foo <![CDATA[>&<]]></p>\n")
+
+@test("example 630", ignore: "the parser does not read Raw HTML")
+example_630()
+    assert_eq(to_html(parse("foo <a href=\"&ouml;\">\n")), "<p>foo <a href=\"&ouml;\"></p>\n")
+
+@test("example 631", ignore: "the parser does not read Raw HTML")
+example_631()
+    assert_eq(to_html(parse("foo <a href=\"\\*\">\n")), "<p>foo <a href=\"\\*\"></p>\n")
+
+@test("example 632", ignore: "the parser does not read Raw HTML")
+example_632()
+    assert_eq(to_html(parse("<a href=\"\\\"\">\n")), "<p>&lt;a href=&quot;&quot;&quot;&gt;</p>\n")

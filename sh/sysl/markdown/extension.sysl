@@ -1,0 +1,112 @@
+module sh.sysl.markdown
+
+import sysl.buf.{Buf, buf}
+import sysl.slices.contains
+
+// Extensions: syntax beyond CommonMark, added from outside the parser.
+//
+// **The parser asks an extension at three points and nowhere else**, in the order the extensions
+// were added to the registry:
+//
+// 1. **Blocks** -- at the start of every line not yet claimed, `block_start` may open a block of the
+//    extension's own (`interrupts_paragraph` says whether it may do so while a paragraph is open);
+//    on each later line `block_continue` says whether that block takes the line; and when the block
+//    closes, `block_close` makes its final node from the content gathered.
+// 2. **Inlines** -- inside a leaf's text, at each byte `triggers` names, `inline_match` may read a
+//    node or push a run of delimiters, the way `*` and `_` are pushed for emphasis.
+// 3. **After both phases** -- `post_pass` sees the finished tree, for work that needs all of it:
+//    numbering footnotes, attaching a heading's id.
+//
+// **What an extension is shown is kept small on purpose.** A hook sees a `Line`, a `Subject` or the
+// finished `Doc` -- never the parser's stack of open blocks or its delimiter list -- so the parser's
+// own state stays free to change without breaking an extension written against this trait. Every
+// method but `name` has a default that declines, so an extension writes only the hooks it uses.
+
+/** A line, as a block hook is shown it.
+ *
+ * Offsets are bytes into `text`, which is the whole line without its line ending. `pos` is where the
+ * open containers' prefixes -- a block quote's `>`, a list item's indentation -- stop, so it is
+ * where a block starter looks.
+ */
+struct Line
+    text: string        // the line, without its line ending
+    offset: usize       // where `text` begins in the source, for spans
+    pos: usize          // the first byte no open container has consumed
+    column: usize       // the column `pos` is at, a tab advancing to the next multiple of 4
+    indent: usize       // columns of spaces and tabs from `pos` to the first other character
+    blank: bool         // nothing but spaces and tabs from `pos` to the end
+
+/** What `block_start` answers.
+ *
+ * `consumed` is how many bytes from `Line.pos` the opening took. `state` is the extension's own
+ * word about the block -- a fence's length, say -- kept on the parser's stack while the block is
+ * open and handed back to `block_continue` and `block_close`; nothing else reads it.
+ */
+enum BlockStart
+    Declined
+    Leaf(kind: Kind, consumed: usize, state: u64)          // takes lines of text, as a code block does
+    Container(kind: Kind, consumed: usize, state: u64)     // holds blocks, as a block quote does
+
+/** What `block_continue` answers about the next line, for a block of the extension's that is open. */
+enum BlockContinue
+    Takes(consumed: usize)      // the line continues the block, after `consumed` bytes of prefix
+    Ends                        // the block closes, and the line is read afresh as though it were not there
+    Finishes                    // the line is the block's last and is consumed whole, as a closing fence is
+
+/** Where an inline trigger fired: the leaf's text and the offset of the triggering byte in it. */
+struct Subject
+    text: string
+    pos: usize
+
+/** What `inline_match` answers. */
+enum InlineMatch
+    NoMatch
+    Inline(kind: Kind, consumed: usize)                         // a node reading `consumed` bytes from `pos`
+    Delimiters(count: usize, can_open: bool, can_close: bool)   // a run, resolved as emphasis is
+
+trait Extension
+    /** A short name, unique among the extensions one parse is given. */
+    name(self) -> string
+
+    block_start(self, line: Line) -> BlockStart = Declined
+
+    /** Whether a block `block_start` opens may begin while a paragraph is open, ending it -- as a
+     * fence or a heading may, and an indented code block may not.
+     */
+    interrupts_paragraph(self) -> bool = false
+
+    block_continue(self, line: Line, kind: Kind, state: u64) -> BlockContinue = Ends
+
+    /** The node a closing block of the extension's becomes, given the text its lines gathered (for
+     * a leaf; empty for a container). Answering `kind` unchanged keeps what `block_start` made.
+     */
+    block_close(self, kind: Kind, content: string, state: u64) -> Kind = kind
+
+    /** The bytes at which `inline_match` is asked. Each must be ASCII. */
+    triggers(self) -> string = ""
+
+    inline_match(self, s: Subject) -> InlineMatch = NoMatch
+
+    post_pass(self, d: Doc) = ()
+
+/** The extensions one parse uses, in the order they are asked. Empty is pure CommonMark. */
+struct Registry
+    private exts: Buf[&Extension]
+
+    add(self, e: &Extension) = self.exts.push(e)
+
+    len(self) -> usize = self.exts.len()
+
+    is_empty(self) -> bool = self.exts.len() == 0
+
+    at(self, i: usize) -> &Extension = self.exts.at(i)
+
+    /** Whether any extension asks to be shown the byte `c` inside a leaf's text. */
+    triggered_by(self, c: u8) -> bool
+        for e in self.exts.view()
+            if contains(e.triggers().bytes, c) then return true
+
+        false
+
+/** A registry with no extensions in it: the CommonMark preset. */
+registry() -> Registry = Registry(buf())

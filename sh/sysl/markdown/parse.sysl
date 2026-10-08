@@ -1,0 +1,11 @@
+module sh.sysl.markdown
+
+/** `src` read as CommonMark into a document tree.
+ *
+ * Reading never fails: CommonMark gives every sequence of characters a meaning, so there is no
+ * malformed document and no error to answer with.
+ */
+parse(src: string) -> Doc = parse_with(src, registry())
+
+/** `src` read as CommonMark, with the syntax the extensions in `exts` add. */
+parse_with(src: string, exts: Registry) -> Doc = new_doc(src)

@@ -1,0 +1,77 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'ATX headings', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 62", ignore: "the parser does not read ATX headings")
+example_62()
+    assert_eq(to_html(parse("# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n")), "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n")
+
+@test("example 63", ignore: "the parser does not read ATX headings")
+example_63()
+    assert_eq(to_html(parse("####### foo\n")), "<p>####### foo</p>\n")
+
+@test("example 64", ignore: "the parser does not read ATX headings")
+example_64()
+    assert_eq(to_html(parse("#5 bolt\n\n#hashtag\n")), "<p>#5 bolt</p>\n<p>#hashtag</p>\n")
+
+@test("example 65", ignore: "the parser does not read ATX headings")
+example_65()
+    assert_eq(to_html(parse("\\## foo\n")), "<p>## foo</p>\n")
+
+@test("example 66", ignore: "the parser does not read ATX headings")
+example_66()
+    assert_eq(to_html(parse("# foo *bar* \\*baz\\*\n")), "<h1>foo <em>bar</em> *baz*</h1>\n")
+
+@test("example 67", ignore: "the parser does not read ATX headings")
+example_67()
+    assert_eq(to_html(parse("#                  foo                     \n")), "<h1>foo</h1>\n")
+
+@test("example 68", ignore: "the parser does not read ATX headings")
+example_68()
+    assert_eq(to_html(parse(" ### foo\n  ## foo\n   # foo\n")), "<h3>foo</h3>\n<h2>foo</h2>\n<h1>foo</h1>\n")
+
+@test("example 69", ignore: "the parser does not read ATX headings")
+example_69()
+    assert_eq(to_html(parse("    # foo\n")), "<pre><code># foo\n</code></pre>\n")
+
+@test("example 70", ignore: "the parser does not read ATX headings")
+example_70()
+    assert_eq(to_html(parse("foo\n    # bar\n")), "<p>foo\n# bar</p>\n")
+
+@test("example 71", ignore: "the parser does not read ATX headings")
+example_71()
+    assert_eq(to_html(parse("## foo ##\n  ###   bar    ###\n")), "<h2>foo</h2>\n<h3>bar</h3>\n")
+
+@test("example 72", ignore: "the parser does not read ATX headings")
+example_72()
+    assert_eq(to_html(parse("# foo ##################################\n##### foo ##\n")), "<h1>foo</h1>\n<h5>foo</h5>\n")
+
+@test("example 73", ignore: "the parser does not read ATX headings")
+example_73()
+    assert_eq(to_html(parse("### foo ###     \n")), "<h3>foo</h3>\n")
+
+@test("example 74", ignore: "the parser does not read ATX headings")
+example_74()
+    assert_eq(to_html(parse("### foo ### b\n")), "<h3>foo ### b</h3>\n")
+
+@test("example 75", ignore: "the parser does not read ATX headings")
+example_75()
+    assert_eq(to_html(parse("# foo#\n")), "<h1>foo#</h1>\n")
+
+@test("example 76", ignore: "the parser does not read ATX headings")
+example_76()
+    assert_eq(to_html(parse("### foo \\###\n## foo #\\##\n# foo \\#\n")), "<h3>foo ###</h3>\n<h2>foo ###</h2>\n<h1>foo #</h1>\n")
+
+@test("example 77", ignore: "the parser does not read ATX headings")
+example_77()
+    assert_eq(to_html(parse("****\n## foo\n****\n")), "<hr />\n<h2>foo</h2>\n<hr />\n")
+
+@test("example 78", ignore: "the parser does not read ATX headings")
+example_78()
+    assert_eq(to_html(parse("Foo bar\n# baz\nBar foo\n")), "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n")
+
+@test("example 79", ignore: "the parser does not read ATX headings")
+example_79()
+    assert_eq(to_html(parse("## \n#\n### ###\n")), "<h2></h2>\n<h1></h1>\n<h3></h3>\n")

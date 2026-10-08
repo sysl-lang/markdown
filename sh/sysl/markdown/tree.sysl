@@ -1,0 +1,229 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+import sysl.container.{Map, map}
+
+// The document tree: one arena of nodes, blocks and inlines alike, linked by index.
+//
+// **Every link is a `u32` index into `Doc.nodes`, and index 0 is the document.** The document is
+// never anyone's child or sibling, so inside the arena 0 doubles as "none"; the public accessors
+// answer `Option[NodeId]` so that a caller never sees the convention.
+//
+// **Why an arena rather than a recursive enum with a `Buf` of children**: emphasis processing
+// inserts a node and moves a run of siblings under it, which is a relink here and a splice there;
+// a rewrite over every node is a flat `for` over the arena; and a walk follows `first`, `next` and
+// `parent` without recursing, so neither walking nor rendering is bounded by the stack.
+
+/** A node's place in the arena. Only a `Doc` hands these out, and only for its own nodes. */
+struct NodeId
+    i: u32
+
+/** What marks a list's items, which is also what decides that two items belong to one list. */
+enum ListKind
+    Bullet(marker: u8)                  // '-', '+' or '*'
+    Ordered(start: u32, delim: u8)      // the first item's number, and '.' or ')'
+
+/** What a node is, together with whatever the renderer needs to write it.
+ *
+ * Parser state -- a fence's character and length, a list item's content offset, the condition that
+ * ends an HTML block -- is deliberately not here. It lives on the parser's stack of open blocks and
+ * is gone once the block closes, so this enum is the whole of what a consumer of a finished tree
+ * reads.
+ */
+enum Kind
+    Document
+    BlockQuote
+    List(kind: ListKind, tight: bool)
+    Item(task: Option[bool])                    // Some(checked) for a task-list item
+    Paragraph
+    Heading(level: u8, id: Option[string])
+    ThematicBreak
+    CodeBlock(info: string, literal: string, fenced: bool)
+    HtmlBlock(literal: string)
+    Text(lit: string)
+    SoftBreak
+    HardBreak
+    Code(lit: string)
+    Emph
+    Strong
+    Link(dest: string, title: string)
+    Image(dest: string, title: string)
+    HtmlInline(lit: string)
+
+/** Whether a kind of node holds children, which is what decides whether a walk exits it.
+ *
+ * It is a property of the kind and not of the node: an empty paragraph is still entered and exited,
+ * and a `Text` is only ever entered.
+ */
+is_container(k: Kind) -> bool
+    k match
+        ThematicBreak | CodeBlock(_, _, _) | HtmlBlock(_) -> false
+        Text(_) | SoftBreak | HardBreak | Code(_) | HtmlInline(_) -> false
+        _ -> true
+
+struct Node
+    kind: Kind
+    span: Span          // the bytes of the source this node was read from
+    parent: u32
+    first: u32
+    last: u32
+    prev: u32
+    next: u32
+
+/** A link reference definition, as `[label]: dest "title"` defined it. */
+struct LinkRef
+    dest: string
+    title: string
+
+/** A parsed document: the source, the arena, and the link reference definitions found in it.
+ *
+ * The definitions are kept on the document rather than returned beside it, so that one parse can be
+ * rendered several ways and a renderer or a rewrite can resolve a label without being handed a
+ * second value.
+ */
+struct Doc
+    src: string
+    nodes: Buf[Node]
+    refs: Map[string, LinkRef]
+
+    /** The document node, which every other node descends from. */
+    root(self) -> NodeId = NodeId(0)
+
+    /** How many nodes the arena holds, the document included. */
+    len(self) -> usize = self.nodes.len()
+
+    kind(self, n: NodeId) -> Kind = self.nodes.at(usize(n.i)).kind
+
+    span(self, n: NodeId) -> Span = self.nodes.at(usize(n.i)).span
+
+    /** Replace what a node is, keeping where it is: a rewrite's one primitive. */
+    set_kind(self, n: NodeId, k: Kind)
+        self.nodes.view()[usize(n.i)].kind = k
+
+    parent(self, n: NodeId) -> Option[NodeId] = if n.i == 0 then None else Some(NodeId(self.nodes.at(usize(n.i)).parent))
+
+    first_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).first)
+
+    last_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).last)
+
+    next_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).next)
+
+    prev_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).prev)
+
+    /** A new node, made the last child of `parent`. */
+    append_child(self, parent: NodeId, k: Kind, span: Span) -> NodeId
+        val id = u32(self.nodes.len())
+        val p = usize(parent.i)
+        val before = self.nodes.at(p).last
+
+        self.nodes.push(Node(k, span, parent.i, 0, 0, before, 0))
+
+        if before == 0 then self.nodes.view()[p].first = id else self.nodes.view()[usize(before)].next = id
+
+        self.nodes.view()[p].last = id
+        NodeId(id)
+
+    /** Take a node, with everything under it, out of its parent's children. Its slot in the arena
+     * stays, so every `NodeId` still names what it named; it is only no longer reachable by a walk.
+     * The document cannot be unlinked, having no parent to leave.
+     */
+    unlink(self, n: NodeId)
+        if n.i == 0 then return
+
+        val v = self.nodes.view()
+        val me = usize(n.i)
+        val p = usize(v[me].parent)
+        val before = v[me].prev
+        val after = v[me].next
+
+        if before == 0 then v[p].first = after else v[usize(before)].next = after
+        if after == 0 then v[p].last = before else v[usize(after)].prev = before
+
+        v[me].prev = 0
+        v[me].next = 0
+
+    /** Make `n` -- a node already in the arena, unlinked or not -- the sibling directly after
+     * `anchor`. Moving a node is an `unlink` and an insert, and costs neither a copy nor a walk.
+     * The document is never anyone's sibling, so it is neither moved nor moved beside.
+     */
+    insert_after(self, anchor: NodeId, n: NodeId)
+        if n.i == 0 || anchor.i == 0 || n.i == anchor.i then return
+
+        self.unlink(n)
+
+        val v = self.nodes.view()
+        val a = usize(anchor.i)
+        val me = usize(n.i)
+        val p = v[a].parent
+        val after = v[a].next
+
+        v[me].parent = p
+        v[me].prev = anchor.i
+        v[me].next = after
+        v[a].next = n.i
+
+        if after == 0 then v[usize(p)].last = n.i else v[usize(after)].prev = n.i
+    end insert_after
+
+    /** Every node from the document down, in document order: see `Walker`. */
+    walk(self) -> Walker = self.walk_from(NodeId(0))
+
+    /** Every node from `n` down, ending when `n` is exited. */
+    walk_from(self, n: NodeId) -> Walker = Walker(self, n, n, true, false)
+end Doc
+
+private link(i: u32) -> Option[NodeId] = if i == 0 then None else Some(NodeId(i))
+
+/** A document holding nothing but its root, which a parser grows. */
+new_doc(src: string) -> Doc
+    var nodes: Buf[Node] = buf()
+
+    nodes.push(Node(Document, Span(0, src.len), 0, 0, 0, 0, 0))
+    Doc(src, nodes, map())
+
+/** Whether a walk is arriving at a node or leaving it. */
+enum Event
+    Enter
+    Exit
+
+/** A walk over a subtree in document order, as `(Event, NodeId)` pairs.
+ *
+ * **A container is entered and later exited; a leaf is only entered** -- `is_container` decides
+ * which, by kind. Rendering is the case this is shaped for: a `<p>` is written on entering and its
+ * `</p>` on exiting, with the children's output between.
+ *
+ * It holds no stack. The next step is always found from the current node's own links -- down to
+ * the first child, across to the next sibling, or up to the parent to exit it -- so the depth of a
+ * document costs nothing here.
+ */
+struct Walker
+    private doc: Doc
+    private root: NodeId
+    private at: NodeId
+    private entering: bool
+    private done: bool
+
+impl Iterate for Walker
+    type Item = (Event, NodeId)
+
+    next(*self) -> Option[(Event, NodeId)]
+        if self.done then return None
+
+        val cur = self.at
+        val ev = if self.entering then Enter else Exit
+        val node = self.doc.nodes.at(usize(cur.i))
+
+        if self.entering && is_container(node.kind) then
+            if node.first != 0 then self.at = NodeId(node.first) else self.entering = false
+        else if cur.i == self.root.i then
+            self.done = true
+        else if node.next != 0 then
+            self.at = NodeId(node.next)
+            self.entering = true
+        else
+            self.at = NodeId(node.parent)
+            self.entering = false
+
+        Some((ev, cur))
+    end next

@@ -1,0 +1,313 @@
+module sh.sysl.markdown
+
+import sysl.buf.byte_sink
+import sysl.slices.contains
+import sysl.text.from_utf8_unchecked
+
+// The HTML renderer: one walk over the arena, writing to a `Writer`.
+//
+// **The output is the CommonMark reference renderer's, byte for byte** -- commonmark.js's
+// `lib/render/html.js` -- because the spec's expected HTML is that renderer's output and the suite
+// compares it exactly. Where a line break goes, which tags close themselves (`<br />`, `<hr />`,
+// `<img … />`), and when a tight list's paragraphs lose their `<p>` are all its decisions, copied.
+
+/** A tree rendered to HTML, gathered into one string. */
+to_html(d: Doc) -> string
+    var sink = byte_sink()
+
+    render_html(d, &sink)
+    from_utf8_unchecked(sink.text())
+
+/** A tree rendered to HTML, written to `out` as it is produced. */
+render_html(d: Doc, out: *Writer)
+    var h = Html(out, u8('\n'), 0)
+
+    for (ev, n) in d.walk() do h.node(d, ev, n)
+
+/** Text made safe to sit between tags or inside a quoted attribute: `&`, `<`, `>` and `"` become
+ * entities, and nothing else changes -- commonmark.js's `escapeXml`. A `'` is left alone, since every
+ * attribute here is double-quoted.
+ */
+escape_html(s: string) -> string
+    var sink = byte_sink()
+    var h = Html(&sink, 0, 0)
+
+    h.esc(s)
+    from_utf8_unchecked(sink.text())
+
+/** A link destination made into a URL, as commonmark.js does it with `mdurl.encode`: every byte
+ * outside the letters, the digits and `;/?:@&=+$,-_.!~*'()#` is percent-encoded with upper-case
+ * hex, except that a `%` already followed by two hex digits is kept as written, so an encoded URL
+ * is not encoded twice. Non-ASCII text is encoded as its UTF-8 bytes, so `ä` becomes `%C3%A4`.
+ *
+ * This is the URL; written into an `href` it is escaped as well, which turns each `&` into `&amp;`.
+ */
+encode_href(s: string) -> string
+    var sink = byte_sink()
+    var h = Html(&sink, 0, 0)
+
+    h.href(s, false)
+    from_utf8_unchecked(sink.text())
+
+private struct Html
+    out: *Writer
+    last: u8            // the last byte written, so that `cr` writes a newline only where none is
+    alt: usize          // how many images deep the walk is; inside one, text is written and tags are not
+
+    // Bytes written verbatim.
+    put(*self, b: []const u8)
+        if b.len == 0 then return
+
+        self.out.write(b)
+        self.last = b[b.len - 1]
+
+    lit(*self, s: string) = self.put(s.bytes)
+
+    // A newline, unless the output already ends with one.
+    cr(*self)
+        if self.last != u8('\n') then self.lit("\n")
+
+    // A tag, or nothing inside an image's alt text, where only the text survives.
+    tag(*self, s: string)
+        if self.alt == 0 then self.lit(s)
+
+    esc(*self, s: string)
+        val b = s.bytes
+        var from: usize = 0
+
+        for i in 0..<b.len
+            val rep = entity_for(b[i])
+
+            if rep.len > 0 then
+                self.put(b[from..<i])
+                self.lit(rep)
+                from = i + 1
+
+        self.put(b[from..<b.len])
+    end esc
+
+    // `encode_href`, and with `in_attr` the `&` it keeps becomes `&amp;` -- the only one of the four
+    // escapable bytes that survives encoding.
+    href(*self, s: string, in_attr: bool)
+        val b = s.bytes
+        var from: usize = 0
+        var i: usize = 0
+
+        while i < b.len
+            val c = b[i]
+
+            if c == u8('%') && i + 2 < b.len && is_hex(b[i + 1]) && is_hex(b[i + 2]) then
+                i += 3
+            else if c == u8('&') && in_attr then
+                self.put(b[from..<i])
+                self.lit("&amp;")
+                i += 1
+                from = i
+            else if keeps(c) then
+                i += 1
+            else
+                self.put(b[from..<i])
+                self.percent(c)
+                i += 1
+                from = i
+
+        self.put(b[from..<b.len])
+    end href
+
+    percent(*self, c: u8)
+        var tmp: [3]u8 = [u8('%'), hex_digit(c >> 4), hex_digit(c & 15)]
+
+        self.put(tmp[0..<3])
+
+    node(*self, d: Doc, ev: Event, n: NodeId)
+        val entering = ev == Enter
+
+        d.kind(n) match
+            Document -> ()
+            Text(t) -> self.esc(t)
+            SoftBreak -> self.lit("\n")
+            HardBreak ->
+                self.tag("<br />")
+                self.cr()
+            Code(t) ->
+                self.tag("<code>")
+                self.esc(t)
+                self.tag("</code>")
+            HtmlInline(t) -> self.lit(t)
+            Emph -> self.tag(if entering then "<em>" else "</em>")
+            Strong -> self.tag(if entering then "<strong>" else "</strong>")
+            Link(dest, title) ->
+                if entering then
+                    self.tag("<a href=\"")
+                    if self.alt == 0 then self.href(dest, true)
+                    if title.len > 0 then
+                        self.tag("\" title=\"")
+                        if self.alt == 0 then self.esc(title)
+                    self.tag("\">")
+                else
+                    self.tag("</a>")
+            Image(dest, title) -> self.image(entering, dest, title)
+            Paragraph -> self.paragraph(d, entering, n)
+            Heading(level, _) ->
+                if entering then
+                    self.cr()
+                    self.heading_tag("<h", level)
+                else
+                    self.heading_tag("</h", level)
+                    self.cr()
+            CodeBlock(info, literal, _) -> self.code_block(info, literal)
+            HtmlBlock(t) ->
+                self.cr()
+                self.lit(t)
+                self.cr()
+            ThematicBreak ->
+                self.cr()
+                self.tag("<hr />")
+                self.cr()
+            BlockQuote ->
+                self.cr()
+                self.tag(if entering then "<blockquote>" else "</blockquote>")
+                self.cr()
+            List(kind, _) -> self.list(entering, kind)
+            Item(_) ->
+                if entering then
+                    self.tag("<li>")
+                else
+                    self.tag("</li>")
+                    self.cr()
+    end node
+
+    // An image's alt text is its children's text with every tag inside dropped, so the tag opened on
+    // entering stays open across them and is closed on exiting -- and an image inside an image's alt
+    // writes nothing of its own.
+    image(*self, entering: bool, dest: string, title: string)
+        if entering then
+            if self.alt == 0 then
+                self.lit("<img src=\"")
+                self.href(dest, true)
+                self.lit("\" alt=\"")
+            self.alt += 1
+            return
+
+        self.alt -= 1
+        if self.alt > 0 then return
+
+        if title.len > 0 then
+            self.lit("\" title=\"")
+            self.esc(title)
+
+        self.lit("\" />")
+    end image
+
+    // A paragraph directly inside a tight list's item writes no `<p>`: its text sits in the `<li>`.
+    paragraph(*self, d: Doc, entering: bool, n: NodeId)
+        val grand = d.parent(n).and_then((p) -> d.parent(p))
+
+        grand match
+            Some(g) ->
+                d.kind(g) match
+                    List(_, tight) -> if tight then return
+                    _ -> ()
+            None -> ()
+
+        if entering then
+            self.cr()
+            self.tag("<p>")
+        else
+            self.tag("</p>")
+            self.cr()
+    end paragraph
+
+    heading_tag(*self, open: string, level: u8)
+        self.tag(open)
+        if self.alt == 0 then
+            var digit: [1]u8 = [u8('0') + level]
+            self.put(digit[0..<1])
+        self.tag(">")
+
+    // The info string's first word names the language, as a class on the `<code>`.
+    code_block(*self, info: string, literal: string)
+        val word = first_word(info)
+
+        self.cr()
+        self.tag("<pre>")
+
+        if word.len > 0 then
+            self.tag("<code class=\"language-")
+            self.esc(word)
+            self.tag("\">")
+        else
+            self.tag("<code>")
+
+        self.esc(literal)
+        self.tag("</code></pre>")
+        self.cr()
+    end code_block
+
+    list(*self, entering: bool, kind: ListKind)
+        self.cr()
+
+        kind match
+            Bullet(_) -> self.tag(if entering then "<ul>" else "</ul>")
+            Ordered(start, _) ->
+                if !entering then
+                    self.tag("</ol>")
+                else if start == 1 then
+                    self.tag("<ol>")
+                else
+                    self.tag("<ol start=\"")
+                    self.lit(str(start))
+                    self.tag("\">")
+
+        self.cr()
+    end list
+end Html
+
+private entity_for(c: u8) -> string
+    if c == u8('&') then "&amp;"
+    else if c == u8('<') then "&lt;"
+    else if c == u8('>') then "&gt;"
+    else if c == u8('"') then "&quot;"
+    else ""
+
+private is_hex(c: u8) -> bool
+    (c >= u8('0') && c <= u8('9')) || (c >= u8('a') && c <= u8('f')) || (c >= u8('A') && c <= u8('F'))
+
+private hex_digit(n: u8) -> u8 = if n < 10 then u8('0') + n else u8('A') + n - 10
+
+// The bytes `mdurl.encode` leaves alone: the ASCII letters and digits, and its default set.
+private keeps(c: u8) -> bool
+    if (c >= u8('a') && c <= u8('z')) || (c >= u8('A') && c <= u8('Z')) || (c >= u8('0') && c <= u8('9')) then
+        return true
+
+    contains(";/?:@&=+$,-_.!~*'()#".bytes, c)
+
+// What commonmark.js's `info.split(/\s+/)[0]` answers: the info string up to its first whitespace,
+// where whitespace is JavaScript's `\s` -- the ASCII six and the Unicode space separators.
+private first_word(info: string) -> string
+    val b = info.bytes
+    var i: usize = 0
+
+    while i < b.len
+        if space_len(b, i) > 0 then return info[0..<i]
+        i += 1
+
+    info
+
+// The length in bytes of the JavaScript `\s` character starting at `i`, or 0 if there is none.
+private space_len(b: []const u8, i: usize) -> usize
+    val c = b[i]
+
+    if c == u8(' ') || (c >= 9 && c <= 13) then return 1
+
+    val rest = b.len - i
+    val c1 = if rest > 1 then b[i + 1] else 0
+    val c2 = if rest > 2 then b[i + 2] else 0
+
+    if c == 0xC2 && c1 == 0xA0 then 2                                   // U+00A0
+    else if c == 0xE1 && c1 == 0x9A && c2 == 0x80 then 3                // U+1680
+    else if c == 0xE2 && c1 == 0x80 && ((c2 >= 0x80 && c2 <= 0x8A) || c2 == 0xA8 || c2 == 0xA9 || c2 == 0xAF) then 3
+    else if c == 0xE2 && c1 == 0x81 && c2 == 0x9F then 3                // U+205F
+    else if c == 0xE3 && c1 == 0x80 && c2 == 0x80 then 3                // U+3000
+    else if c == 0xEF && c1 == 0xBB && c2 == 0xBF then 3                // U+FEFF
+    else 0

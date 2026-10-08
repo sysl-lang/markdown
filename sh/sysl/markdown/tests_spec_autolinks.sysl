@@ -1,0 +1,81 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Autolinks', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 594", ignore: "the parser does not read Autolinks")
+example_594()
+    assert_eq(to_html(parse("<http://foo.bar.baz>\n")), "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n")
+
+@test("example 595", ignore: "the parser does not read Autolinks")
+example_595()
+    assert_eq(to_html(parse("<https://foo.bar.baz/test?q=hello&id=22&boolean>\n")), "<p><a href=\"https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n")
+
+@test("example 596", ignore: "the parser does not read Autolinks")
+example_596()
+    assert_eq(to_html(parse("<irc://foo.bar:2233/baz>\n")), "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n")
+
+@test("example 597", ignore: "the parser does not read Autolinks")
+example_597()
+    assert_eq(to_html(parse("<MAILTO:FOO@BAR.BAZ>\n")), "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>\n")
+
+@test("example 598", ignore: "the parser does not read Autolinks")
+example_598()
+    assert_eq(to_html(parse("<a+b+c:d>\n")), "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n")
+
+@test("example 599", ignore: "the parser does not read Autolinks")
+example_599()
+    assert_eq(to_html(parse("<made-up-scheme://foo,bar>\n")), "<p><a href=\"made-up-scheme://foo,bar\">made-up-scheme://foo,bar</a></p>\n")
+
+@test("example 600", ignore: "the parser does not read Autolinks")
+example_600()
+    assert_eq(to_html(parse("<https://../>\n")), "<p><a href=\"https://../\">https://../</a></p>\n")
+
+@test("example 601", ignore: "the parser does not read Autolinks")
+example_601()
+    assert_eq(to_html(parse("<localhost:5001/foo>\n")), "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n")
+
+@test("example 602", ignore: "the parser does not read Autolinks")
+example_602()
+    assert_eq(to_html(parse("<https://foo.bar/baz bim>\n")), "<p>&lt;https://foo.bar/baz bim&gt;</p>\n")
+
+@test("example 603", ignore: "the parser does not read Autolinks")
+example_603()
+    assert_eq(to_html(parse("<https://example.com/\\[\\>\n")), "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>\n")
+
+@test("example 604", ignore: "the parser does not read Autolinks")
+example_604()
+    assert_eq(to_html(parse("<foo@bar.example.com>\n")), "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n")
+
+@test("example 605", ignore: "the parser does not read Autolinks")
+example_605()
+    assert_eq(to_html(parse("<foo+special@Bar.baz-bar0.com>\n")), "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n")
+
+@test("example 606", ignore: "the parser does not read Autolinks")
+example_606()
+    assert_eq(to_html(parse("<foo\\+@bar.example.com>\n")), "<p>&lt;foo+@bar.example.com&gt;</p>\n")
+
+@test("example 607", ignore: "the parser does not read Autolinks")
+example_607()
+    assert_eq(to_html(parse("<>\n")), "<p>&lt;&gt;</p>\n")
+
+@test("example 608", ignore: "the parser does not read Autolinks")
+example_608()
+    assert_eq(to_html(parse("< https://foo.bar >\n")), "<p>&lt; https://foo.bar &gt;</p>\n")
+
+@test("example 609", ignore: "the parser does not read Autolinks")
+example_609()
+    assert_eq(to_html(parse("<m:abc>\n")), "<p>&lt;m:abc&gt;</p>\n")
+
+@test("example 610", ignore: "the parser does not read Autolinks")
+example_610()
+    assert_eq(to_html(parse("<foo.bar.baz>\n")), "<p>&lt;foo.bar.baz&gt;</p>\n")
+
+@test("example 611", ignore: "the parser does not read Autolinks")
+example_611()
+    assert_eq(to_html(parse("https://example.com\n")), "<p>https://example.com</p>\n")
+
+@test("example 612", ignore: "the parser does not read Autolinks")
+example_612()
+    assert_eq(to_html(parse("foo@bar.example.com\n")), "<p>foo@bar.example.com</p>\n")

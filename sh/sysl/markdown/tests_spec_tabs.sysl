@@ -1,0 +1,49 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Tabs', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 1", ignore: "the parser does not read Tabs")
+example_1()
+    assert_eq(to_html(parse("\tfoo\tbaz\t\tbim\n")), "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n")
+
+@test("example 2", ignore: "the parser does not read Tabs")
+example_2()
+    assert_eq(to_html(parse("  \tfoo\tbaz\t\tbim\n")), "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n")
+
+@test("example 3", ignore: "the parser does not read Tabs")
+example_3()
+    assert_eq(to_html(parse("    a\ta\n    \u{1f50}\ta\n")), "<pre><code>a\ta\n\u{1f50}\ta\n</code></pre>\n")
+
+@test("example 4", ignore: "the parser does not read Tabs")
+example_4()
+    assert_eq(to_html(parse("  - foo\n\n\tbar\n")), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
+
+@test("example 5", ignore: "the parser does not read Tabs")
+example_5()
+    assert_eq(to_html(parse("- foo\n\n\t\tbar\n")), "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 6", ignore: "the parser does not read Tabs")
+example_6()
+    assert_eq(to_html(parse(">\t\tfoo\n")), "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n")
+
+@test("example 7", ignore: "the parser does not read Tabs")
+example_7()
+    assert_eq(to_html(parse("-\t\tfoo\n")), "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 8", ignore: "the parser does not read Tabs")
+example_8()
+    assert_eq(to_html(parse("    foo\n\tbar\n")), "<pre><code>foo\nbar\n</code></pre>\n")
+
+@test("example 9", ignore: "the parser does not read Tabs")
+example_9()
+    assert_eq(to_html(parse(" - foo\n   - bar\n\t - baz\n")), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 10", ignore: "the parser does not read Tabs")
+example_10()
+    assert_eq(to_html(parse("#\tFoo\n")), "<h1>Foo</h1>\n")
+
+@test("example 11", ignore: "the parser does not read Tabs")
+example_11()
+    assert_eq(to_html(parse("*\t*\t*\t\n")), "<hr />\n")

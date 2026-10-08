@@ -1,0 +1,403 @@
+module sh.sysl.markdown
+@tests
+
+import sh.sysl.parsing.Span
+import sysl.buf.byte_sink
+import sysl.text.{from_utf8_unchecked, str_builder}
+
+// The arena, the walk, the renderer's escaping and URL encoding, and the extension registry --
+// checked on trees built by hand, so that each is tested apart from the parser.
+
+private at(n: usize) -> Span = Span(n, n)
+
+// An absent link reads as 0, which no node but the document has, so a link is one number to compare.
+private id(o: Option[NodeId]) -> u32
+    o match
+        Some(n) -> n.i
+        None -> 0
+
+// A walk written out: `+n` on entering node n and `-n` on leaving it, space-separated.
+private trace(w: Walker) -> string
+    var b = str_builder()
+    var it = w
+
+    for (ev, n) in it
+        if b.len > 0 then b.push(" ")
+        b.push(if ev == Enter then "+" else "-")
+        b.push_uint(ulong(n.i))
+
+    b.finish()
+
+private text(d: Doc, parent: NodeId, s: string) -> NodeId = d.append_child(parent, Text(s), at(0))
+
+// ----- the arena -----
+
+@test("a new document holds only its root, spanning the whole source")
+new_document_is_just_the_root()
+    val d = new_doc("hello")
+
+    assert_eq(d.len(), 1)
+    assert_eq(d.root().i, 0)
+    assert_eq(d.span(d.root()).end, 5)
+    assert(d.first_child(d.root()).is_none())
+    assert(d.parent(d.root()).is_none())
+
+@test("appended children are linked both ways, in order, under their parent")
+append_links_children()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, Span(0, 9))
+    val a = text(d, p, "a")
+    val b = text(d, p, "b")
+    val c = text(d, p, "c")
+
+    assert_eq(id(d.first_child(p)), a.i)
+    assert_eq(id(d.last_child(p)), c.i)
+    assert_eq(id(d.next_sibling(a)), b.i)
+    assert_eq(id(d.next_sibling(c)), 0)
+    assert_eq(id(d.prev_sibling(c)), b.i)
+    assert_eq(id(d.prev_sibling(a)), 0)
+    assert_eq(id(d.parent(b)), p.i)
+    assert_eq(id(d.parent(p)), 0)
+    assert_eq(d.span(p).end, 9)
+
+@test("set_kind replaces what a node is and keeps where it is")
+set_kind_keeps_the_links()
+    val d = new_doc("")
+    val h = d.append_child(d.root(), Heading(1, None), at(0))
+    val t = text(d, h, "Title")
+
+    d.set_kind(h, Heading(3, Some("title")))
+
+    d.kind(h) match
+        Heading(level, slug) ->
+            assert_eq(level, 3)
+            assert_eq(slug.unwrap_or(""), "title")
+        _ -> panic("not a heading")
+
+    assert_eq(id(d.first_child(h)), t.i)
+
+@test("a copy of a document is the same document, so a rewrite through either is seen by both")
+documents_share_their_arena()
+    val d = new_doc("")
+    val e = d
+    val p = e.append_child(e.root(), Paragraph, at(0))
+
+    assert_eq(d.len(), 2)
+    assert_eq(id(d.first_child(d.root())), p.i)
+
+@test("unlinking the middle, first, last and only child each leaves the rest linked")
+unlink_every_position()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val a = text(d, p, "a")
+    val b = text(d, p, "b")
+    val c = text(d, p, "c")
+
+    d.unlink(b)
+    assert_eq(id(d.next_sibling(a)), c.i)
+    assert_eq(id(d.prev_sibling(c)), a.i)
+    assert_eq(id(d.next_sibling(b)), 0)
+
+    d.unlink(a)
+    assert_eq(id(d.first_child(p)), c.i)
+    assert_eq(id(d.prev_sibling(c)), 0)
+
+    d.unlink(c)
+    assert_eq(id(d.first_child(p)), 0)
+    assert_eq(id(d.last_child(p)), 0)
+    assert_eq(trace(d.walk()), "+0 +1 -1 -0")
+
+@test("unlinking the document does nothing")
+unlink_the_root_is_a_no_op()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+
+    d.unlink(d.root())
+    assert_eq(id(d.first_child(d.root())), p.i)
+    assert_eq(trace(d.walk()), "+0 +1 -1 -0")
+
+@test("insert_after moves a node from one parent to another, keeping its subtree")
+insert_after_moves_a_subtree()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val a = text(d, p, "a")
+    val q = d.append_child(d.root(), Paragraph, at(0))
+    val em = d.append_child(q, Emph, at(0))
+    val b = text(d, em, "b")
+
+    d.insert_after(a, em)
+
+    assert_eq(id(d.parent(em)), p.i)
+    assert_eq(id(d.last_child(p)), em.i)
+    assert_eq(id(d.first_child(q)), 0)
+    assert_eq(id(d.first_child(em)), b.i)
+    assert_eq(trace(d.walk()), "+0 +1 +2 +4 +5 -4 -1 +3 -3 -0")
+
+@test("insert_after between two siblings links all three both ways")
+insert_after_in_the_middle()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val a = text(d, p, "a")
+    val c = text(d, p, "c")
+    val b = text(d, d.root(), "b")
+
+    d.insert_after(a, b)
+
+    assert_eq(id(d.next_sibling(a)), b.i)
+    assert_eq(id(d.next_sibling(b)), c.i)
+    assert_eq(id(d.prev_sibling(c)), b.i)
+    assert_eq(id(d.last_child(p)), c.i)
+    assert_eq(id(d.last_child(d.root())), p.i)
+
+@test("insert_after refuses the document and a node beside itself")
+insert_after_refuses_nonsense()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val a = text(d, p, "a")
+
+    d.insert_after(a, a)
+    d.insert_after(a, d.root())
+    d.insert_after(d.root(), a)
+
+    assert_eq(trace(d.walk()), "+0 +1 +2 -1 -0")
+
+// ----- the walk -----
+
+@test("an empty document is entered and exited")
+walk_of_an_empty_document()
+    assert_eq(trace(new_doc("").walk()), "+0 -0")
+
+@test("a container is entered and exited, a leaf only entered, an empty container still both")
+walk_enters_and_exits_by_kind()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    text(d, p, "a")
+    d.append_child(p, SoftBreak, at(0))
+    d.append_child(d.root(), ThematicBreak, at(0))
+    d.append_child(d.root(), BlockQuote, at(0))
+
+    assert_eq(trace(d.walk()), "+0 +1 +2 +3 -1 +4 +5 -5 -0")
+
+@test("a walk from a node covers its subtree and stops on leaving it")
+walk_from_a_subtree()
+    val d = new_doc("")
+    val q = d.append_child(d.root(), BlockQuote, at(0))
+    val p = d.append_child(q, Paragraph, at(0))
+    text(d, p, "a")
+    d.append_child(d.root(), Paragraph, at(0))
+
+    assert_eq(trace(d.walk_from(q)), "+1 +2 +3 -2 -1")
+    assert_eq(trace(d.walk_from(NodeId(3))), "+3")
+
+@test("a walk over nesting far deeper than any stack still ends, entering and exiting every level")
+walk_is_not_bounded_by_the_stack()
+    val d = new_doc("")
+    var n = d.root()
+
+    for _ in 0..<100000 do n = d.append_child(n, BlockQuote, at(0))
+
+    var enters: usize = 0
+    var exits: usize = 0
+
+    for (ev, _) in d.walk()
+        if ev == Enter then enters += 1 else exits += 1
+
+    assert_eq(enters, 100001)
+    assert_eq(exits, 100001)
+
+// ----- escaping -----
+
+@test("the four escapable bytes become entities, and an apostrophe does not")
+escape_the_four()
+    assert_eq(escape_html("a&b<c>\"d'e"), "a&amp;b&lt;c&gt;&quot;d'e")
+
+@test("escaping leaves text with nothing to escape, including non-ASCII, as it was")
+escape_leaves_the_rest()
+    assert_eq(escape_html(""), "")
+    assert_eq(escape_html("plain"), "plain")
+    assert_eq(escape_html("ä→\u{1f600}"), "ä→\u{1f600}")
+    assert_eq(escape_html("&&"), "&amp;&amp;")
+    assert_eq(escape_html("&amp;"), "&amp;amp;")
+
+// ----- URL encoding -----
+
+@test("non-ASCII is percent-encoded as its UTF-8 bytes, in upper-case hex")
+href_encodes_utf8()
+    assert_eq(encode_href("ä"), "%C3%A4")
+    assert_eq(encode_href("\u{1f600}"), "%F0%9F%98%80")
+
+@test("letters, digits and mdurl's reserved set are kept")
+href_keeps_the_reserved_set()
+    val keep = "azAZ09;/?:@&=+$,-_.!~*'()#"
+
+    assert_eq(encode_href(keep), keep)
+    assert_eq(encode_href(""), "")
+
+@test("every other ASCII byte is encoded, the controls and space included")
+href_encodes_the_rest()
+    assert_eq(encode_href(" \"<>[]\\^`{|}"), "%20%22%3C%3E%5B%5D%5C%5E%60%7B%7C%7D")
+    assert_eq(encode_href("\t\u{7f}"), "%09%7F")
+
+@test("an existing percent escape is kept as written, in either case of hex")
+href_keeps_existing_escapes()
+    assert_eq(encode_href("a%20b"), "a%20b")
+    assert_eq(encode_href("%c3%A4"), "%c3%A4")
+
+@test("a percent sign not followed by two hex digits is itself encoded")
+href_encodes_a_bare_percent()
+    assert_eq(encode_href("%"), "%25")
+    assert_eq(encode_href("%2"), "%252")
+    assert_eq(encode_href("50%zz"), "50%25zz")
+    assert_eq(encode_href("%g0"), "%25g0")
+
+// ----- rendering -----
+
+// A document with one paragraph holding one text node.
+private para(s: string) -> Doc
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    text(d, p, s)
+    d
+
+@test("an empty document renders as nothing")
+render_nothing()
+    assert_eq(to_html(new_doc("")), "")
+
+@test("a paragraph's text is escaped")
+render_paragraph()
+    assert_eq(to_html(para("a < b & \"c\"")), "<p>a &lt; b &amp; &quot;c&quot;</p>\n")
+
+@test("render_html writes what to_html answers")
+render_to_a_writer()
+    val d = para("hi")
+    var sink = byte_sink()
+
+    render_html(d, &sink)
+    assert_eq(from_utf8_unchecked(sink.text()), to_html(d))
+
+@test("headings, breaks, a thematic break and a block quote")
+render_blocks()
+    val d = new_doc("")
+    val h = d.append_child(d.root(), Heading(2, None), at(0))
+    text(d, h, "T")
+    d.append_child(d.root(), ThematicBreak, at(0))
+    val q = d.append_child(d.root(), BlockQuote, at(0))
+    val p = d.append_child(q, Paragraph, at(0))
+    text(d, p, "a")
+    d.append_child(p, HardBreak, at(0))
+    text(d, p, "b")
+    d.append_child(p, SoftBreak, at(0))
+    text(d, p, "c")
+
+    assert_eq(to_html(d), "<h2>T</h2>\n<hr />\n<blockquote>\n<p>a<br />\nb\nc</p>\n</blockquote>\n")
+
+@test("a tight list's paragraphs lose their tags and a loose list's keep them")
+render_tight_and_loose()
+    val d = new_doc("")
+    val tight = d.append_child(d.root(), List(Bullet(u8('-')), true), at(0))
+    val i = d.append_child(tight, Item(None), at(0))
+    text(d, d.append_child(i, Paragraph, at(0)), "a")
+    val loose = d.append_child(d.root(), List(Ordered(3, u8('.')), false), at(0))
+    val j = d.append_child(loose, Item(None), at(0))
+    text(d, d.append_child(j, Paragraph, at(0)), "b")
+
+    assert_eq(to_html(d), "<ul>\n<li>a</li>\n</ul>\n<ol start=\"3\">\n<li>\n<p>b</p>\n</li>\n</ol>\n")
+
+@test("an ordered list starting at 1 writes no start, and one starting at 0 does")
+render_list_start()
+    val d = new_doc("")
+    d.append_child(d.root(), List(Ordered(1, u8('.')), true), at(0))
+    d.append_child(d.root(), List(Ordered(0, u8(')')), true), at(0))
+
+    assert_eq(to_html(d), "<ol>\n</ol>\n<ol start=\"0\">\n</ol>\n")
+
+@test("a code block's class is its info string's first word, escaped, and its text is escaped")
+render_code_block()
+    val d = new_doc("")
+    d.append_child(d.root(), CodeBlock("ruby startline=3 $%@#$", "a<b\n", true), at(0))
+    d.append_child(d.root(), CodeBlock("", "x\n", false), at(0))
+    d.append_child(d.root(), CodeBlock("a&b", "", true), at(0))
+
+    assert_eq(to_html(d), "<pre><code class=\"language-ruby\">a&lt;b\n</code></pre>\n<pre><code>x\n</code></pre>\n<pre><code class=\"language-a&amp;b\"></code></pre>\n")
+
+@test("a Unicode space ends an info string's first word, as JavaScript's \\s does")
+render_info_unicode_space()
+    val d = new_doc("")
+    d.append_child(d.root(), CodeBlock("py\u{a0}x", "", true), at(0))
+    d.append_child(d.root(), CodeBlock("c\u{3000}x", "", true), at(0))
+    d.append_child(d.root(), CodeBlock("ä\u{2003}", "", true), at(0))
+
+    assert_eq(to_html(d), "<pre><code class=\"language-py\"></code></pre>\n<pre><code class=\"language-c\"></code></pre>\n<pre><code class=\"language-ä\"></code></pre>\n")
+
+@test("raw HTML, block and inline, is passed through as written")
+render_raw_html()
+    val d = new_doc("")
+    d.append_child(d.root(), HtmlBlock("<div>\n&nbsp;\n</div>"), at(0))
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    d.append_child(p, HtmlInline("<b class=\"x\">"), at(0))
+
+    assert_eq(to_html(d), "<div>\n&nbsp;\n</div>\n<p><b class=\"x\"></p>\n")
+
+@test("a link's destination is encoded and escaped, and its title escaped")
+render_link()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val l = d.append_child(p, Link("/ä?a=1&b=\"2\"", "say \"hi\" & 'go'"), at(0))
+    val e = d.append_child(l, Emph, at(0))
+    text(d, e, "x")
+    val m = d.append_child(p, Link("", ""), at(0))
+    d.append_child(m, Code("<c>"), at(0))
+
+    assert_eq(to_html(d), "<p><a href=\"/%C3%A4?a=1&amp;b=%222%22\" title=\"say &quot;hi&quot; &amp; 'go'\"><em>x</em></a><a href=\"\"><code>&lt;c&gt;</code></a></p>\n")
+
+@test("an image's alt text keeps the text of what is inside it and drops every tag")
+render_image_alt()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val img = d.append_child(p, Image("a b.png", "T&"), at(0))
+    text(d, img, "x ")
+    val s = d.append_child(img, Strong, at(0))
+    text(d, s, "<y>")
+    val inner = d.append_child(img, Image("in.png", "no"), at(0))
+    text(d, inner, " z")
+    val l = d.append_child(img, Link("u", "t"), at(0))
+    d.append_child(l, Code("c"), at(0))
+
+    assert_eq(to_html(d), "<p><img src=\"a%20b.png\" alt=\"x &lt;y&gt; zc\" title=\"T&amp;\" /></p>\n")
+
+@test("an image with no title closes without one")
+render_image_no_title()
+    val d = new_doc("")
+    val p = d.append_child(d.root(), Paragraph, at(0))
+    val img = d.append_child(p, Image("x.png", ""), at(0))
+    text(d, img, "alt")
+
+    assert_eq(to_html(d), "<p><img src=\"x.png\" alt=\"alt\" /></p>\n")
+
+@test("rendering nesting far deeper than any stack completes")
+render_is_not_bounded_by_the_stack()
+    val d = new_doc("")
+    var n = d.root()
+
+    for _ in 0..<100000 do n = d.append_child(n, BlockQuote, at(0))
+
+    val html = to_html(d)
+
+    assert_eq(html.len, 100000 * ("<blockquote>\n".len + "</blockquote>\n".len))
+
+// ----- parsing and extensions -----
+
+@test("an empty source parses to a document with nothing in it")
+parse_empty()
+    val d = parse("")
+
+    assert_eq(d.len(), 1)
+    assert_eq(to_html(d), "")
+
+@test("the CommonMark registry is empty and is triggered by nothing")
+empty_registry()
+    val r = registry()
+
+    assert(r.is_empty())
+    assert_eq(r.len(), 0)
+    assert(!r.triggered_by(u8('$')))

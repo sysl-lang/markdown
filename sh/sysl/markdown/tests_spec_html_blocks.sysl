@@ -1,0 +1,181 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'HTML blocks', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 148", ignore: "the parser does not read HTML blocks")
+example_148()
+    assert_eq(to_html(parse("<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n")), "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n")
+
+@test("example 149", ignore: "the parser does not read HTML blocks")
+example_149()
+    assert_eq(to_html(parse("<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n\nokay.\n")), "<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n<p>okay.</p>\n")
+
+@test("example 150", ignore: "the parser does not read HTML blocks")
+example_150()
+    assert_eq(to_html(parse(" <div>\n  *hello*\n         <foo><a>\n")), " <div>\n  *hello*\n         <foo><a>\n")
+
+@test("example 151", ignore: "the parser does not read HTML blocks")
+example_151()
+    assert_eq(to_html(parse("</div>\n*foo*\n")), "</div>\n*foo*\n")
+
+@test("example 152", ignore: "the parser does not read HTML blocks")
+example_152()
+    assert_eq(to_html(parse("<DIV CLASS=\"foo\">\n\n*Markdown*\n\n</DIV>\n")), "<DIV CLASS=\"foo\">\n<p><em>Markdown</em></p>\n</DIV>\n")
+
+@test("example 153", ignore: "the parser does not read HTML blocks")
+example_153()
+    assert_eq(to_html(parse("<div id=\"foo\"\n  class=\"bar\">\n</div>\n")), "<div id=\"foo\"\n  class=\"bar\">\n</div>\n")
+
+@test("example 154", ignore: "the parser does not read HTML blocks")
+example_154()
+    assert_eq(to_html(parse("<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n")), "<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n")
+
+@test("example 155", ignore: "the parser does not read HTML blocks")
+example_155()
+    assert_eq(to_html(parse("<div>\n*foo*\n\n*bar*\n")), "<div>\n*foo*\n<p><em>bar</em></p>\n")
+
+@test("example 156", ignore: "the parser does not read HTML blocks")
+example_156()
+    assert_eq(to_html(parse("<div id=\"foo\"\n*hi*\n")), "<div id=\"foo\"\n*hi*\n")
+
+@test("example 157", ignore: "the parser does not read HTML blocks")
+example_157()
+    assert_eq(to_html(parse("<div class\nfoo\n")), "<div class\nfoo\n")
+
+@test("example 158", ignore: "the parser does not read HTML blocks")
+example_158()
+    assert_eq(to_html(parse("<div *???-&&&-<---\n*foo*\n")), "<div *???-&&&-<---\n*foo*\n")
+
+@test("example 159", ignore: "the parser does not read HTML blocks")
+example_159()
+    assert_eq(to_html(parse("<div><a href=\"bar\">*foo*</a></div>\n")), "<div><a href=\"bar\">*foo*</a></div>\n")
+
+@test("example 160", ignore: "the parser does not read HTML blocks")
+example_160()
+    assert_eq(to_html(parse("<table><tr><td>\nfoo\n</td></tr></table>\n")), "<table><tr><td>\nfoo\n</td></tr></table>\n")
+
+@test("example 161", ignore: "the parser does not read HTML blocks")
+example_161()
+    assert_eq(to_html(parse("<div></div>\n``` c\nint x = 33;\n```\n")), "<div></div>\n``` c\nint x = 33;\n```\n")
+
+@test("example 162", ignore: "the parser does not read HTML blocks")
+example_162()
+    assert_eq(to_html(parse("<a href=\"foo\">\n*bar*\n</a>\n")), "<a href=\"foo\">\n*bar*\n</a>\n")
+
+@test("example 163", ignore: "the parser does not read HTML blocks")
+example_163()
+    assert_eq(to_html(parse("<Warning>\n*bar*\n</Warning>\n")), "<Warning>\n*bar*\n</Warning>\n")
+
+@test("example 164", ignore: "the parser does not read HTML blocks")
+example_164()
+    assert_eq(to_html(parse("<i class=\"foo\">\n*bar*\n</i>\n")), "<i class=\"foo\">\n*bar*\n</i>\n")
+
+@test("example 165", ignore: "the parser does not read HTML blocks")
+example_165()
+    assert_eq(to_html(parse("</ins>\n*bar*\n")), "</ins>\n*bar*\n")
+
+@test("example 166", ignore: "the parser does not read HTML blocks")
+example_166()
+    assert_eq(to_html(parse("<del>\n*foo*\n</del>\n")), "<del>\n*foo*\n</del>\n")
+
+@test("example 167", ignore: "the parser does not read HTML blocks")
+example_167()
+    assert_eq(to_html(parse("<del>\n\n*foo*\n\n</del>\n")), "<del>\n<p><em>foo</em></p>\n</del>\n")
+
+@test("example 168", ignore: "the parser does not read HTML blocks")
+example_168()
+    assert_eq(to_html(parse("<del>*foo*</del>\n")), "<p><del><em>foo</em></del></p>\n")
+
+@test("example 169", ignore: "the parser does not read HTML blocks")
+example_169()
+    assert_eq(to_html(parse("<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\nokay\n")), "<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\n<p>okay</p>\n")
+
+@test("example 170", ignore: "the parser does not read HTML blocks")
+example_170()
+    assert_eq(to_html(parse("<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\nokay\n")), "<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\n<p>okay</p>\n")
+
+@test("example 171", ignore: "the parser does not read HTML blocks")
+example_171()
+    assert_eq(to_html(parse("<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n")), "<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n")
+
+@test("example 172", ignore: "the parser does not read HTML blocks")
+example_172()
+    assert_eq(to_html(parse("<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\nokay\n")), "<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\n<p>okay</p>\n")
+
+@test("example 173", ignore: "the parser does not read HTML blocks")
+example_173()
+    assert_eq(to_html(parse("<style\n  type=\"text/css\">\n\nfoo\n")), "<style\n  type=\"text/css\">\n\nfoo\n")
+
+@test("example 174", ignore: "the parser does not read HTML blocks")
+example_174()
+    assert_eq(to_html(parse("> <div>\n> foo\n\nbar\n")), "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n")
+
+@test("example 175", ignore: "the parser does not read HTML blocks")
+example_175()
+    assert_eq(to_html(parse("- <div>\n- foo\n")), "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n")
+
+@test("example 176", ignore: "the parser does not read HTML blocks")
+example_176()
+    assert_eq(to_html(parse("<style>p{color:red;}</style>\n*foo*\n")), "<style>p{color:red;}</style>\n<p><em>foo</em></p>\n")
+
+@test("example 177", ignore: "the parser does not read HTML blocks")
+example_177()
+    assert_eq(to_html(parse("<!-- foo -->*bar*\n*baz*\n")), "<!-- foo -->*bar*\n<p><em>baz</em></p>\n")
+
+@test("example 178", ignore: "the parser does not read HTML blocks")
+example_178()
+    assert_eq(to_html(parse("<script>\nfoo\n</script>1. *bar*\n")), "<script>\nfoo\n</script>1. *bar*\n")
+
+@test("example 179", ignore: "the parser does not read HTML blocks")
+example_179()
+    assert_eq(to_html(parse("<!-- Foo\n\nbar\n   baz -->\nokay\n")), "<!-- Foo\n\nbar\n   baz -->\n<p>okay</p>\n")
+
+@test("example 180", ignore: "the parser does not read HTML blocks")
+example_180()
+    assert_eq(to_html(parse("<?php\n\n  echo '>';\n\n?>\nokay\n")), "<?php\n\n  echo '>';\n\n?>\n<p>okay</p>\n")
+
+@test("example 181", ignore: "the parser does not read HTML blocks")
+example_181()
+    assert_eq(to_html(parse("<!DOCTYPE html>\n")), "<!DOCTYPE html>\n")
+
+@test("example 182", ignore: "the parser does not read HTML blocks")
+example_182()
+    assert_eq(to_html(parse("<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\nokay\n")), "<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\n<p>okay</p>\n")
+
+@test("example 183", ignore: "the parser does not read HTML blocks")
+example_183()
+    assert_eq(to_html(parse("  <!-- foo -->\n\n    <!-- foo -->\n")), "  <!-- foo -->\n<pre><code>&lt;!-- foo --&gt;\n</code></pre>\n")
+
+@test("example 184", ignore: "the parser does not read HTML blocks")
+example_184()
+    assert_eq(to_html(parse("  <div>\n\n    <div>\n")), "  <div>\n<pre><code>&lt;div&gt;\n</code></pre>\n")
+
+@test("example 185", ignore: "the parser does not read HTML blocks")
+example_185()
+    assert_eq(to_html(parse("Foo\n<div>\nbar\n</div>\n")), "<p>Foo</p>\n<div>\nbar\n</div>\n")
+
+@test("example 186", ignore: "the parser does not read HTML blocks")
+example_186()
+    assert_eq(to_html(parse("<div>\nbar\n</div>\n*foo*\n")), "<div>\nbar\n</div>\n*foo*\n")
+
+@test("example 187", ignore: "the parser does not read HTML blocks")
+example_187()
+    assert_eq(to_html(parse("Foo\n<a href=\"bar\">\nbaz\n")), "<p>Foo\n<a href=\"bar\">\nbaz</p>\n")
+
+@test("example 188", ignore: "the parser does not read HTML blocks")
+example_188()
+    assert_eq(to_html(parse("<div>\n\n*Emphasized* text.\n\n</div>\n")), "<div>\n<p><em>Emphasized</em> text.</p>\n</div>\n")
+
+@test("example 189", ignore: "the parser does not read HTML blocks")
+example_189()
+    assert_eq(to_html(parse("<div>\n*Emphasized* text.\n</div>\n")), "<div>\n*Emphasized* text.\n</div>\n")
+
+@test("example 190", ignore: "the parser does not read HTML blocks")
+example_190()
+    assert_eq(to_html(parse("<table>\n\n<tr>\n\n<td>\nHi\n</td>\n\n</tr>\n\n</table>\n")), "<table>\n<tr>\n<td>\nHi\n</td>\n</tr>\n</table>\n")
+
+@test("example 191", ignore: "the parser does not read HTML blocks")
+example_191()
+    assert_eq(to_html(parse("<table>\n\n  <tr>\n\n    <td>\n      Hi\n    </td>\n\n  </tr>\n\n</table>\n")), "<table>\n  <tr>\n<pre><code>&lt;td&gt;\n  Hi\n&lt;/td&gt;\n</code></pre>\n  </tr>\n</table>\n")

@@ -1,0 +1,81 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples from 'Thematic breaks', each rendered and compared exactly.
+// Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 43", ignore: "the parser does not read Thematic breaks")
+example_43()
+    assert_eq(to_html(parse("***\n---\n___\n")), "<hr />\n<hr />\n<hr />\n")
+
+@test("example 44", ignore: "the parser does not read Thematic breaks")
+example_44()
+    assert_eq(to_html(parse("+++\n")), "<p>+++</p>\n")
+
+@test("example 45", ignore: "the parser does not read Thematic breaks")
+example_45()
+    assert_eq(to_html(parse("===\n")), "<p>===</p>\n")
+
+@test("example 46", ignore: "the parser does not read Thematic breaks")
+example_46()
+    assert_eq(to_html(parse("--\n**\n__\n")), "<p>--\n**\n__</p>\n")
+
+@test("example 47", ignore: "the parser does not read Thematic breaks")
+example_47()
+    assert_eq(to_html(parse(" ***\n  ***\n   ***\n")), "<hr />\n<hr />\n<hr />\n")
+
+@test("example 48", ignore: "the parser does not read Thematic breaks")
+example_48()
+    assert_eq(to_html(parse("    ***\n")), "<pre><code>***\n</code></pre>\n")
+
+@test("example 49", ignore: "the parser does not read Thematic breaks")
+example_49()
+    assert_eq(to_html(parse("Foo\n    ***\n")), "<p>Foo\n***</p>\n")
+
+@test("example 50", ignore: "the parser does not read Thematic breaks")
+example_50()
+    assert_eq(to_html(parse("_____________________________________\n")), "<hr />\n")
+
+@test("example 51", ignore: "the parser does not read Thematic breaks")
+example_51()
+    assert_eq(to_html(parse(" - - -\n")), "<hr />\n")
+
+@test("example 52", ignore: "the parser does not read Thematic breaks")
+example_52()
+    assert_eq(to_html(parse(" **  * ** * ** * **\n")), "<hr />\n")
+
+@test("example 53", ignore: "the parser does not read Thematic breaks")
+example_53()
+    assert_eq(to_html(parse("-     -      -      -\n")), "<hr />\n")
+
+@test("example 54", ignore: "the parser does not read Thematic breaks")
+example_54()
+    assert_eq(to_html(parse("- - - -    \n")), "<hr />\n")
+
+@test("example 55", ignore: "the parser does not read Thematic breaks")
+example_55()
+    assert_eq(to_html(parse("_ _ _ _ a\n\na------\n\n---a---\n")), "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n")
+
+@test("example 56", ignore: "the parser does not read Thematic breaks")
+example_56()
+    assert_eq(to_html(parse(" *-*\n")), "<p><em>-</em></p>\n")
+
+@test("example 57", ignore: "the parser does not read Thematic breaks")
+example_57()
+    assert_eq(to_html(parse("- foo\n***\n- bar\n")), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n")
+
+@test("example 58", ignore: "the parser does not read Thematic breaks")
+example_58()
+    assert_eq(to_html(parse("Foo\n***\nbar\n")), "<p>Foo</p>\n<hr />\n<p>bar</p>\n")
+
+@test("example 59", ignore: "the parser does not read Thematic breaks")
+example_59()
+    assert_eq(to_html(parse("Foo\n---\nbar\n")), "<h2>Foo</h2>\n<p>bar</p>\n")
+
+@test("example 60", ignore: "the parser does not read Thematic breaks")
+example_60()
+    assert_eq(to_html(parse("* Foo\n* * *\n* Bar\n")), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n")
+
+@test("example 61", ignore: "the parser does not read Thematic breaks")
+example_61()
+    assert_eq(to_html(parse("- Foo\n- * * *\n")), "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n")

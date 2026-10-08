@@ -1,0 +1,38 @@
+// CommonMark 0.31.2, plus what GitHub renders, for sysl.
+//
+// A document parses into one arena of nodes linked by index -- blocks and inlines alike, with a
+// byte span into the source on every node -- and the HTML renderer is a walk over that arena
+// writing to a `Writer`. Rewriting a tree (shifting every heading, relinking every link) is
+// therefore a flat loop over the arena, and neither walking nor rendering recurses, so input nested
+// ten thousand deep cannot overflow the stack.
+//
+// This is the block a consumer writes to reach it:
+//
+//     dependencies {
+//       markdown { git = "github.com/sysl-lang/markdown", version = "0.1.0" }
+//     }
+//
+// The coordinate names the package, `markdown`; the module a program imports is `sh.sysl.markdown`.
+// Naming the coordinate is enough to import `sh.sysl.parsing` too, since imports are transitive --
+// which a caller wanting a node's `Span` needs.
+
+package {
+  name    = "markdown"
+  version = "0.1.0"
+
+  // The containers this is written against -- a `Buf` or a `Map` shared on assignment rather than
+  // copied -- arrived in the 0.1.0 alphas; alpha.4 is the compiler the package is built and tested
+  // with.
+  sysl = "0.1.0-alpha.4"
+}
+
+dependencies {
+  parsing { git = "github.com/sysl-lang/parsing", version = "0.12.1" }
+}
+
+// **`heap = true`** because a document's size is not known until it has been read: the arena is a
+// `Buf[Node]` and a leaf's text is gathered into a string of its own. **Not `os`**: nothing here
+// opens or reads a file; the caller hands over text it already has.
+requires {
+  heap = true
+}
