@@ -186,7 +186,11 @@ private[markdown] struct Parser
 
         for leaf in self.leaves.view() do refs_left = inlines(self.doc, leaf, self.exts, triggers, refs_left)
 
-        for i in 0..<self.exts.len() do self.exts.at(i).post_pass(self.doc)
+        for phase in [Structure, Annotate]
+            for i in 0..<self.exts.len()
+                val e = self.exts.at(i)
+
+                if e.post_pass_phase() == phase then e.post_pass(self.doc)
 
         self.doc
 

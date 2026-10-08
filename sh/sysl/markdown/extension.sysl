@@ -18,7 +18,10 @@ import sysl.text.str_builder
 // 2. **Inlines** -- inside a leaf's text, at each byte `triggers` names, `inline_match` may read a
 //    node or push a run of delimiters, the way `*` and `_` are pushed for emphasis.
 // 3. **After both phases** -- `post_pass` sees the finished tree, for work that needs all of it:
-//    numbering footnotes, attaching a heading's id, finding an email address in plain text.
+//    numbering footnotes, attaching a heading's id, finding an email address in plain text. Here
+//    the order is not only the registry's: every `Structure` pass runs before every `Annotate`
+//    pass (`post_pass_phase`), so a heading's id is read from text the footnotes have numbered
+//    whichever of the two was added first.
 //
 // **An extension's own nodes are `Ext` nodes** (`ExtNode` in `tree.sysl`), so an extension written
 // outside this package adds kinds of node without editing `Kind`; the HTML renderer hands each one
@@ -213,7 +216,16 @@ trait Extension
      */
     bracket(self, s: Subject, from: usize) -> Option[Kind] = None
 
+    /** Work on the finished tree, after both phases, in the phase `post_pass_phase` names. */
     post_pass(self, d: Doc) = ()
+
+    /** When `post_pass` runs: every `Structure` pass first, then every `Annotate` pass, each phase in
+     * the order the extensions were added. `Structure`, the default, is a pass that makes or changes
+     * what the tree says -- numbering footnotes, finding an email address. `Annotate` is a pass that
+     * reads what the others made, as a heading's id is read from its finished text, so the result
+     * does not depend on which extension a program happened to add first.
+     */
+    post_pass_phase(self) -> PostPhase = Structure
 
     /** An `Ext` node this extension made, written as HTML: called on entering the node and, where
      * it holds children, again on exiting it, its children written between by the renderer. `w`
@@ -242,6 +254,15 @@ enum Seen
     Unseen
     Words(text: string)
     Block(text: string)
+
+/** When an extension's `post_pass` runs, as `Extension.post_pass_phase` answers it.
+ *
+ * - `Structure` -- first: a pass that makes or changes the tree.
+ * - `Annotate` -- after every `Structure` pass: a pass that reads what they made.
+ */
+enum PostPhase
+    Structure
+    Annotate
 
 /** The extensions one parse uses, in the order they are asked. Empty is pure CommonMark. */
 struct Registry

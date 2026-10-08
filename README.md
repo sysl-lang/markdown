@@ -200,6 +200,7 @@ trait Extension
     delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind] = None
     bracket(self, s: Subject, from: usize) -> Option[Kind] = None
     post_pass(self, d: Doc) = ()
+    post_pass_phase(self) -> PostPhase = Structure              // Structure passes, then Annotate ones
     render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = ()
     plain_text(self, d: Doc, n: NodeId) -> Seen = Unseen         // what a reader sees, for plain_text
 
@@ -246,6 +247,11 @@ struct ExtNode                                                  // Kind.Ext(node
 - **`post_pass` sees the finished `Doc`** and rewrites it with `set_kind`, `append_child`,
   `insert_after`, `append_node` and `unlink`, as the email autolinks, the footnotes and the alerts
   do.
+- **Every `Structure` pass runs before every `Annotate` pass**, each phase in registry order, so a
+  pass that reads what another made does not depend on the order a program added them in.
+  `Structure` is the default; `heading_ids` is `Annotate`, so `## Notes[^n]` is `notes1` whether
+  `heading_ids()` was added before `footnotes()` or after. A pass that only reads the tree another
+  pass has finished answers `Annotate` from `post_pass_phase`.
 
 ## What it is
 

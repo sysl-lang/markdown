@@ -95,6 +95,51 @@ shortcodes_in_headings()
     assert_eq(joined(heading_ids_of(d)), "rocket-launch -launch")
     assert_eq(to_html(d), "<h2 id=\"rocket-launch\">\u{1f680} Launch</h2>\n<h2 id=\"-launch\">\u{1f680} Launch</h2>\n")
 
+@test("heading ids read numbered footnotes whether added before footnotes or after")
+heading_ids_order_with_footnotes()
+    val src = "## Notes[^n]\n\nText[^n].\n\n[^n]: A note.\n"
+    val before = registry()
+
+    before.add(heading_ids())
+    before.add(footnotes())
+
+    val after = registry()
+
+    after.add(footnotes())
+    after.add(heading_ids())
+
+    val a = parse_with(src, ParseOptions(before))
+    val b = parse_with(src, ParseOptions(after))
+
+    assert_eq(joined(heading_ids_of(a)), "notes1")
+    assert_eq(joined(heading_ids_of(b)), "notes1")
+    assert_eq(to_html(a), to_html(b))
+
+@test("heading ids added before the whole gfm() preset give what they give added after it")
+heading_ids_order_with_gfm()
+    val src = "## Notes[^n] ~~old~~ x@y.com\n\n| a |\n|---|\n| b |\n\n[^n]: A note.\n"
+    val g = gfm()
+    val first = registry()
+
+    first.add(heading_ids())
+    for i in 0..<g.exts.len() do first.add(g.exts.at(i))
+
+    val last = gfm()
+
+    last.exts.add(heading_ids())
+
+    val a = parse_with(src, ParseOptions(first))
+    val b = parse_with(src, last)
+
+    assert_eq(joined(heading_ids_of(a)), joined(heading_ids_of(b)))
+    assert_eq(to_html(a), to_html(b))
+
+@test("a post-pass is a Structure one unless it says otherwise, and heading ids are Annotate")
+post_pass_phases()
+    assert(heading_ids().post_pass_phase() == Annotate)
+    assert(footnotes().post_pass_phase() == Structure)
+    assert(tables().post_pass_phase() == Structure)
+
 @test("the slug is pluggable, and duplicates of what it answers are still numbered")
 a_slug_of_ones_own()
     val doubled = (t: string) -> t + t

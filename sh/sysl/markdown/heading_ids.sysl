@@ -11,7 +11,8 @@ import sysl.unicode.{Category, category, to_lower}
 //
 // **The id is GitHub's slug** (`github_slug`) unless the options give a slug of their own, and it is
 // unique in the document: a slug already taken earlier is numbered, `-1`, `-2`, in document order.
-// The extension runs after both phases, so it reads each heading's finished text (`slug_text`).
+// The extension's pass is an `Annotate` one, run after every other extension's, so it reads each
+// heading's finished text (`slug_text`) -- footnotes numbered -- whatever order they were added in.
 
 /** The `tag` of the anchor `ExtNode` a heading is given when `HeadingIdOptions.anchors` is on. Its
  * `data` is the heading's unique slug, without the prefix.
@@ -57,6 +58,8 @@ private struct HeadingIds
 
 impl Extension for HeadingIds
     name(self) -> string = "heading_ids"
+
+    override post_pass_phase(self) -> PostPhase = Annotate
 
     override post_pass(self, d: Doc)
         var heads: Buf[NodeId] = buf()
