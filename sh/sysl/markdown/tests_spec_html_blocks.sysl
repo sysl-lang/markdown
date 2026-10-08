@@ -4,7 +4,7 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'HTML blocks', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 148", ignore: "needs emphasis and raw HTML")
+@test("example 148", ignore: "needs emphasis")
 example_148()
     assert_eq(to_html(parse("<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n")), "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n")
 
@@ -84,7 +84,7 @@ example_166()
 example_167()
     assert_eq(to_html(parse("<del>\n\n*foo*\n\n</del>\n")), "<del>\n<p><em>foo</em></p>\n</del>\n")
 
-@test("example 168", ignore: "needs emphasis and raw HTML")
+@test("example 168", ignore: "needs emphasis")
 example_168()
     assert_eq(to_html(parse("<del>*foo*</del>\n")), "<p><del><em>foo</em></del></p>\n")
 
@@ -160,7 +160,7 @@ example_185()
 example_186()
     assert_eq(to_html(parse("<div>\nbar\n</div>\n*foo*\n")), "<div>\nbar\n</div>\n*foo*\n")
 
-@test("example 187", ignore: "needs raw HTML")
+@test("example 187")
 example_187()
     assert_eq(to_html(parse("Foo\n<a href=\"bar\">\nbaz\n")), "<p>Foo\n<a href=\"bar\">\nbaz</p>\n")
 

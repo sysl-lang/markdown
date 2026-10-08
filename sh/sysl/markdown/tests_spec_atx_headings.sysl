@@ -16,11 +16,11 @@ example_63()
 example_64()
     assert_eq(to_html(parse("#5 bolt\n\n#hashtag\n")), "<p>#5 bolt</p>\n<p>#hashtag</p>\n")
 
-@test("example 65", ignore: "needs backslash escapes")
+@test("example 65")
 example_65()
     assert_eq(to_html(parse("\\## foo\n")), "<p>## foo</p>\n")
 
-@test("example 66", ignore: "needs emphasis and backslash escapes")
+@test("example 66", ignore: "needs emphasis")
 example_66()
     assert_eq(to_html(parse("# foo *bar* \\*baz\\*\n")), "<h1>foo <em>bar</em> *baz*</h1>\n")
 
@@ -60,7 +60,7 @@ example_74()
 example_75()
     assert_eq(to_html(parse("# foo#\n")), "<h1>foo#</h1>\n")
 
-@test("example 76", ignore: "needs backslash escapes")
+@test("example 76")
 example_76()
     assert_eq(to_html(parse("### foo \\###\n## foo #\\##\n# foo \\#\n")), "<h3>foo ###</h3>\n<h2>foo ###</h2>\n<h1>foo #</h1>\n")
 

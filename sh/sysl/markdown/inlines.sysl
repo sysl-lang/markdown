@@ -2,74 +2,278 @@ module sh.sysl.markdown
 
 import sh.sysl.parsing.Span
 import sysl.buf.Buf
-import sysl.text.str_builder
+import sysl.container.{Map, map}
+import sysl.slices.contains
+import sysl.text.{Ascii, StrBuilder, str_builder}
 
 // Phase 2: a leaf's text read into inline nodes.
 //
-// The text is taken without the spaces, tabs and line endings at its two ends, and each line ending
-// inside it becomes a break: a hard one where the line ended with two or more spaces or with a
-// backslash, a soft one otherwise. The spaces before a break and the spaces and tabs at the start of
-// the next line are not part of any node. Everything else is literal text.
+// The text is taken without the spaces, tabs and line endings at its two ends, and read left to
+// right. Most bytes are text and gather into one `Text` node per run; the scan stops only at a byte
+// that may begin something else:
+//
+// | byte | may begin |
+// |---|---|
+// | `\` | an escaped punctuation character, or a hard line break before a line ending |
+// | `&` | a character reference |
+// | `` ` `` | a code span |
+// | `<` | an autolink, or raw HTML |
+// | line ending | a soft or hard line break |
+// | U+0000 | nothing: it is text, and stands for U+FFFD |
+//
+// Where nothing begins, the byte stays in the run of text. A run's `Text` holds a view of the leaf's
+// text, and a fresh string only where an escape or a reference made it differ.
 
 /** The inline nodes of `leaf`, appended to its node in `d`. */
 private[markdown] inlines(d: Doc, leaf: Leaf)
     val b = leaf.text.bytes
-    var m = SrcMap(leaf.segs, 0)
     var s: usize = 0
     var e = b.len
 
     while s < e && is_line_space(b[s]) do s += 1
     while e > s && is_line_space(b[e - 1]) do e -= 1
 
-    var run = s
-    var i = s
+    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false])
 
-    while i < e
-        if b[i] != u8('\n') then
-            i += 1
-        else
-            var t = i
-
-            while t > run && b[t - 1] == u8(' ') do t -= 1
-
-            var hard = i - t >= 2
-
-            if t == i && odd_backslashes(b, run, i) then
-                hard = true
-                t = i - 1
-
-            text_node(d, leaf, &m, run, t)
-
-            val brk = if hard then HardBreak else SoftBreak
-            val from = m.src(t)
-
-            i += 1
-            while i < e && is_space_or_tab(b[i]) do i += 1
-
-            d.append_child(leaf.node, brk, Span(from, m.src(i)))
-            run = i
-
-    text_node(d, leaf, &m, run, e)
-end inlines
+    sc.run(s)
 
 private is_line_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == u8('\n')
 
-// Whether the run of backslashes ending at `end`, and not reaching back past `from`, has an odd
-// length -- so that its last backslash is not itself escaped.
-private odd_backslashes(b: []const u8, from: usize, end: usize) -> bool
-    var i = end
+// The scan of one leaf.
+private struct Scan
+    d: Doc
+    leaf: Leaf
+    b: []const u8               // the leaf's bytes, up to the end of its trimmed text
+    m: SrcMap
+    text_from: usize            // where the run of text not yet made a node begins
+    raw_from: usize             // where the part of that run still read straight from the leaf begins
+    built: Option[StrBuilder]   // the run so far, where an escape or a reference made it differ
+    ticks: Map[usize, usize]    // a backtick run's length, and where the last run of it begins
+    ticks_to_end: bool          // whether `ticks` holds every run from the first code span on
+    unclosed: [4]bool           // raw HTML end markers already looked for to the end
 
-    while i > from && b[i - 1] == u8('\\') do i -= 1
+    run(*self, from: usize)
+        var i = from
 
-    (end - i) % 2 == 1
+        while i < self.b.len
+            val c = self.b[i]
 
-// A `Text` node over the leaf's bytes `from..<to`, if there are any.
-private text_node(d: Doc, leaf: Leaf, m: *SrcMap, from: usize, to: usize)
-    if to <= from then return
+            if c == u8('\n') then
+                i = self.line_break(i, i)
+            else if c == u8('\\') then
+                i = self.backslash(i)
+            else if c == u8('&') then
+                i = self.reference(i)
+            else if c == u8('`') then
+                i = self.code_span(i)
+            else if c == u8('<') then
+                i = self.angle(i)
+            else if c == 0 then
+                self.replace(i, i + 1, "\u{fffd}")
+                i += 1
+            else
+                i += 1
 
-    val start = m.src(from)
+        self.flush(self.b.len)
+    end run
 
-    d.append_child(leaf.node, Text(without_nul(leaf.text[from..<to])), Span(start, m.src(to)))
+    // The run of text up to `to` made a `Text` node, if it holds anything.
+    flush(*self, to: usize)
+        if to <= self.text_from then return
+
+        val lit = self.built match
+            Some(sb) ->
+                var out = sb
+
+                out.push(self.leaf.text[self.raw_from..<to])
+                out.finish()
+            None -> self.leaf.text[self.text_from..<to]
+
+        val start = self.m.src(self.text_from)
+
+        self.d.append_child(self.leaf.node, Text(lit), Span(start, self.m.src(to)))
+        self.built = None
+    end flush
+
+    // A new run of text begins at `at`.
+    restart(*self, at: usize)
+        self.text_from = at
+        self.raw_from = at
+        self.built = None
+
+    // The bytes `from..<to` of the run of text stand for `with` instead.
+    replace(*self, from: usize, to: usize, with: string)
+        var sb = self.built match
+            Some(b) -> b
+            None -> str_builder()
+
+        sb.push(self.leaf.text[self.raw_from..<from])
+        sb.push(with)
+        self.built = Some(sb)
+        self.raw_from = to
+
+    // A line ending at `i`, or a backslash at `at` followed by one: hard where the line ended with a
+    // backslash or with two or more spaces, soft otherwise. The spaces before it and the spaces and
+    // tabs starting the next line belong to the break.
+    line_break(*self, at: usize, i: usize) -> usize
+        var t = at
+
+        if at == i then
+            while t > self.raw_from && self.b[t - 1] == u8(' ') do t -= 1
+
+        val hard = at < i || i - t >= 2
+
+        self.flush(t)
+
+        var j = i + 1
+
+        while j < self.b.len && is_space_or_tab(self.b[j]) do j += 1
+
+        val from = self.m.src(t)
+
+        self.d.append_child(self.leaf.node, if hard then HardBreak else SoftBreak, Span(from, self.m.src(j)))
+        self.restart(j)
+        j
+    end line_break
+
+    // A backslash before ASCII punctuation is that character as text; before a line ending, a hard
+    // break; anywhere else, a backslash.
+    backslash(*self, i: usize) -> usize
+        val next = byte_at(self.b, i + 1)
+
+        if next == u8('\n') then return self.line_break(i, i + 1)
+
+        if next.is_punct() then
+            self.replace(i, i + 1, "")
+            return i + 2
+
+        i + 1
+
+    reference(*self, i: usize) -> usize
+        char_ref(self.b, i) match
+            Some((t, e)) ->
+                self.replace(i, e, t)
+                e
+            None -> i + 1
+
+    // A code span opened by the run of backticks at `i`, closed by the next run of the same length.
+    // Without one, the whole opening run is text.
+    code_span(*self, i: usize) -> usize
+        var j = i
+
+        while byte_at(self.b, j) == u8('`') do j += 1
+
+        val n = j - i
+
+        self.closing_ticks(j, n) match
+            None -> j
+            Some(c) ->
+                self.flush(i)
+
+                val start = self.m.src(i)
+
+                self.d.append_child(self.leaf.node, Code(code_text(self.leaf.text[j..<c])), Span(start, self.m.src(c + n)))
+                self.restart(c + n)
+                c + n
+    end code_span
+
+    // Where the first run of exactly `n` backticks at or after `from` begins. Every run passed on the
+    // way is recorded, and once a search has reached the end of the leaf the record answers a later
+    // one without scanning: no run of `n` begins after `from` unless the last one does.
+    closing_ticks(*self, from: usize, n: usize) -> Option[usize]
+        if self.ticks_to_end then
+            self.ticks.get(n) match
+                Some(last) -> if last < from then return None
+                None -> return None
+
+        var k = from
+
+        while k < self.b.len
+            if self.b[k] != u8('`') then
+                k += 1
+            else
+                val s = k
+
+                while k < self.b.len && self.b[k] == u8('`') do k += 1
+
+                self.ticks.put(k - s, s)
+
+                if k - s == n then return Some(s)
+
+        self.ticks_to_end = true
+        None
+    end closing_ticks
+
+    // An autolink or raw HTML beginning at the `<` at `i`; otherwise the `<` is text.
+    angle(*self, i: usize) -> usize
+        val uri = uri_autolink_end(self.b, i)
+
+        if uri > 0 then return self.autolink(i, uri, "")
+
+        val email = email_autolink_end(self.b, i)
+
+        if email > 0 then return self.autolink(i, email, "mailto:")
+
+        val html = raw_html_end(self.b, i, &self.unclosed)
+
+        if html == 0 then return i + 1
+
+        self.flush(i)
+
+        val start = self.m.src(i)
+
+        self.d.append_child(self.leaf.node, HtmlInline(without_nul(self.leaf.text[i..<html])), Span(start, self.m.src(html)))
+        self.restart(html)
+        html
+    end angle
+
+    // A link to the address between the brackets at `i` and `end - 1`, with `scheme` before it, and
+    // the address as its text.
+    autolink(*self, i: usize, end: usize, scheme: string) -> usize
+        self.flush(i)
+
+        val a = self.m.src(i)
+        val inner_a = self.m.src(i + 1)
+        val inner_b = self.m.src(end - 1)
+        val text = without_nul(self.leaf.text[i + 1..<end - 1])
+        val link = self.d.append_child(self.leaf.node, Link(scheme + text, ""), Span(a, self.m.src(end)))
+
+        self.d.append_child(link, Text(text), Span(inner_a, inner_b))
+        self.restart(end)
+        end
+    end autolink
+end Scan
+
+// A code span's text: each line ending a space, then one space taken from each end where both ends
+// have one and the text is not all spaces.
+private code_text(raw: string) -> string
+    var s = without_nul(raw)
+
+    if contains(s.bytes, u8('\n')) then s = spaces_for_newlines(s)
+
+    val b = s.bytes
+
+    if b.len >= 2 && b[0] == u8(' ') && b[b.len - 1] == u8(' ') then
+        for c in b
+            if c != u8(' ') then return s[1..<b.len - 1]
+
+    s
+end code_text
+
+// `s` with every line ending a space.
+private spaces_for_newlines(s: string) -> string
+    val b = s.bytes
+    var out = str_builder()
+    var from: usize = 0
+
+    for i in 0..<b.len
+        if b[i] == u8('\n') then
+            out.push(s[from..<i])
+            out.push(" ")
+            from = i + 1
+
+    out.push(s[from..<b.len])
+    out.finish()
 
 // `s` with every U+0000 replaced by U+FFFD, as the spec requires of the input; a fresh string only
 // where there is one.

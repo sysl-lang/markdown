@@ -4,9 +4,10 @@ CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is
 
 **Status: in progress.** The document tree, its walk, the HTML renderer and the extension interface
 are written and tested. The parser reads every block construct -- block quotes, lists, headings,
-code blocks, HTML blocks, thematic breaks, paragraphs -- while inlines are still text and line
-breaks only, so spec examples that need emphasis, code spans, links and the rest are compiled but
-ignored, each naming what it waits for. Nothing is tagged.
+code blocks, HTML blocks, thematic breaks, paragraphs -- and every inline construct but emphasis and
+links: backslash escapes, entity and numeric character references, code spans, autolinks, raw HTML
+and line breaks. Spec examples that need emphasis or links are compiled but ignored, each naming
+what it waits for. Nothing is tagged.
 
 ```hocon
 dependencies {
@@ -59,6 +60,18 @@ sha256  d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20
 section and one `@test` per example. A section the parser does not read yet is generated with its
 examples ignored; listing it in the script's `ENABLED` and rerunning makes them run. The generated
 files are committed.
+
+`spec/entities.json` is WHATWG's list of HTML5 named character references, unmodified, as published
+at <https://html.spec.whatwg.org/entities.json>:
+
+```
+sha256  d741d877ac77c4194c4ad526b5b4a19aef8dfe411ab840a466891cdbb9f362e6
+```
+
+`tools/gen_entities.py` writes the 2,125 names that end in `;` -- the only ones CommonMark
+recognises -- into `sh/sysl/markdown/entity_table.sysl` as one sorted string, which a lookup
+bisects. One string literal adds about 0.01 s to a cold build, where a table of pairs would add
+seconds. The generated file is committed.
 
 ## Testing
 

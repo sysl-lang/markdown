@@ -4,70 +4,70 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Entity and numeric character references', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 25", ignore: "the parser does not read Entity and numeric character references")
+@test("example 25")
 example_25()
     assert_eq(to_html(parse("&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n")), "<p>\u{a0} &amp; \u{a9} \u{c6} \u{10e}\n\u{be} \u{210b} \u{2146}\n\u{2232} \u{2267}\u{338}</p>\n")
 
-@test("example 26", ignore: "the parser does not read Entity and numeric character references")
+@test("example 26")
 example_26()
     assert_eq(to_html(parse("&#35; &#1234; &#992; &#0;\n")), "<p># \u{4d2} \u{3e0} \u{fffd}</p>\n")
 
-@test("example 27", ignore: "the parser does not read Entity and numeric character references")
+@test("example 27")
 example_27()
     assert_eq(to_html(parse("&#X22; &#XD06; &#xcab;\n")), "<p>&quot; \u{d06} \u{cab}</p>\n")
 
-@test("example 28", ignore: "the parser does not read Entity and numeric character references")
+@test("example 28")
 example_28()
     assert_eq(to_html(parse("&nbsp &x; &#; &#x;\n&#87654321;\n&#abcdef0;\n&ThisIsNotDefined; &hi?;\n")), "<p>&amp;nbsp &amp;x; &amp;#; &amp;#x;\n&amp;#87654321;\n&amp;#abcdef0;\n&amp;ThisIsNotDefined; &amp;hi?;</p>\n")
 
-@test("example 29", ignore: "the parser does not read Entity and numeric character references")
+@test("example 29")
 example_29()
     assert_eq(to_html(parse("&copy\n")), "<p>&amp;copy</p>\n")
 
-@test("example 30", ignore: "the parser does not read Entity and numeric character references")
+@test("example 30")
 example_30()
     assert_eq(to_html(parse("&MadeUpEntity;\n")), "<p>&amp;MadeUpEntity;</p>\n")
 
-@test("example 31", ignore: "the parser does not read Entity and numeric character references")
+@test("example 31")
 example_31()
     assert_eq(to_html(parse("<a href=\"&ouml;&ouml;.html\">\n")), "<a href=\"&ouml;&ouml;.html\">\n")
 
-@test("example 32", ignore: "the parser does not read Entity and numeric character references")
+@test("example 32", ignore: "needs links")
 example_32()
     assert_eq(to_html(parse("[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n")), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
 
-@test("example 33", ignore: "the parser does not read Entity and numeric character references")
+@test("example 33", ignore: "needs link reference definitions")
 example_33()
     assert_eq(to_html(parse("[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n")), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
 
-@test("example 34", ignore: "the parser does not read Entity and numeric character references")
+@test("example 34")
 example_34()
     assert_eq(to_html(parse("``` f&ouml;&ouml;\nfoo\n```\n")), "<pre><code class=\"language-f\u{f6}\u{f6}\">foo\n</code></pre>\n")
 
-@test("example 35", ignore: "the parser does not read Entity and numeric character references")
+@test("example 35")
 example_35()
     assert_eq(to_html(parse("`f&ouml;&ouml;`\n")), "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n")
 
-@test("example 36", ignore: "the parser does not read Entity and numeric character references")
+@test("example 36")
 example_36()
     assert_eq(to_html(parse("    f&ouml;f&ouml;\n")), "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n")
 
-@test("example 37", ignore: "the parser does not read Entity and numeric character references")
+@test("example 37", ignore: "needs emphasis")
 example_37()
     assert_eq(to_html(parse("&#42;foo&#42;\n*foo*\n")), "<p>*foo*\n<em>foo</em></p>\n")
 
-@test("example 38", ignore: "the parser does not read Entity and numeric character references")
+@test("example 38")
 example_38()
     assert_eq(to_html(parse("&#42; foo\n\n* foo\n")), "<p>* foo</p>\n<ul>\n<li>foo</li>\n</ul>\n")
 
-@test("example 39", ignore: "the parser does not read Entity and numeric character references")
+@test("example 39")
 example_39()
     assert_eq(to_html(parse("foo&#10;&#10;bar\n")), "<p>foo\n\nbar</p>\n")
 
-@test("example 40", ignore: "the parser does not read Entity and numeric character references")
+@test("example 40")
 example_40()
     assert_eq(to_html(parse("&#9;foo\n")), "<p>\tfoo</p>\n")
 
-@test("example 41", ignore: "the parser does not read Entity and numeric character references")
+@test("example 41", ignore: "needs links")
 example_41()
     assert_eq(to_html(parse("[a](url &quot;tit&quot;)\n")), "<p>[a](url &quot;tit&quot;)</p>\n")

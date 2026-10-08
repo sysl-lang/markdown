@@ -194,7 +194,7 @@ private starts_with_ci(b: []const u8, i: usize, word: string) -> bool
     true
 
 // Whether `b` holds exactly `word` at `i`.
-private starts_with_exact(b: []const u8, i: usize, word: string) -> bool
+private[markdown] starts_with_exact(b: []const u8, i: usize, word: string) -> bool
     val w = word.bytes
 
     if i + w.len > b.len then return false

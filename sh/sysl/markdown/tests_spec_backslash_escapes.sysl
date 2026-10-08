@@ -4,54 +4,54 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Backslash escapes', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 12", ignore: "the parser does not read Backslash escapes")
+@test("example 12")
 example_12()
     assert_eq(to_html(parse("\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n")), "<p>!&quot;#$%&amp;'()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n")
 
-@test("example 13", ignore: "the parser does not read Backslash escapes")
+@test("example 13")
 example_13()
     assert_eq(to_html(parse("\\\t\\A\\a\\ \\3\\\u{3c6}\\\u{ab}\n")), "<p>\\\t\\A\\a\\ \\3\\\u{3c6}\\\u{ab}</p>\n")
 
-@test("example 14", ignore: "the parser does not read Backslash escapes")
+@test("example 14")
 example_14()
     assert_eq(to_html(parse("\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n")), "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;\n&amp;ouml; not a character entity</p>\n")
 
-@test("example 15", ignore: "the parser does not read Backslash escapes")
+@test("example 15", ignore: "needs emphasis")
 example_15()
     assert_eq(to_html(parse("\\\\*emphasis*\n")), "<p>\\<em>emphasis</em></p>\n")
 
-@test("example 16", ignore: "the parser does not read Backslash escapes")
+@test("example 16")
 example_16()
     assert_eq(to_html(parse("foo\\\nbar\n")), "<p>foo<br />\nbar</p>\n")
 
-@test("example 17", ignore: "the parser does not read Backslash escapes")
+@test("example 17")
 example_17()
     assert_eq(to_html(parse("`` \\[\\` ``\n")), "<p><code>\\[\\`</code></p>\n")
 
-@test("example 18", ignore: "the parser does not read Backslash escapes")
+@test("example 18")
 example_18()
     assert_eq(to_html(parse("    \\[\\]\n")), "<pre><code>\\[\\]\n</code></pre>\n")
 
-@test("example 19", ignore: "the parser does not read Backslash escapes")
+@test("example 19")
 example_19()
     assert_eq(to_html(parse("~~~\n\\[\\]\n~~~\n")), "<pre><code>\\[\\]\n</code></pre>\n")
 
-@test("example 20", ignore: "the parser does not read Backslash escapes")
+@test("example 20")
 example_20()
     assert_eq(to_html(parse("<https://example.com?find=\\*>\n")), "<p><a href=\"https://example.com?find=%5C*\">https://example.com?find=\\*</a></p>\n")
 
-@test("example 21", ignore: "the parser does not read Backslash escapes")
+@test("example 21")
 example_21()
     assert_eq(to_html(parse("<a href=\"/bar\\/)\">\n")), "<a href=\"/bar\\/)\">\n")
 
-@test("example 22", ignore: "the parser does not read Backslash escapes")
+@test("example 22", ignore: "needs links")
 example_22()
     assert_eq(to_html(parse("[foo](/bar\\* \"ti\\*tle\")\n")), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
 
-@test("example 23", ignore: "the parser does not read Backslash escapes")
+@test("example 23", ignore: "needs link reference definitions")
 example_23()
     assert_eq(to_html(parse("[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"\n")), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
 
-@test("example 24", ignore: "the parser does not read Backslash escapes")
+@test("example 24")
 example_24()
     assert_eq(to_html(parse("``` foo\\+bar\nfoo\n```\n")), "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n")

@@ -35,46 +35,46 @@ ENABLED = {
     "Block quotes",
     "List items",
     "Lists",
+    "Backslash escapes",
+    "Entity and numeric character references",
+    "Code spans",
+    "Autolinks",
+    "Raw HTML",
+    "Inlines",
 }
 
 # Examples in an ENABLED section that need a construct of a section not yet read, by number, with
 # the reason written into their `ignore:`. Each comes off this table when that construct lands.
 EMPHASIS = "needs emphasis"
-ESCAPES = "needs backslash escapes"
-CODE_SPANS = "needs code spans"
-RAW_HTML = "needs raw HTML"
+LINKS = "needs links"
 REFS = "needs link reference definitions"
 
 IGNORED = {
-    42: CODE_SPANS,
+    15: EMPHASIS,
+    22: LINKS,
+    23: REFS,
+    32: LINKS,
+    33: REFS,
+    37: EMPHASIS,
+    41: LINKS,
     56: EMPHASIS,
-    65: ESCAPES,
-    66: EMPHASIS + " and backslash escapes",
-    76: ESCAPES,
+    66: EMPHASIS,
     80: EMPHASIS,
     81: EMPHASIS,
     82: EMPHASIS,
-    102: ESCAPES,
-    106: ESCAPES,
-    121: CODE_SPANS,
-    138: CODE_SPANS,
-    145: CODE_SPANS,
-    148: EMPHASIS + " and raw HTML",
+    148: EMPHASIS,
     152: EMPHASIS,
     155: EMPHASIS,
     167: EMPHASIS,
-    168: EMPHASIS + " and raw HTML",
+    168: EMPHASIS,
     176: EMPHASIS,
     177: EMPHASIS,
-    187: RAW_HTML,
     188: EMPHASIS,
     317: REFS,
+    341: EMPHASIS,
+    342: LINKS,
     638: EMPHASIS,
     639: EMPHASIS,
-    640: CODE_SPANS,
-    641: CODE_SPANS,
-    642: RAW_HTML,
-    643: RAW_HTML,
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

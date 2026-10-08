@@ -451,7 +451,7 @@ private[markdown] struct Parser
                 val text = self.take_leaf(o.node).text
 
                 self.doc.kind(o.node) match
-                    CodeBlock(info, _, _) -> self.doc.set_kind(o.node, CodeBlock(info, text, true))
+                    CodeBlock(info, _, _) -> self.doc.set_kind(o.node, CodeBlock(unescape(info), text, true))
                     _ -> ()
             Html(_) -> self.doc.set_kind(o.node, HtmlBlock(self.take_leaf(o.node).text))
             Ext(ix, state, leaf) ->

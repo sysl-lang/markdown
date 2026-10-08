@@ -12,7 +12,7 @@ example_119()
 example_120()
     assert_eq(to_html(parse("~~~\n<\n >\n~~~\n")), "<pre><code>&lt;\n &gt;\n</code></pre>\n")
 
-@test("example 121", ignore: "needs code spans")
+@test("example 121")
 example_121()
     assert_eq(to_html(parse("``\nfoo\n``\n")), "<p><code>foo</code></p>\n")
 
@@ -80,7 +80,7 @@ example_136()
 example_137()
     assert_eq(to_html(parse("```\naaa\n    ```\n")), "<pre><code>aaa\n    ```\n</code></pre>\n")
 
-@test("example 138", ignore: "needs code spans")
+@test("example 138")
 example_138()
     assert_eq(to_html(parse("``` ```\naaa\n")), "<p><code> </code>\naaa</p>\n")
 
@@ -108,7 +108,7 @@ example_143()
 example_144()
     assert_eq(to_html(parse("````;\n````\n")), "<pre><code class=\"language-;\"></code></pre>\n")
 
-@test("example 145", ignore: "needs code spans")
+@test("example 145")
 example_145()
     assert_eq(to_html(parse("``` aa ```\nfoo\n")), "<p><code>aa</code>\nfoo</p>\n")
 

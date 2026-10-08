@@ -1,0 +1,139 @@
+module sh.sysl.markdown
+
+import sysl.text.{Ascii, str_builder}
+
+// Backslash escapes and character references, decoded where the spec decodes them: in inline text,
+// in a fenced code block's info string, and in a link's destination and title. Code, autolinks and
+// raw HTML keep both exactly as written.
+//
+// A character reference is `&` and one of the HTML5 entity names and `;`, or `&#` and one to seven
+// decimal digits and `;`, or `&#x` (or `&#X`) and one to six hex digits and `;`. A number naming no
+// character -- zero, a surrogate, or anything past U+10FFFF -- stands for U+FFFD.
+
+/** The value of the named character reference `name`, given without its `&` and `;`. */
+private[markdown] entity(name: []const u8) -> Option[string]
+    val t = entity_records.bytes
+    var lo: usize = 0
+    var hi = t.len - 1
+
+    // `lo` and `hi` are always the offsets of a record's opening 2, `hi` perhaps the final one.
+    while lo < hi
+        var r = (lo + hi) / 2
+
+        while t[r] != 2 do r -= 1
+
+        var sep = r + 1
+
+        while t[sep] != 1 do sep += 1
+
+        val c = compare_bytes(t[r + 1..<sep], name)
+
+        if c == 0 then
+            var e = sep + 1
+
+            while t[e] != 2 do e += 1
+
+            return Some(entity_records[sep + 1..<e])
+
+        if c < 0 then
+            lo = sep + 1
+            while t[lo] != 2 do lo += 1
+        else
+            hi = r
+
+    None
+end entity
+
+// Below zero where `a` sorts before `b`, zero where they are equal, above zero after.
+private compare_bytes(a: []const u8, b: []const u8) -> int
+    val n = if a.len < b.len then a.len else b.len
+
+    for i in 0..<n
+        if a[i] != b[i] then return if a[i] < b[i] then -1 else 1
+
+    if a.len == b.len then 0 else if a.len < b.len then -1 else 1
+
+/** The character reference beginning with the `&` at `i`: its text, and the offset one past its
+ * `;`. None where what follows the `&` is not one.
+ */
+private[markdown] char_ref(b: []const u8, i: usize) -> Option[(string, usize)]
+    var j = i + 1
+
+    if byte_at(b, j) == u8('#') then
+        j += 1
+
+        val hex = byte_at(b, j) == u8('x') || byte_at(b, j) == u8('X')
+
+        if hex then j += 1
+
+        val from = j
+        val most: usize = if hex then 6 else 7
+        var v: u32 = 0
+
+        while j - from < most && is_digit_in(byte_at(b, j), hex)
+            v = v * (if hex then 16 else 10) + digit_value(b[j])
+            j += 1
+
+        if j == from || byte_at(b, j) != u8(';') then return None
+
+        return Some((code_point_text(v), j + 1))
+
+    val from = j
+
+    while j - from <= ENTITY_NAME_MAX && byte_at(b, j).is_alnum() do j += 1
+
+    if j == from || byte_at(b, j) != u8(';') then return None
+
+    entity(b[from..<j]).map((s) -> (s, j + 1))
+end char_ref
+
+private is_digit_in(c: u8, hex: bool) -> bool = if hex then c.is_hex_digit() else c.is_digit()
+
+private digit_value(c: u8) -> u32
+    if c <= u8('9') then return u32(c - u8('0'))
+    if c <= u8('F') then return u32(c - u8('A')) + 10
+
+    u32(c - u8('a')) + 10
+
+/** The text of code point `v`, or U+FFFD where `v` is zero, a surrogate, or past U+10FFFF. */
+private[markdown] code_point_text(v: u32) -> string
+    if v == 0 || v > 0x10ffff || (v >= 0xd800 && v <= 0xdfff) then return "\u{fffd}"
+
+    var sb = str_builder()
+
+    sb.push_char(char(v))
+    sb.finish()
+
+/** `s` with its backslash escapes and character references decoded -- `s` itself where it has
+ * neither.
+ */
+private[markdown] unescape(s: string) -> string
+    val b = s.bytes
+    var out = str_builder()
+    var from: usize = 0
+    var i: usize = 0
+    var changed = false
+
+    while i < b.len
+        if b[i] == u8('\\') && byte_at(b, i + 1).is_punct() then
+            out.push(s[from..<i])
+            from = i + 1
+            i += 2
+            changed = true
+        else if b[i] == u8('&') then
+            char_ref(b, i) match
+                Some((t, e)) ->
+                    out.push(s[from..<i])
+                    out.push(t)
+                    from = e
+                    i = e
+                    changed = true
+                None -> i += 1
+        else
+            i += 1
+
+    if !changed then return s
+
+    out.push(s[from..<b.len])
+    out.finish()
+end unescape

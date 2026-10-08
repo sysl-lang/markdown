@@ -1,0 +1,99 @@
+module sh.sysl.markdown
+
+import sysl.slices.contains
+import sysl.text.Ascii
+
+// What a `<` inside a paragraph may begin: an autolink, or raw HTML. Each scanner takes the leaf's
+// bytes and the offset of the `<`, and answers the offset one past the closing `>`, or 0 where
+// nothing of its kind begins there.
+
+/** An absolute URI in angle brackets: a scheme of 2 to 32 letters, digits, `+`, `.` and `-`
+ * beginning with a letter, a `:`, then anything but a space, a control character, `<` and `>`.
+ */
+private[markdown] uri_autolink_end(b: []const u8, p: usize) -> usize
+    val s = p + 1
+
+    if !is_ascii_letter(byte_at(b, s)) then return 0
+
+    var i = s + 1
+
+    while is_scheme_char(byte_at(b, i)) do i += 1
+
+    if i - s < 2 || i - s > 32 || byte_at(b, i) != u8(':') then return 0
+
+    i += 1
+    while i < b.len && is_uri_char(b[i]) do i += 1
+
+    if byte_at(b, i) == u8('>') then i + 1 else 0
+
+private is_scheme_char(c: u8) -> bool = c.is_alnum() || c == u8('+') || c == u8('.') || c == u8('-')
+
+private is_uri_char(c: u8) -> bool = c > u8(' ') && c != 127 && c != u8('<') && c != u8('>')
+
+/** An email address in angle brackets, as HTML5 defines a valid one: a local part of letters,
+ * digits and ``.!#$%&'*+/=?^_`{|}~-``, an `@`, and dot-separated labels of letters, digits and `-`,
+ * each 1 to 63 long and neither beginning nor ending with `-`.
+ */
+private[markdown] email_autolink_end(b: []const u8, p: usize) -> usize
+    var i = p + 1
+
+    while is_email_local_char(byte_at(b, i)) do i += 1
+
+    if i == p + 1 || byte_at(b, i) != u8('@') then return 0
+
+    loop
+        val s = i + 1
+
+        i = s
+        while byte_at(b, i).is_alnum() || byte_at(b, i) == u8('-') do i += 1
+
+        if i == s || i - s > 63 || b[s] == u8('-') || b[i - 1] == u8('-') then return 0
+
+        val c = byte_at(b, i)
+
+        if c == u8('>') then return i + 1
+        if c != u8('.') then return 0
+end email_autolink_end
+
+private is_email_local_char(c: u8) -> bool
+    c.is_alnum() || contains("!#$%&'*+/=?^_`{|}~.-".bytes, c)
+
+/** Raw HTML beginning at the `<` at `p`: an open or closing tag, a comment, a processing
+ * instruction, a declaration or a CDATA section. `unclosed` remembers which of the last four have
+ * already been looked for to the end of the leaf without finding their end marker, so that a long
+ * run of unclosed openers is not scanned again from each one.
+ */
+private[markdown] raw_html_end(b: []const u8, p: usize, unclosed: *[4]bool) -> usize
+    val c = byte_at(b, p + 1)
+
+    if is_ascii_letter(c) then return open_tag_end(b, p)
+    if c == u8('/') then return closing_tag_end(b, p)
+
+    if c == u8('?') then return marked_end(b, p + 2, "?>", 1, unclosed)
+
+    if c != u8('!') then return 0
+
+    if starts_with_exact(b, p + 2, "--") then
+        if byte_at(b, p + 4) == u8('>') then return p + 5
+        if byte_at(b, p + 4) == u8('-') && byte_at(b, p + 5) == u8('>') then return p + 6
+
+        return marked_end(b, p + 4, "-->", 0, unclosed)
+
+    if starts_with_exact(b, p + 2, "[CDATA[") then return marked_end(b, p + 9, "]]>", 2, unclosed)
+    if is_ascii_letter(byte_at(b, p + 2)) then return marked_end(b, p + 3, ">", 3, unclosed)
+
+    0
+end raw_html_end
+
+// One past the first `marker` at or after `from`, or 0 where there is none -- in which case there
+// is none after any later offset either, which `unclosed[k]` records.
+private marked_end(b: []const u8, from: usize, marker: string, k: usize, unclosed: *[4]bool) -> usize
+    if unclosed[k] then return 0
+
+    val first = marker.bytes[0]
+
+    for i in from..<b.len
+        if b[i] == first && starts_with_exact(b, i, marker) then return i + marker.len
+
+    unclosed[k] = true
+    0

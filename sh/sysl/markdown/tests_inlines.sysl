@@ -1,0 +1,181 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.str_builder
+
+// The inline scanner below what the spec's examples see: the entity table's edges, the numbers a
+// reference may not name, the backtick record that keeps unmatched code-span openers linear, and
+// the spans each inline node is given.
+
+private span_text(d: Doc, n: NodeId) -> string
+    val s = d.span(n)
+    var b = str_builder()
+
+    b.push_uint(ulong(s.start))
+    b.push("..")
+    b.push_uint(ulong(s.end))
+    b.finish()
+
+private child(d: Doc, n: NodeId) -> NodeId = d.first_child(n).unwrap()
+
+private after(d: Doc, n: NodeId) -> NodeId = d.next_sibling(n).unwrap()
+
+// ----- the entity table -----
+
+@test("the first, the last and the longest entity names are found")
+entity_edges()
+    assert_eq(entity("AElig".bytes), Some("\u{c6}"))
+    assert_eq(entity("zwnj".bytes), Some("\u{200c}"))
+    assert_eq(entity("CounterClockwiseContourIntegral".bytes), Some("\u{2233}"))
+    assert_eq(entity("amp".bytes), Some("&"))
+    assert_eq(entity("ngE".bytes), Some("\u{2267}\u{338}"))
+
+@test("a name before the first, after the last, or between two is not found")
+entity_missing()
+    assert_eq(entity("AAAA".bytes), None)
+    assert_eq(entity("zzzz".bytes), None)
+    assert_eq(entity("".bytes), None)
+    assert_eq(entity("AEli".bytes), None)
+    assert_eq(entity("AEliga".bytes), None)
+    assert_eq(entity("aelig".bytes) == entity("AElig".bytes), false)
+
+@test("a name that is a prefix of others is found by itself, and a prefix that is not a name is not")
+entity_prefixes()
+    assert_eq(entity("not".bytes), Some("\u{ac}"))
+    assert_eq(entity("notin".bytes), Some("\u{2209}"))
+    assert_eq(entity("notinE".bytes), Some("\u{22f9}\u{338}"))
+    assert_eq(entity("noti".bytes), None)
+    assert_eq(to_html(parse("&notit; &noti; &notin;\n")), "<p>&amp;notit; &amp;noti; \u{2209}</p>\n")
+
+@test("a name only counts with its semicolon, and one longer than any name is not looked up")
+entity_needs_semicolon()
+    assert_eq(to_html(parse("&amp &copy\n")), "<p>&amp;amp &amp;copy</p>\n")
+    assert_eq(to_html(parse("&CounterClockwiseContourIntegralX;\n")), "<p>&amp;CounterClockwiseContourIntegralX;</p>\n")
+
+// ----- numeric references -----
+
+@test("zero, a surrogate and a number past U+10FFFF all stand for U+FFFD")
+numeric_replaced()
+    assert_eq(char_ref("&#0;".bytes, 0), Some(("\u{fffd}", 4)))
+    assert_eq(char_ref("&#x0;".bytes, 0), Some(("\u{fffd}", 5)))
+    assert_eq(char_ref("&#xD800;".bytes, 0), Some(("\u{fffd}", 8)))
+    assert_eq(char_ref("&#57343;".bytes, 0), Some(("\u{fffd}", 8)))
+    assert_eq(char_ref("&#x110000;".bytes, 0), Some(("\u{fffd}", 10)))
+    assert_eq(char_ref("&#9999999;".bytes, 0), Some(("\u{fffd}", 10)))
+
+@test("the last code point and the ones beside the surrogates are characters")
+numeric_edges()
+    assert_eq(char_ref("&#x10FFFF;".bytes, 0), Some(("\u{10ffff}", 10)))
+    assert_eq(char_ref("&#55295;".bytes, 0), Some(("\u{d7ff}", 8)))
+    assert_eq(char_ref("&#xe000;".bytes, 0), Some(("\u{e000}", 8)))
+    assert_eq(char_ref("&#X41;".bytes, 0), Some(("A", 6)))
+
+@test("eight decimal digits, seven hex digits, no digits or no semicolon is not a reference")
+numeric_refused()
+    assert_eq(char_ref("&#12345678;".bytes, 0), None)
+    assert_eq(char_ref("&#x1234567;".bytes, 0), None)
+    assert_eq(char_ref("&#;".bytes, 0), None)
+    assert_eq(char_ref("&#x;".bytes, 0), None)
+    assert_eq(char_ref("&#65".bytes, 0), None)
+    assert_eq(char_ref("&#xg;".bytes, 0), None)
+
+// ----- code spans -----
+
+// "e`e``e```…": every run a different length, so no opener has a closer.
+private distinct_runs(n: usize) -> string
+    var b = str_builder()
+
+    for k in 1..<n + 1
+        b.push("e")
+        for _ in 0..<k do b.push("`")
+
+    b.finish()
+
+@test("runs of backticks of every length up to 140, none closed, are all text")
+backticks_unmatched()
+    val src = distinct_runs(140)
+
+    assert_eq(src.len > 10000, true)
+    assert_eq(to_html(parse(src)), "<p>" + src + "</p>\n")
+
+@test("ten thousand single backticks between letters pair into code spans")
+backticks_paired()
+    var b = str_builder()
+
+    for _ in 0..<5000 do b.push("`a")
+    b.push("`")
+
+    var want = str_builder()
+
+    want.push("<p>")
+    for i in 0..<5000
+        if i % 2 == 0 then want.push("<code>a</code>") else want.push("a")
+    want.push("`</p>\n")
+
+    assert_eq(to_html(parse(b.finish())), want.finish())
+
+@test("after a search for a closer has reached the end, a later opener still finds its own")
+backticks_after_failed_search()
+    assert_eq(to_html(parse("`a``b``c\n")), "<p>`a<code>b</code>c</p>\n")
+    assert_eq(to_html(parse("```a``b`c`d\n")), "<p>```a``b<code>c</code>d</p>\n")
+    assert_eq(to_html(parse("``a`b``c``\n")), "<p><code>a`b</code>c``</p>\n")
+
+// ----- info strings -----
+
+@test("a fence's info string has its escapes and references decoded")
+info_string_decoded()
+    assert_eq(to_html(parse("```a\\_b&amp;c\nx\n```\n")), "<pre><code class=\"language-a_b&amp;c\">x\n</code></pre>\n")
+    assert_eq(to_html(parse("~~~ &#x61;\\\\b\n~~~\n")), "<pre><code class=\"language-a\\b\"></code></pre>\n")
+
+// ----- spans -----
+
+@test("each inline node spans the source it was read from")
+inline_spans()
+    val d = parse("x `y` <ab:c> &amp; \\* <i> z\n")
+    val p = child(d, d.root())
+    val t1 = child(d, p)
+    val code = after(d, t1)
+    val t2 = after(d, code)
+    val link = after(d, t2)
+    val t3 = after(d, link)
+    val html = after(d, t3)
+    val t4 = after(d, html)
+
+    assert_eq(to_html(d), "<p>x <code>y</code> <a href=\"ab:c\">ab:c</a> &amp; * <i> z</p>\n")
+    assert_eq(span_text(d, t1), "0..2")
+    assert_eq(span_text(d, code), "2..5")
+    assert_eq(span_text(d, t2), "5..6")
+    assert_eq(span_text(d, link), "6..12")
+    assert_eq(span_text(d, child(d, link)), "7..11")
+    assert_eq(span_text(d, t3), "12..22")
+    assert_eq(span_text(d, html), "22..25")
+    assert_eq(span_text(d, t4), "25..27")
+    assert_eq(d.next_sibling(t4).is_none(), true)
+end inline_spans
+
+@test("a text run with no escape or reference in it is one node over the source")
+plain_run_is_one_node()
+    val d = parse("plain words < here\n")
+    val t = child(d, child(d, d.root()))
+
+    assert_eq(span_text(d, t), "0..18")
+    assert_eq(d.next_sibling(t).is_none(), true)
+
+@test("an email autolink links to mailto: and keeps the address as its text")
+email_autolink()
+    assert_eq(to_html(parse("<a.b-c@x-y.example>\n")), "<p><a href=\"mailto:a.b-c@x-y.example\">a.b-c@x-y.example</a></p>\n")
+    assert_eq(to_html(parse("<a@-x.example>\n")), "<p>&lt;a@-x.example&gt;</p>\n")
+    assert_eq(to_html(parse("<a@x-.example>\n")), "<p>&lt;a@x-.example&gt;</p>\n")
+    assert_eq(to_html(parse("<a@x..example>\n")), "<p>&lt;a@x..example&gt;</p>\n")
+
+@test("an unclosed comment, processing instruction, CDATA or declaration leaves its opener as text")
+raw_html_unclosed()
+    assert_eq(to_html(parse("x <!-- a <!-- b\n")), "<p>x &lt;!-- a &lt;!-- b</p>\n")
+    assert_eq(to_html(parse("x <? a <? b\n")), "<p>x &lt;? a &lt;? b</p>\n")
+    assert_eq(to_html(parse("x <![CDATA[ a <![CDATA[ b\n")), "<p>x &lt;![CDATA[ a &lt;![CDATA[ b</p>\n")
+    assert_eq(to_html(parse("x <!A a <!B b\n")), "<p>x &lt;!A a &lt;!B b</p>\n")
+    assert_eq(to_html(parse("x <!-- a --> <!-- b\n")), "<p>x <!-- a --> &lt;!-- b</p>\n")
+
+@test("U+0000 in a code span, raw HTML and an autolink stands for U+FFFD")
+nul_in_inlines()
+    assert_eq(to_html(parse("`a\u{0}b` <x\u{0}y:z> <a b=\"\u{0}\">\n")), "<p><code>a\u{fffd}b</code> &lt;x\u{fffd}y:z&gt; <a b=\"\u{fffd}\"></p>\n")

@@ -32,19 +32,19 @@ example_638()
 example_639()
     assert_eq(to_html(parse("*foo\\\nbar*\n")), "<p><em>foo<br />\nbar</em></p>\n")
 
-@test("example 640", ignore: "needs code spans")
+@test("example 640")
 example_640()
     assert_eq(to_html(parse("`code  \nspan`\n")), "<p><code>code   span</code></p>\n")
 
-@test("example 641", ignore: "needs code spans")
+@test("example 641")
 example_641()
     assert_eq(to_html(parse("`code\\\nspan`\n")), "<p><code>code\\ span</code></p>\n")
 
-@test("example 642", ignore: "needs raw HTML")
+@test("example 642")
 example_642()
     assert_eq(to_html(parse("<a href=\"foo  \nbar\">\n")), "<p><a href=\"foo  \nbar\"></p>\n")
 
-@test("example 643", ignore: "needs raw HTML")
+@test("example 643")
 example_643()
     assert_eq(to_html(parse("<a href=\"foo\\\nbar\">\n")), "<p><a href=\"foo\\\nbar\"></p>\n")
 

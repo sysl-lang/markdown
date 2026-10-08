@@ -134,10 +134,11 @@ nul_after_hashes()
 
 // ----- breaks -----
 
-@test("a backslash before a line ending is a hard break, and two of them are not")
+@test("a backslash before a line ending is a hard break, and an escaped one is not")
 backslash_breaks()
     assert_eq(to_html(parse("a\\\nb\n")), "<p>a<br />\nb</p>\n")
-    assert_eq(to_html(parse("a\\\\\nb\n")), "<p>a\\\\\nb</p>\n")
+    assert_eq(to_html(parse("a\\\\\nb\n")), "<p>a\\\nb</p>\n")
+    assert_eq(to_html(parse("a\\\\\\\nb\n")), "<p>a\\<br />\nb</p>\n")
 
 @test("one trailing space is a soft break, and is not kept before it")
 one_space_is_soft()
