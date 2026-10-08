@@ -1,0 +1,262 @@
+module sh.sysl.markdown
+
+// GitHub's footnotes: `[^label]` refers to a definition `[^label]: text`, and the definitions are
+// gathered into a numbered list at the end of the page, each linking back to where it was referred to.
+//
+// **Every rule is cmark-gfm's (its `footnotes` option), the corners included:**
+//
+// - A definition begins a line, under four columns in: `[^`, a label of anything but `]`, spaces,
+//   tabs and line endings, then `]:` and any spaces and tabs. It is a container, holding blocks: the
+//   rest of its first line, then every line indented four columns or more (with the four taken
+//   off), every empty line, and lazy paragraph lines. A line of nothing but spaces under four
+//   columns ends it, since cmark-gfm looks for an empty line at the line's own start. A definition
+//   may interrupt a paragraph, and may sit inside any container.
+// - A reference is a `[` whose text begins `^` and is longer than the `^`, closed by a `]` that made
+//   no link of it -- a `[^a](/u)` is still a link. Its label is the text between the `^` and the
+//   `]`, as written; whatever was read inside goes, emphasis included. After a `!` the `!` stays as
+//   text.
+// - Labels match as link labels do -- case folded, runs of whitespace one space -- and where two
+//   definitions share a label the first to close wins and the other is dropped.
+// - Footnotes are numbered in the order of their first reference, every reference in the document
+//   counted where it stands, those inside definitions included. A definition nothing refers to is
+//   dropped; a reference to no definition is the text `[^label]`.
+// - Each reference writes `<sup class="footnote-ref"><a href="#fn-label" id="fnref-label">N</a></sup>`,
+//   the second and later references to one footnote taking ids `fnref-label-2`, `fnref-label-3`…
+//   Each footnote's back-references are written at the end of its last paragraph, or after its last
+//   block where that is not a paragraph: `↩` for the first, `↩` with a superscript 2, 3… for the rest.
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+import sysl.container.{Map, map}
+import sysl.text.str_builder
+
+/** The footnotes extension, for a `Registry`. It asks to be first among the extensions a registry is
+ * given -- `gfm()` puts it there -- since cmark-gfm settles footnotes before any other extension looks
+ * at the finished tree: a reference to no definition is text by the time an email address is looked
+ * for in it.
+ */
+footnotes() -> &Extension = Footnotes()
+
+/** The `tag` of a footnote reference's `ExtNode`. Its `data` is the label as written until the
+ * references are numbered, then `"N R label"`: the footnote's number, which reference to it this
+ * is, and its definition's label.
+ */
+const FOOTNOTE_REF: u32 = 0
+
+/** The `tag` of a footnote definition's `ExtNode`, which holds its blocks. Its `data` is the label
+ * as written until the references are numbered, then `"N C label"`: the footnote's number, how many
+ * references it has, and the label.
+ */
+const FOOTNOTE_DEF: u32 = 1
+
+/** The `tag` of the list the definitions are gathered into at the end of the document. */
+const FOOTNOTE_SECTION: u32 = 2
+
+/** The `tag` of a footnote's back-references, written at the end of its last paragraph; `data` is
+ * its definition's.
+ */
+const FOOTNOTE_BACKREF: u32 = 3
+
+/** The `tag` of a footnote's back-references where its last block is not a paragraph, written after
+ * that block on a line of their own; `data` is its definition's.
+ */
+const FOOTNOTE_BACKREF_BLOCK: u32 = 4
+
+private const NAME: string = "footnotes"
+
+private struct Footnotes
+end Footnotes
+
+impl Extension for Footnotes
+    name(self) -> string = NAME
+
+    override block_start(self, line: Line) -> BlockStart
+        if line.indent >= 4 then return Declined
+
+        val b = line.text.bytes
+        val p = line.pos + line.indent
+
+        if p + 1 >= b.len || b[p] != u8('[') || b[p + 1] != u8('^') then return Declined
+
+        var j = p + 2
+
+        while j < b.len && !ends_label(b[j]) do j += 1
+
+        if j == p + 2 || j + 1 >= b.len || b[j] != u8(']') || b[j + 1] != u8(':') then return Declined
+
+        val label = line.text[p + 2..<j]
+
+        j += 2
+
+        while j < b.len && (b[j] == u8(' ') || b[j] == u8('\t')) do j += 1
+
+        Container(Ext(ExtNode(NAME, FOOTNOTE_DEF, label, true)), j - line.pos, 0)
+    end block_start
+
+    override interrupts_paragraph(self) -> bool = true
+
+    override block_continue(self, line: Line, kind: Kind, state: *u64) -> BlockContinue
+        if line.indent >= 4 then return Indented(4)
+
+        if line.text.len == 0 then Takes(0) else Ends
+
+    override bracket(self, s: Subject, from: usize) -> Option[Kind]
+        val b = s.text.bytes
+
+        if s.pos < from + 2 || b[from] != u8('^') then return None
+
+        Some(Ext(ExtNode(NAME, FOOTNOTE_REF, s.text[from + 1..<s.pos], false)))
+
+    override post_pass(self, d: Doc)
+        var defs: Buf[NodeId] = buf()
+        var refs: Buf[NodeId] = buf()
+
+        for (ev, n) in d.walk()
+            d.kind(n) match
+                Ext(x) ->
+                    if x.ext == NAME then
+                        if x.tag == FOOTNOTE_DEF && ev == Exit then defs.push(n)
+                        if x.tag == FOOTNOTE_REF then refs.push(n)
+                _ -> ()
+
+        if defs.len() == 0 && refs.len() == 0 then return
+
+        var by_label: Map[string, usize] = map()
+
+        for k in 0..<defs.len()
+            normalize_label(data_of(d, defs[k])) match
+                Some(key) -> if !by_label.has(key) then by_label.put(key, k)
+                None -> ()
+
+        var number: Buf[usize] = buf()
+        var count: Buf[usize] = buf()
+        var order: Buf[usize] = buf()
+
+        for _ in 0..<defs.len()
+            number.push(0)
+            count.push(0)
+
+        for r in refs.view()
+            val label = data_of(d, r)
+            val found = normalize_label(label) match
+                Some(key) -> by_label.get(key)
+                None -> None
+
+            found match
+                Some(k) ->
+                    if number[k] == 0 then
+                        order.push(k)
+                        number[k] = order.len()
+
+                    count[k] = count[k] + 1
+                    d.set_kind(r, Ext(ExtNode(NAME, FOOTNOTE_REF, s"${number[k]} ${count[k]} ${data_of(d, defs[k])}", false)))
+                None ->
+                    var t = str_builder()
+
+                    t.push("[^")
+                    t.push(label)
+                    t.push("]")
+                    d.set_kind(r, Text(t.finish()))
+
+        for n in defs.view() do d.unlink(n)
+
+        if order.len() == 0 then return
+
+        val end = Span(d.src.len, d.src.len)
+        val section = d.append_child(d.root(), Ext(ExtNode(NAME, FOOTNOTE_SECTION, "", true)), end)
+
+        for k in order.view()
+            val n = defs[k]
+            val data = s"${number[k]} ${count[k]} ${data_of(d, n)}"
+
+            d.set_kind(n, Ext(ExtNode(NAME, FOOTNOTE_DEF, data, true)))
+            d.append_node(section, n)
+
+            val at = Span(d.span(n).end, d.span(n).end)
+            val para = d.last_child(n) match
+                Some(c) -> if is_paragraph(d, c) then Some(c) else None
+                None -> None
+
+            para match
+                Some(p) -> d.append_child(p, Ext(ExtNode(NAME, FOOTNOTE_BACKREF, data, false)), at)
+                None -> d.append_child(n, Ext(ExtNode(NAME, FOOTNOTE_BACKREF_BLOCK, data, false)), at)
+    end post_pass
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val x = d.kind(n) match
+            Ext(x) -> x
+            _ -> return
+
+        val (number, nth, label) = fields(x.data)
+
+        if x.tag == FOOTNOTE_REF then
+            val l = attr(label)
+            val suffix = if nth == "1" then "" else s"-$nth"
+
+            w.tag(s"<sup class=\"footnote-ref\"><a href=\"#fn-$l\" id=\"fnref-$l$suffix\" data-footnote-ref>$number</a></sup>")
+        else if x.tag == FOOTNOTE_DEF then
+            if ev == Enter then
+                w.cr()
+                w.tag(s"<li id=\"fn-${attr(label)}\">")
+                w.cr()
+            else
+                w.cr()
+                w.tag("</li>")
+                w.cr()
+        else if x.tag == FOOTNOTE_SECTION then
+            w.cr()
+            w.tag(if ev == Enter then "<section class=\"footnotes\" data-footnotes>\n<ol>\n" else "</ol>\n</section>\n")
+        else if x.tag == FOOTNOTE_BACKREF then
+            w.tag(" ")
+            backrefs(w, number, nth, attr(label))
+        else if x.tag == FOOTNOTE_BACKREF_BLOCK then
+            w.cr()
+            backrefs(w, number, nth, attr(label))
+            w.tag("\n")
+    end render
+
+// A footnote's back-references: one to each reference to it, `count` of them.
+private backrefs(w: *HtmlWriter, number: string, count: string, l: string)
+    w.tag(s"<a href=\"#fnref-$l\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"$number\" aria-label=\"Back to reference $number\">↩</a>")
+
+    for i in 2..<decimal(count) + 1
+        w.tag(s" <a href=\"#fnref-$l-$i\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"$number-$i\" aria-label=\"Back to reference $number-$i\">↩<sup class=\"footnote-ref\">$i</sup></a>")
+
+// cmark-gfm's label ends at a `]`, a space, a tab, a line ending or a NUL.
+private ends_label(c: u8) -> bool = c == u8(']') || c == u8(' ') || c == u8('\t') || c == u8('\n') || c == u8('\r') || c == 0
+
+private is_paragraph(d: Doc, n: NodeId) -> bool
+    d.kind(n) match
+        Paragraph -> true
+        _ -> false
+
+private data_of(d: Doc, n: NodeId) -> string
+    d.kind(n) match
+        Ext(x) -> x.data
+        _ -> ""
+
+// `"N C label"` taken apart; a label never holds a space, the definition's syntax refusing one.
+private fields(data: string) -> (string, string, string)
+    val b = data.bytes
+    var i: usize = 0
+
+    while i < b.len && b[i] != u8(' ') do i += 1
+
+    var j = if i < b.len then i + 1 else i
+
+    while j < b.len && b[j] != u8(' ') do j += 1
+
+    val second = if i < b.len then data[i + 1..<j] else ""
+    val third = if j < b.len then data[j + 1..<b.len] else ""
+
+    (data[0..<i], second, third)
+
+private decimal(s: string) -> usize
+    var n: usize = 0
+
+    for c in s.bytes do n = n * 10 + usize(c - u8('0'))
+
+    n
+
+// A label as an `href` writes it: a URL, with its `&` escaped for the attribute.
+private attr(label: string) -> string = escape_html(encode_href(label))

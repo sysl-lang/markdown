@@ -31,3 +31,11 @@ escaped_pipe_before_a_table()
 @test("a ' in an autolink's destination is written as it is")
 apostrophe_in_a_destination()
     assert_eq(gfm_of("www.a.com/'x'\n"), "<p><a href=\"http://www.a.com/'x\">www.a.com/'x</a>'</p>\n")
+
+// A footnote reference's label is the text between its `^` and its `]`. cmark-gfm measures it by
+// the two brackets' columns, which is wrong where a line break comes between them: `a[^1\nb]` loses
+// its label and the line after it, and is written `a[^]`. Here a reference to no definition keeps
+// what was written.
+@test("a footnote reference across a line break keeps its text")
+footnote_reference_across_a_line()
+    assert_eq(gfm_of("a[^1\nb]\n\n[^1]: Note.\n"), "<p>a[^1\nb]</p>\n")

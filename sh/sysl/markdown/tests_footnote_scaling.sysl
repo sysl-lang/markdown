@@ -1,0 +1,164 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{repeat, str_builder}
+import sysl.time.{monotonic, whole_micros}
+
+// Footnotes' and alerts' hostile inputs -- many references, many definitions, definitions nested
+// one inside the next, many alerts -- each read with gfm() at two sizes ten times apart, as
+// tests_scaling.sysl reads CommonMark's: a linear reading takes about ten times as long for the
+// larger, a quadratic one about a hundred. The output is checked at both sizes.
+
+private const small: usize = 2000
+
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = to_html_with(parse_with(src, gfm()), gfm_html())
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+private ratio(input: usize -> string, output: usize -> string) -> long
+    val a = timed(input(small), output(small))
+    val b = timed(input(10 * small), output(10 * small))
+
+    b / (if a < 1000 then 1000 else a)
+
+private back(number: string, label: string, n: usize) -> string
+    var b = str_builder()
+
+    b.push(s"<a href=\"#fnref-$label\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"$number\" aria-label=\"Back to reference $number\">↩</a>")
+
+    for i in 2..<n + 1
+        b.push(s" <a href=\"#fnref-$label-$i\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"$number-$i\" aria-label=\"Back to reference $number-$i\">↩<sup class=\"footnote-ref\">$i</sup></a>")
+
+    b.finish()
+
+private section(items: string) -> string = "<section class=\"footnotes\" data-footnotes>\n<ol>\n" + items + "</ol>\n</section>\n"
+
+private one_ref(number: string, label: string, nth: usize) -> string
+    val suffix = if nth == 1 then "" else s"-$nth"
+
+    s"<sup class=\"footnote-ref\"><a href=\"#fn-$label\" id=\"fnref-$label$suffix\" data-footnote-ref>$number</a></sup>"
+
+private same_refs(n: usize) -> string = repeat("a[^x] ", n) + "\n\n[^x]: X.\n"
+
+private same_refs_out(n: usize) -> string
+    var b = str_builder()
+
+    b.push("<p>")
+
+    for i in 1..<n + 1
+        b.push("a")
+        b.push(one_ref("1", "x", i))
+        if i < n then b.push(" ")
+
+    b.push("</p>\n")
+    b.push(section("<li id=\"fn-x\">\n<p>X. " + back("1", "x", n) + "</p>\n</li>\n"))
+    b.finish()
+
+private many_defs(n: usize) -> string
+    var b = str_builder()
+
+    for i in 1..<n + 1 do b.push(s"[^$i]")
+
+    b.push("\n\n")
+
+    for i in 1..<n + 1 do b.push(s"[^$i]: $i\n")
+
+    b.finish()
+
+private many_defs_out(n: usize) -> string
+    var b = str_builder()
+    var items = str_builder()
+
+    b.push("<p>")
+
+    for i in 1..<n + 1
+        b.push(one_ref(s"$i", s"$i", 1))
+        items.push(s"<li id=\"fn-$i\">\n<p>$i " + back(s"$i", s"$i", 1) + "</p>\n</li>\n")
+
+    b.push("</p>\n")
+    b.push(section(items.finish()))
+    b.finish()
+
+private unused_defs(n: usize) -> string = repeat("[^u]: unused\n", n)
+
+private unused_defs_out(n: usize) -> string = ""
+
+private nested_defs(n: usize) -> string
+    var b = str_builder()
+
+    b.push("a")
+
+    for i in 1..<n + 1 do b.push(s"[^$i]")
+
+    b.push("\n\n")
+
+    for i in 1..<n + 1 do b.push(s"[^$i]: ")
+
+    b.push("x\n")
+    b.finish()
+
+private nested_defs_out(n: usize) -> string
+    var b = str_builder()
+    var items = str_builder()
+
+    b.push("<p>a")
+
+    for i in 1..<n + 1
+        b.push(one_ref(s"$i", s"$i", 1))
+
+        if i < n then
+            items.push(s"<li id=\"fn-$i\">\n" + back(s"$i", s"$i", 1) + "\n</li>\n")
+        else
+            items.push(s"<li id=\"fn-$i\">\n<p>x " + back(s"$i", s"$i", 1) + "</p>\n</li>\n")
+
+    b.push("</p>\n")
+    b.push(section(items.finish()))
+    b.finish()
+
+private undefined_refs(n: usize) -> string = repeat("[^nope] ", n) + "\n"
+
+private undefined_refs_out(n: usize) -> string = "<p>" + repeat("[^nope] ", n - 1) + "[^nope]</p>\n"
+
+private unclosed(n: usize) -> string = repeat("[^a ", n) + "\n"
+
+private unclosed_out(n: usize) -> string = "<p>" + repeat("[^a ", n - 1) + "[^a</p>\n"
+
+private val alert_html: string ="<div class=\"markdown-alert markdown-alert-note\">\n<p class=\"markdown-alert-title\">Note</p>\n<p>x</p>\n</div>\n"
+
+private many_alerts(n: usize) -> string = repeat("> [!NOTE]\n> x\n\n", n)
+
+private many_alerts_out(n: usize) -> string = repeat(alert_html, n)
+
+private long_marker(n: usize) -> string = "> [!" + repeat("N", n) + "]\n> x\n"
+
+private long_marker_out(n: usize) -> string = "<blockquote>\n<p>[!" + repeat("N", n) + "]\nx</p>\n</blockquote>\n"
+
+@test("many references to one footnote are read in linear time")
+footnote_many_references()
+    assert(ratio(same_refs, same_refs_out) < 20)
+
+@test("many footnotes, each referred to once, are read in linear time")
+footnote_many_definitions()
+    assert(ratio(many_defs, many_defs_out) < 20)
+
+@test("many unreferenced definitions are read in linear time")
+footnote_many_unused()
+    assert(ratio(unused_defs, unused_defs_out) < 20)
+
+@test("definitions nested one inside the next are read in linear time")
+footnote_nested_definitions()
+    assert(ratio(nested_defs, nested_defs_out) < 20)
+
+@test("many undefined references and unclosed openers are read in linear time")
+footnote_undefined()
+    assert(ratio(undefined_refs, undefined_refs_out) < 20)
+    assert(ratio(unclosed, unclosed_out) < 20)
+
+@test("many alerts, and a long almost-marker, are read in linear time")
+alert_scaling()
+    assert(ratio(many_alerts, many_alerts_out) < 20)
+    assert(ratio(long_marker, long_marker_out) < 20)

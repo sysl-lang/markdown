@@ -93,6 +93,7 @@ GFM_NORMALISED = {
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC = os.path.join(ROOT, "spec", "spec.json")
 GFM_SPEC = os.path.join(ROOT, "spec", "gfm-spec.txt")
+EXT_SPEC = os.path.join(ROOT, "spec", "cmark-gfm-extensions.txt")
 OUT = os.path.join(ROOT, "sh", "sysl", "markdown")
 PREFIX = "tests_spec_"
 GFM_PREFIX = "tests_gfm_"
@@ -131,11 +132,12 @@ def slug(section):
     return re.sub(r"[^a-z0-9]+", "_", section.lower()).strip("_")
 
 
-def gfm_examples():
-    """Every example of GitHub's spec as (number, label, markdown, html), numbered as its own
-    renderer numbers them -- every example in order, from 1 -- with a tab where it writes a →."""
+def gfm_examples(spec=None):
+    """Every example of GitHub's spec (or of `spec`, written the same way) as (number, label,
+    markdown, html), numbered as its own renderer numbers them -- every example in order, from 1 --
+    with a tab where it writes a →."""
     examples = []
-    lines = open(GFM_SPEC, encoding="utf-8").read().split("\n")
+    lines = open(spec or GFM_SPEC, encoding="utf-8").read().split("\n")
     i = 0
 
     while i < len(lines):
@@ -169,10 +171,39 @@ def write(name, body):
         f.write("\n".join(body) + "\n")
 
 
+def generated(name):
+    """Whether the file `name` in OUT was written by this script, which a hand-written one is not."""
+    with open(os.path.join(OUT, name), encoding="utf-8") as f:
+        return "Written by tools/gen_spec_tests.py" in f.read(1000)
+
+
+def footnotes():
+    """cmark-gfm's own footnote examples (spec/cmark-gfm-extensions.txt, its test/extensions.txt),
+    read with gfm() and rendered with gfm_html(), as cmark-gfm's runner reads them with every
+    extension and its footnotes option on."""
+    exs = [(n, md, html) for n, _, md, html in gfm_examples(EXT_SPEC) if "[^" in md]
+    body = [
+        "module sh.sysl.markdown",
+        "@tests",
+        "",
+        "// cmark-gfm's own footnote examples (spec/cmark-gfm-extensions.txt), read with gfm() and",
+        "// rendered with gfm_html(), compared exactly. Written by tools/gen_spec_tests.py; edit that, not this.",
+    ]
+    for n, md, html in exs:
+        body += [
+            "",
+            '@test("cmark-gfm extensions example %d")' % n,
+            "gfm_extensions_example_%d()" % n,
+            "    assert_eq(to_html_with(parse_with(%s, gfm()), gfm_html()), %s)" % (lit(md), lit(html)),
+        ]
+    write(GFM_PREFIX + "footnotes.sysl", body)
+    print("%d cmark-gfm footnote examples" % len(exs))
+
+
 def gfm(examples):
     """The GitHub files: the extension examples, and the CommonMark ones with every extension on."""
     for name in os.listdir(OUT):
-        if name.startswith(GFM_PREFIX) and name.endswith(".sysl"):
+        if name.startswith(GFM_PREFIX) and name.endswith(".sysl") and generated(name):
             os.remove(os.path.join(OUT, name))
 
     files = {}
@@ -284,6 +315,7 @@ def main():
     print("%d sections, %d examples: %d run, %d ignored" % (len(sections), total, live, total - live))
 
     gfm(examples)
+    footnotes()
 
 
 main()

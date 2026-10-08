@@ -1,0 +1,149 @@
+module sh.sysl.markdown
+@tests
+
+// Footnotes, read with gfm() and rendered with gfm_html(), each compared exactly with the HTML
+// cmark-gfm 0.29.0.gfm.13 writes for it with the same extensions and its `footnotes` option.
+
+@test("footnotes: one reference")
+footnote_case_1()
+    assert_eq(to_html_with(parse_with("Text[^1].\n\n[^1]: The note.\n", gfm()), gfm_html()), "<p>Text<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup>.</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>The note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: several paragraphs in a definition")
+footnote_case_2()
+    assert_eq(to_html_with(parse_with("a[^n]\n\n[^n]: First.\n\n    Second, indented.\n\n        code inside\n\n    Third.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-n\" id=\"fnref-n\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-n\">\n<p>First.</p>\n<p>Second, indented.</p>\n<pre><code>code inside\n</code></pre>\n<p>Third. <a href=\"#fnref-n\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: numbered by first reference")
+footnote_case_3()
+    assert_eq(to_html_with(parse_with("x[^b] y[^a] z[^b]\n\n[^a]: A.\n[^b]: B.\n", gfm()), gfm_html()), "<p>x<sup class=\"footnote-ref\"><a href=\"#fn-b\" id=\"fnref-b\" data-footnote-ref>1</a></sup> y<sup class=\"footnote-ref\"><a href=\"#fn-a\" id=\"fnref-a\" data-footnote-ref>2</a></sup> z<sup class=\"footnote-ref\"><a href=\"#fn-b\" id=\"fnref-b-2\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-b\">\n<p>B. <a href=\"#fnref-b\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a> <a href=\"#fnref-b-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">\u{21a9}<sup class=\"footnote-ref\">2</sup></a></p>\n</li>\n<li id=\"fn-a\">\n<p>A. <a href=\"#fnref-a\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: three references to one footnote")
+footnote_case_4()
+    assert_eq(to_html_with(parse_with("a[^x] b[^x] c[^x]\n\n[^x]: X.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-x\" id=\"fnref-x\" data-footnote-ref>1</a></sup> b<sup class=\"footnote-ref\"><a href=\"#fn-x\" id=\"fnref-x-2\" data-footnote-ref>1</a></sup> c<sup class=\"footnote-ref\"><a href=\"#fn-x\" id=\"fnref-x-3\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-x\">\n<p>X. <a href=\"#fnref-x\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a> <a href=\"#fnref-x-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">\u{21a9}<sup class=\"footnote-ref\">2</sup></a> <a href=\"#fnref-x-3\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-3\" aria-label=\"Back to reference 1-3\">\u{21a9}<sup class=\"footnote-ref\">3</sup></a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: an unreferenced definition is dropped")
+footnote_case_5()
+    assert_eq(to_html_with(parse_with("a[^used]\n\n[^unused]: Never shown.\n\n[^used]: Shown.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-used\" id=\"fnref-used\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-used\">\n<p>Shown. <a href=\"#fnref-used\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: labels match case-insensitively")
+footnote_case_6()
+    assert_eq(to_html_with(parse_with("a[^Note]\n\n[^NOTE]: Upper.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-NOTE\" id=\"fnref-NOTE\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-NOTE\">\n<p>Upper. <a href=\"#fnref-NOTE\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a footnote refers to itself")
+footnote_case_7()
+    assert_eq(to_html_with(parse_with("a[^self]\n\n[^self]: See[^self].\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-self\" id=\"fnref-self\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-self\">\n<p>See<sup class=\"footnote-ref\"><a href=\"#fn-self\" id=\"fnref-self-2\" data-footnote-ref>1</a></sup>. <a href=\"#fnref-self\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a> <a href=\"#fnref-self-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">\u{21a9}<sup class=\"footnote-ref\">2</sup></a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition nested in a definition")
+footnote_case_8()
+    assert_eq(to_html_with(parse_with("a[^outer] b[^inner]\n\n[^outer]: Outer.\n    [^inner]: Inner.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-outer\" id=\"fnref-outer\" data-footnote-ref>1</a></sup> b<sup class=\"footnote-ref\"><a href=\"#fn-inner\" id=\"fnref-inner\" data-footnote-ref>2</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-outer\">\n<p>Outer. <a href=\"#fnref-outer\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n<li id=\"fn-inner\">\n<p>Inner. <a href=\"#fnref-inner\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference only an unreferenced definition makes")
+footnote_case_9()
+    assert_eq(to_html_with(parse_with("a\n\n[^gone]: Points at[^kept].\n\n[^kept]: Kept.\n", gfm()), gfm_html()), "<p>a</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-kept\">\n<p>Kept. <a href=\"#fnref-kept\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: an undefined reference stays text")
+footnote_case_10()
+    assert_eq(to_html_with(parse_with("a[^nope] b\n", gfm()), gfm_html()), "<p>a[^nope] b</p>\n")
+
+@test("footnotes: duplicate definitions: the first wins")
+footnote_case_11()
+    assert_eq(to_html_with(parse_with("a[^d]\n\n[^d]: First.\n\n[^d]: Second.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-d\" id=\"fnref-d\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-d\">\n<p>First. <a href=\"#fnref-d\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference in a table cell")
+footnote_case_12()
+    assert_eq(to_html_with(parse_with("| a | b |\n|---|---|\n| x[^t] | y |\n\n[^t]: In a table.\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>x<sup class=\"footnote-ref\"><a href=\"#fn-t\" id=\"fnref-t\" data-footnote-ref>1</a></sup></td>\n<td>y</td>\n</tr>\n</tbody>\n</table>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-t\">\n<p>In a table. <a href=\"#fnref-t\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference in a link's text")
+footnote_case_13()
+    assert_eq(to_html_with(parse_with("[see [^1] here](/u)\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p><a href=\"/u\">see <sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup> here</a></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference in emphasis")
+footnote_case_14()
+    assert_eq(to_html_with(parse_with("*a[^1]* **b[^1]**\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p><em>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></em> <strong>b<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1-2\" data-footnote-ref>1</a></sup></strong></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a> <a href=\"#fnref-1-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">\u{21a9}<sup class=\"footnote-ref\">2</sup></a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: an inline link wins over a reference")
+footnote_case_15()
+    assert_eq(to_html_with(parse_with("[^1](/u)\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p><a href=\"/u\">^1</a></p>\n")
+
+@test("footnotes: after a bang the bang stays")
+footnote_case_16()
+    assert_eq(to_html_with(parse_with("![^1]\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p>!<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: emphasis inside the brackets goes with them")
+footnote_case_17()
+    assert_eq(to_html_with(parse_with("[^*a*] and [^*b*]\n\n[^*a*]: Starred.\n", gfm()), gfm_html()), "<p><sup class=\"footnote-ref\"><a href=\"#fn-*a*\" id=\"fnref-*a*\" data-footnote-ref>1</a></sup> and [^*b*]</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-*a*\">\n<p>Starred. <a href=\"#fnref-*a*\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition interrupts a paragraph")
+footnote_case_18()
+    assert_eq(to_html_with(parse_with("a[^1]\n[^1]: Note.\nlazy\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note.\nlazy <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition in a block quote and a list")
+footnote_case_19()
+    assert_eq(to_html_with(parse_with("a[^q] b[^l]\n\n> [^q]: Quoted.\n\n- [^l]: Listed.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-q\" id=\"fnref-q\" data-footnote-ref>1</a></sup> b<sup class=\"footnote-ref\"><a href=\"#fn-l\" id=\"fnref-l\" data-footnote-ref>2</a></sup></p>\n<blockquote>\n</blockquote>\n<ul>\n<li></li>\n</ul>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-q\">\n<p>Quoted. <a href=\"#fnref-q\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n<li id=\"fn-l\">\n<p>Listed. <a href=\"#fnref-l\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition ending in a code block")
+footnote_case_20()
+    assert_eq(to_html_with(parse_with("a[^c]\n\n[^c]:\n        code\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-c\" id=\"fnref-c\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-c\">\n<pre><code>code\n</code></pre>\n<a href=\"#fnref-c\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: an empty definition")
+footnote_case_21()
+    assert_eq(to_html_with(parse_with("a[^e]\n\n[^e]:\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-e\" id=\"fnref-e\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-e\">\n<a href=\"#fnref-e\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a line of spaces ends a definition")
+footnote_case_22()
+    assert_eq(to_html_with(parse_with("a[^s]\n\n[^s]: one\n  \n    two\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-s\" id=\"fnref-s\" data-footnote-ref>1</a></sup></p>\n<pre><code>two\n</code></pre>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-s\">\n<p>one <a href=\"#fnref-s\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a tab continues a definition")
+footnote_case_23()
+    assert_eq(to_html_with(parse_with("a[^t]\n\n[^t]: one\n\n\ttwo\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-t\" id=\"fnref-t\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-t\">\n<p>one</p>\n<p>two <a href=\"#fnref-t\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition's four columns split a tab")
+footnote_case_24()
+    assert_eq(to_html_with(parse_with("- a[^1]\n\n  [^1]: x\n\n    \t\tcode\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n</li>\n</ul>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>x</p>\n<pre><code>  code\n</code></pre>\n<a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition in a list item")
+footnote_case_25()
+    assert_eq(to_html_with(parse_with("- a[^1]\n\n  [^1]: x\n\n      more\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n</li>\n</ul>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>x</p>\n<p>more <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a label with a bracket")
+footnote_case_26()
+    assert_eq(to_html_with(parse_with("a[^b[c]\n\n[^b[c]: Note.\n", gfm()), gfm_html()), "<p>a[^b[c]</p>\n")
+
+@test("footnotes: a link reference and a footnote with one label")
+footnote_case_27()
+    assert_eq(to_html_with(parse_with("[x][^1] and [^1]\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p>[x]<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup> and <sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1-2\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a> <a href=\"#fnref-1-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">\u{21a9}<sup class=\"footnote-ref\">2</sup></a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a label is href-escaped")
+footnote_case_28()
+    assert_eq(to_html_with(parse_with("a[^a&b\"c]\n\n[^a&b\"c]: Note.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-a&amp;b%22c\" id=\"fnref-a&amp;b%22c\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-a&amp;b%22c\">\n<p>Note. <a href=\"#fnref-a&amp;b%22c\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference in a heading")
+footnote_case_29()
+    assert_eq(to_html_with(parse_with("# Title[^h]\n\n[^h]: Note.\n", gfm()), gfm_html()), "<h1>Title<sup class=\"footnote-ref\"><a href=\"#fn-h\" id=\"fnref-h\" data-footnote-ref>1</a></sup></h1>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-h\">\n<p>Note. <a href=\"#fnref-h\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference in an image's alt text")
+footnote_case_30()
+    assert_eq(to_html_with(parse_with("![alt[^1]](/i.png)\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p><img src=\"/i.png\" alt=\"alt\" /></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: brackets too short to be a reference")
+footnote_case_31()
+    assert_eq(to_html_with(parse_with("[^] [^ ] []\n", gfm()), gfm_html()), "<p>[^] [^ ] []</p>\n")
+
+@test("footnotes: an undefined reference is text before emails are found")
+footnote_case_32()
+    assert_eq(to_html_with(parse_with("a [^x@y.com] b\n", gfm()), gfm_html()), "<p>a [^<a href=\"mailto:x@y.com\">x@y.com</a>] b</p>\n")
+
+@test("footnotes: a reference in brackets")
+footnote_case_33()
+    assert_eq(to_html_with(parse_with("[[^1]]\n\n[^1]: Note.\n", gfm()), gfm_html()), "<p>[<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup>]</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a definition with a block quote")
+footnote_case_34()
+    assert_eq(to_html_with(parse_with("a[^1]\n\n[^1]:\n    > Quoted.\n", gfm()), gfm_html()), "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<blockquote>\n<p>Quoted.</p>\n</blockquote>\n<a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a reference before its definition and after")
+footnote_case_35()
+    assert_eq(to_html_with(parse_with("[^1]: Early.\n\nlate[^1]\n", gfm()), gfm_html()), "<p>late<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Early. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")
+
+@test("footnotes: a strikethrough and a task list around footnotes")
+footnote_case_36()
+    assert_eq(to_html_with(parse_with("- [ ] ~~a~~[^1]\n\n[^1]: Note.\n", gfm()), gfm_html()), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> <del>a</del><sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></li>\n</ul>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Note. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">\u{21a9}</a></p>\n</li>\n</ol>\n</section>\n")

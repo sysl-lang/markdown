@@ -1,0 +1,148 @@
+module sh.sysl.markdown
+
+// GitHub's alerts: a block quote whose first line is `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`,
+// `[!WARNING]` or `[!CAUTION]` is written as a titled box of that kind instead of a quote.
+//
+// cmark-gfm does not read alerts -- GitHub adds them after it -- so **the rules are GitHub's, as its
+// renderer was observed to apply them** (the `/markdown` API, `gfm` mode):
+//
+// - Only a block quote directly in the document is one; inside a list item, another quote or an
+//   alert, `[!NOTE]` is text.
+// - The quote's first block is a paragraph whose first line is the marker and nothing else: the
+//   kind in any case, spaces and tabs after it allowed, and the text as read -- `\[!NOTE]` or
+//   `[&#33;NOTE]` is a marker, `*[!NOTE]*` or `[!NOTE] more` is not.
+// - Something follows the marker: the rest of the paragraph, lazy lines included, or another block.
+//   A quote holding nothing but the marker stays a quote.
+//
+// The marker line is taken out, and what is left is the alert's body:
+//
+// ```html
+// <div class="markdown-alert markdown-alert-note">
+// <p class="markdown-alert-title">Note</p>
+// <p>body</p>
+// </div>
+// ```
+//
+// GitHub puts an octicon `<svg>` before the title's word, which this leaves to the page's style.
+
+import sh.sysl.parsing.Span
+import sysl.text.{str_builder, to_lower, to_upper}
+
+/** The alerts extension, for a `Registry`. */
+alerts() -> &Extension = Alerts()
+
+/** The `tag` of an alert's `ExtNode`; it holds the body's blocks, and its `data` is the kind, in
+ * lower case: `note`, `tip`, `important`, `warning` or `caution`.
+ */
+const ALERT_NODE: u32 = 0
+
+private const NAME: string = "alert"
+
+private struct Alerts
+end Alerts
+
+impl Extension for Alerts
+    name(self) -> string = NAME
+
+    override post_pass(self, d: Doc)
+        var q = d.first_child(d.root())
+
+        while q.is_some()
+            val n = q.unwrap()
+
+            q = d.next_sibling(n)
+            alert(d, n)
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val kind = d.kind(n) match
+            Ext(x) -> x.data
+            _ -> return
+
+        w.cr()
+
+        if ev == Enter then
+            w.tag(s"<div class=\"markdown-alert markdown-alert-$kind\">")
+            w.cr()
+            w.tag(s"<p class=\"markdown-alert-title\">${title(kind)}</p>")
+        else
+            w.tag("</div>")
+
+        w.cr()
+
+// The block quote `n` made an alert, where its first line is a marker and something follows it.
+private alert(d: Doc, n: NodeId)
+    d.kind(n) match
+        BlockQuote -> ()
+        _ -> return
+
+    val para = d.first_child(n) match
+        Some(p) -> p
+        None -> return
+
+    d.kind(para) match
+        Paragraph -> ()
+        _ -> return
+
+    // The marker's text: every inline before the first line break, all of them text.
+    var line = str_builder()
+    var at = d.first_child(para)
+    var brk: Option[NodeId] = None
+
+    while at.is_some()
+        val c = at.unwrap()
+
+        d.kind(c) match
+            Text(t) -> line.push(t)
+            SoftBreak | HardBreak ->
+                brk = Some(c)
+                break
+            _ -> return
+
+        at = d.next_sibling(c)
+
+    val kind = marker(line.finish())
+
+    if kind.len == 0 then return
+
+    val rest = brk match
+        Some(b) -> d.next_sibling(b)
+        None -> None
+
+    if rest.is_none() && d.next_sibling(para).is_none() then return
+
+    // The marker line and its break go; a paragraph left with nothing goes too.
+    var c = d.first_child(para)
+
+    while c.is_some() && c.unwrap().i != rest.unwrap_or(NodeId(0)).i
+        val k = c.unwrap()
+
+        c = d.next_sibling(k)
+        d.unlink(k)
+
+    rest match
+        Some(r) -> d.set_span(para, Span(d.span(r).start, d.span(para).end))
+        None -> d.unlink(para)
+
+    d.set_kind(n, Ext(ExtNode(NAME, ALERT_NODE, kind, true)))
+end alert
+
+// The kind a marker line names, in lower case, or "" where it is not a marker.
+private marker(s: string) -> string
+    val b = s.bytes
+    var e = b.len
+
+    while e > 0 && (b[e - 1] == u8(' ') || b[e - 1] == u8('\t')) do e -= 1
+
+    if e < 4 || b[0] != u8('[') || b[1] != u8('!') || b[e - 1] != u8(']') then return ""
+
+    val word = to_lower(s[2..<e - 1])
+
+    if word == "note" || word == "tip" || word == "important" || word == "warning" || word == "caution" then word else ""
+
+// What an alert's title says: its kind, capitalised.
+private title(kind: string) -> string
+    var t = str_builder()
+
+    t.push(to_upper(kind[0..<1]))
+    t.push(kind[1..<kind.len])
+    t.finish()

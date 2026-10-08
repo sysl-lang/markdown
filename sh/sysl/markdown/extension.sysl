@@ -88,7 +88,8 @@ enum BlockStart
 /** What `block_continue` answers about the next line, for a block of the extension's that is open. */
 enum BlockContinue
     Takes(consumed: usize)      // the line continues the block, after `consumed` bytes of prefix
-    Ends                        // the block closes, and the line is read afresh as though it were not there
+    Indented(columns: usize)    // the line continues the block, after `columns` columns of indentation -- a tab counted to its stop, as a list item's are
+    Ends                       // the block closes, and the line is read afresh as though it were not there
     Finishes                    // the line is the block's last and is consumed whole, as a closing fence is
 
 /** A block of an extension's as it closes: the node, what it is so far, the text its lines gathered
@@ -200,6 +201,17 @@ trait Extension
      * stay as text -- as cmark-gfm's strikethrough does with runs of two lengths.
      */
     delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind] = None
+
+    /** What a `]` at `s.pos` makes of the brackets it closes, where they make neither a link nor an
+     * image: `from` is the first byte after the `[` or `![`, and the bracket was still active.
+     *
+     * `Some` replaces the `[`, the `]` and everything between them with one node of that kind -- the
+     * emphasis delimiters between them going with it, unpaired -- and a container is given the
+     * bytes between the brackets as its `Text`. An image's `!` stays as text, as cmark-gfm leaves
+     * it. `None` leaves the `]` as text, which is what it is without extensions. The extensions are
+     * asked in order and the first `Some` wins. A footnote reference `[^label]` is this.
+     */
+    bracket(self, s: Subject, from: usize) -> Option[Kind] = None
 
     post_pass(self, d: Doc) = ()
 

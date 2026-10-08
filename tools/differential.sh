@@ -20,10 +20,12 @@
 # package does. Our side is a small program written into a scratch directory and built against this
 # checkout with --lib, so the package's own tree holds no program for `sysl test .` to walk.
 #
-# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm() and renders with
-# gfm_html(), and the other side is cmark-gfm (`CMARK_GFM` names another binary) run as
-# `cmark-gfm --unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter`. The default
-# corpus then also holds every example of GitHub's spec (spec/gfm-spec.txt).
+# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm() less its alerts
+# (GitHub adds alerts after cmark-gfm, which does not read them) and renders with gfm_html(), and
+# the other side is cmark-gfm (`CMARK_GFM` names another binary) run as `cmark-gfm --unsafe
+# -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter`. The default corpus
+# then also holds every example of GitHub's spec (spec/gfm-spec.txt) and of cmark-gfm's own
+# extension tests (spec/cmark-gfm-extensions.txt).
 #
 # The report names each differing file, and a unified diff of the two outputs is kept beside it in
 # the scratch directory, whose path is printed last. Exits 1 if any file differs.
@@ -41,14 +43,26 @@ fi
 
 if (( gfm )); then
     cmark_bin=${CMARK_GFM:-cmark-gfm}
-    cmark_args=(--unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
-    imports='parse_with, to_html_with, gfm, gfm_html'
-    render='to_html_with(parse_with(src, gfm()), gfm_html())'
+    cmark_args=(--unsafe -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
+    imports='ParseOptions, autolinks, footnotes, gfm_html, parse_with, registry, strikethrough, tables, task_lists, to_html_with'
+    render='to_html_with(parse_with(src, cmark_gfm()), gfm_html())'
+    helper='
+// gfm() without its alerts, which GitHub adds after cmark-gfm and cmark-gfm does not read.
+cmark_gfm() -> ParseOptions
+    val r = registry()
+
+    r.add(footnotes())
+    r.add(tables())
+    r.add(strikethrough())
+    r.add(autolinks())
+    r.add(task_lists())
+    ParseOptions(r)'
 else
     cmark_bin=${CMARK:-cmark}
     cmark_args=(--unsafe)
     imports='parse, to_html'
     render='to_html(parse(src))'
+    helper=''
 fi
 
 if ! command -v $cmark_bin > /dev/null; then
@@ -80,7 +94,8 @@ var input = stdin()
 
 read_all_text(&input) match
     Ok(src) -> prints($render)
-    Err(_) -> eprints(\"md2html: the input is not UTF-8\\n\")" > $prog/main.sysl
+    Err(_) -> eprints(\"md2html: the input is not UTF-8\\n\")
+$helper" > $prog/main.sysl
 
 $sysl_bin build --lib $root -o $work/md2html.bin $prog > $work/build.log 2>&1 || {
     print -u2 "differential: building the renderer failed; see $work/build.log"
@@ -95,6 +110,7 @@ if (( $# == 0 )); then
 
     if (( gfm )); then
         python3 -I $root/tools/split_examples.py $root/spec/gfm-spec.txt $corpus gfm > /dev/null
+        python3 -I $root/tools/split_examples.py $root/spec/cmark-gfm-extensions.txt $corpus extensions > /dev/null
     fi
 
     files+=($corpus/*.md(N))

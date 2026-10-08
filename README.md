@@ -90,10 +90,12 @@ val d = parse_with("| a | b |\n|---|--:|\n| ~~c~~ | www.d.com |\n", gfm())
 print(to_html_with(d, gfm_html()))
 ```
 
-`gfm()` turns on the four extensions GitHub's own renderer runs, and `gfm_html()` its tag filter.
-Each extension is an ordinary `Extension`, so a parse wanting some of them builds its own
-`Registry`: `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`. **Every rule is
-cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not write down:
+`gfm()` turns on the six extensions GitHub renders with, and `gfm_html()` its tag filter. Each
+extension is an ordinary `Extension`, so a parse wanting some of them builds its own `Registry`:
+`footnotes()` (first, as cmark-gfm settles footnotes before the others look at the tree),
+`tables()`, `strikethrough()`, `autolinks()`, `task_lists()`, `alerts()`. **Every rule but the
+alerts' is cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not
+write down:
 
 - **Tables** -- a delimiter row under a paragraph whose last line has as many cells; `\|` is a pipe
   in a cell, code spans included; a short row is filled out and a long one cut; any line that is not
@@ -107,6 +109,30 @@ cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec d
   `mailto:` and `xmpp:` forms), without trailing punctuation or an unmatched `)`.
 - **The tag filter** -- `HtmlOptions.tagfilter` writes the `<` of `title`, `textarea`, `style`,
   `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext` as `&lt;`.
+- **Footnotes** -- `[^label]` refers to a definition `[^label]: text`, which holds blocks: the rest of
+  its line, then lines indented four columns, empty lines and lazy lines. Labels match as link
+  labels do, the first of two definitions wins, footnotes are numbered by first reference (those
+  inside definitions counting where they stand), an unreferenced definition is dropped and a
+  reference to nothing is the text `[^label]`. The definitions are written at the end in
+  `<section class="footnotes" data-footnotes><ol>`, each `<li id="fn-label">` ending in `↩`
+  back-references, the second and later references to a footnote taking ids `fnref-label-2`…
+  The one place this departs from cmark-gfm is a reference with a line break inside it, whose label
+  cmark-gfm measures by column and loses (`tests_gfm_deviations.sysl`).
+- **Alerts** -- a block quote directly in the document whose first line is `[!NOTE]`, `[!TIP]`,
+  `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]` (any case, nothing else on the line) and which holds
+  something more. cmark-gfm does not read these -- GitHub adds them afterwards -- so the rules are
+  what GitHub's renderer was observed to do (its `/markdown` API in `gfm` mode, 2026-10-08): a marker
+  inside a list item or a nested quote is text, `\[!NOTE]` is still a marker and `*[!NOTE]*` is not,
+  and a quote holding only the marker stays a quote. The HTML is GitHub's structure without the
+  octicon `<svg>` it puts before the title's word, and with a newline between blocks as everywhere
+  else:
+
+  ```html
+  <div class="markdown-alert markdown-alert-note">
+  <p class="markdown-alert-title">Note</p>
+  <p>body</p>
+  </div>
+  ```
 
 ## Writing an extension
 
@@ -123,6 +149,7 @@ trait Extension
     triggers(self) -> string = ""
     inline_match(self, s: Subject) -> InlineMatch = NoMatch
     delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind] = None
+    bracket(self, s: Subject, from: usize) -> Option[Kind] = None
     post_pass(self, d: Doc) = ()
     render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = ()
 
@@ -156,8 +183,14 @@ struct ExtNode                                                  // Kind.Ext(node
 - **An inline hook sees a `Subject`** -- the leaf's text, the trigger's offset, and whether a link's
   brackets are open -- and answers a node (a container node is given the bytes it read as its `Text`)
   or a run of delimiters, paired by the rule of three as emphasis is, then by `delimiter_node`.
+- **`bracket` is asked about a `]` that closed an active `[` or `![` without making a link** -- a
+  `Subject` at the `]` and where the bracketed text begins -- and `Some(kind)` replaces the brackets
+  and everything between them with one node, as a footnote reference does.
+- **`block_continue` may answer `Indented(columns)`** where the block takes indentation by column, a
+  tab counted to its stop, as a footnote definition takes its four.
 - **`post_pass` sees the finished `Doc`** and rewrites it with `set_kind`, `append_child`,
-  `insert_after` and `unlink`, as the email autolinks do.
+  `insert_after`, `append_node` and `unlink`, as the email autolinks, the footnotes and the alerts
+  do.
 
 ## What it is
 
@@ -221,6 +254,17 @@ examples are 0.29's and are not taken; instead `tests_gfm_commonmark.sysl` reads
 CommonMark 0.31.2's with every extension on. Eleven render differently, as cmark-gfm's own runner
 lists such examples -- six HTML blocks the tag filter rewrites and five autolink examples whose text
 an extended autolink now links -- and each asserts what cmark-gfm renders with the same extensions.
+None of the 652 changes with footnotes and alerts on.
+
+`spec/cmark-gfm-extensions.txt` is cmark-gfm's own extension tests, unmodified, as
+`test/extensions.txt` at the same tag:
+
+```
+sha256  a2a45e98be9fca95f564f927265a0f63beea6cae5369d1cf4bde44caa51b2a3a
+```
+
+GitHub's spec has no footnote examples; this file's three are written out as
+`tests_gfm_footnotes.sysl`, compared exactly.
 
 `spec/entities.json` is WHATWG's list of HTML5 named character references, unmodified, as published
 at <https://html.spec.whatwg.org/entities.json>:
@@ -247,7 +291,13 @@ and a tenth of it, with the HTML checked exactly at both and the time checked ag
 growth: a ratio under 20 where linear reading gives about 10 and quadratic about 100.
 `tests_gfm_scaling.sysl` does the same for the extensions' own hostile inputs: tables of 50,000
 columns and of 50,000 rows, a cell of escaped pipes, a paragraph of mismatched delimiter rows, runs of
-`~`, and text an autolink almost starts in at every byte.
+`~`, and text an autolink almost starts in at every byte. `tests_footnote_scaling.sysl` does it for
+footnotes and alerts: 20,000 references to one footnote, 20,000 footnotes, 20,000 unreferenced
+definitions, 20,000 definitions nested one inside the next, undefined references and unclosed `[^`,
+20,000 alerts and a 20,000-byte almost-marker.
+
+`tests_footnotes.sysl` holds 36 footnote cases, each asserting the HTML cmark-gfm writes for it, and
+`tests_alerts.sysl` 34 alert cases asserting the HTML GitHub writes (less the icon).
 
 `tests_gfm_edges.sysl` holds 187 corner cases for the extensions, each asserting the HTML cmark-gfm
 writes for it -- the inputs `tools/differential.sh --gfm` was run over while they were written.
@@ -264,12 +314,13 @@ regression examples, the README of every repository under `~/dev/sysl-lang` and 
 `~/dev/sysl-lang/sysl-census-34/docs/content`; it needs `cmark` on the `PATH` (`brew install
 cmark`) and `python3`. `SYSL` and `CMARK` name other binaries.
 
-**`--gfm`** compares GitHub Flavored Markdown: `gfm()` and `gfm_html()` here against `cmark-gfm
---unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter` (`brew install cmark-gfm`;
-`CMARK_GFM` names another binary), with GitHub's spec examples added to the corpus. cmark-gfm reads
+**`--gfm`** compares GitHub Flavored Markdown: `gfm()` less its alerts (which cmark-gfm does not
+read) and `gfm_html()` here against `cmark-gfm --unsafe -e footnotes -e table -e strikethrough -e
+autolink -e tasklist -e tagfilter` (`brew install cmark-gfm`; `CMARK_GFM` names another binary),
+with GitHub's spec examples and cmark-gfm's extension tests added to the corpus. cmark-gfm reads
 CommonMark 0.29, so a file on which it and cmark 0.31.2 disagree with every extension off is marked
 as such: there the difference is the CommonMark version's, and this package renders as cmark 0.31.2
-does. Over the whole corpus -- 1,560 files -- every difference is one of those.
+does. Over the whole corpus -- 1,590 files -- every difference is one of those.
 
 `spec/cmark-regression.txt` is cmark 0.31.2's `test/regression.txt`, unmodified:
 

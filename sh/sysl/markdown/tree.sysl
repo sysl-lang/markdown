@@ -162,6 +162,10 @@ struct Doc
         val before = v[me].prev
         val after = v[me].next
 
+        // A node with no sibling before it is linked only where it is its parent's first child: one
+        // already unlinked keeps its parent's index, and must not clear that parent's links.
+        if before == 0 && v[p].first != n.i then return
+
         if before == 0 then v[p].first = after else v[usize(before)].next = after
         if after == 0 then v[p].last = before else v[usize(after)].prev = before
 

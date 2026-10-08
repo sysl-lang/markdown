@@ -266,6 +266,9 @@ private[markdown] struct Parser
                     Takes(n) ->
                         self.cur.advance(n, false)
                         Match
+                    Indented(n) ->
+                        self.cur.advance(n, true)
+                        Match
                     Ends -> Fail
                     Finishes -> Finished
     end step

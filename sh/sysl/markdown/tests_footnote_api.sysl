@@ -1,0 +1,79 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.Search
+
+// The tree footnotes leave, the hooks they are read through, and the tree operations they lean on.
+
+private ext_of(d: Doc, n: NodeId) -> ExtNode
+    d.kind(n) match
+        Ext(x) -> x
+        _ -> panic("not an extension's node")
+
+@test("unlinking a node twice leaves its old parent's children alone")
+unlink_twice()
+    val d = parse("a\n\nb\n")
+    val first = d.first_child(d.root()).unwrap()
+
+    d.unlink(first)
+    d.unlink(first)
+    assert_eq(to_html(d), "<p>b</p>\n")
+
+    d.append_node(d.root(), first)
+    assert_eq(to_html(d), "<p>b</p>\n<p>a</p>\n")
+
+@test("footnotes are off by default and work alone")
+footnotes_alone()
+    val r = registry()
+
+    r.add(footnotes())
+    assert_eq(to_html(parse("a[^1]\n\n[^1]: b\n")), "<p>a<a href=\"b\">^1</a></p>\n")
+
+    val html = to_html(parse_with("a[^1]\n\n[^1]: b\n", ParseOptions(r)))
+
+    assert(html.starts_with("<p>a<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n<section"))
+
+@test("a footnote's nodes carry its number, its reference count and its label")
+footnote_nodes()
+    val d = parse_with("x[^Lab] y[^lab]\n\n[^LAB]: text\n", gfm())
+    val para = d.first_child(d.root()).unwrap()
+    val r1 = d.next_sibling(d.first_child(para).unwrap()).unwrap()
+    val section = d.next_sibling(para).unwrap()
+    val def = d.first_child(section).unwrap()
+
+    assert_eq(ext_of(d, r1).tag, FOOTNOTE_REF)
+    assert_eq(ext_of(d, r1).data, "1 1 LAB")
+    assert_eq(ext_of(d, d.last_child(para).unwrap()).data, "1 2 LAB")
+    assert_eq(ext_of(d, section).tag, FOOTNOTE_SECTION)
+    assert_eq(ext_of(d, def).tag, FOOTNOTE_DEF)
+    assert_eq(ext_of(d, def).data, "1 2 LAB")
+
+    val p = d.first_child(def).unwrap()
+
+    assert_eq(ext_of(d, d.last_child(p).unwrap()).tag, FOOTNOTE_BACKREF)
+
+@test("a reference spans its brackets, and after a bang the bang stays text")
+footnote_spans()
+    val r = registry()
+
+    r.add(footnotes())
+
+    val d = parse_with("a![^1]\n\n[^1]: b\n", ParseOptions(r))
+    val para = d.first_child(d.root()).unwrap()
+    val bang = d.next_sibling(d.first_child(para).unwrap()).unwrap()
+    val fnref = d.next_sibling(bang).unwrap()
+
+    d.kind(bang) match
+        Text(t) -> assert_eq(t, "!")
+        _ -> panic("the bang is not text")
+
+    assert_eq(d.span(bang).start, 1)
+    assert_eq(d.span(bang).end, 2)
+    assert_eq(d.span(fnref).start, 2)
+    assert_eq(d.span(fnref).end, 6)
+
+@test("a definition's continuation takes four columns, a tab counting to its stop")
+footnote_tab_continuation()
+    val html = to_html_with(parse_with("a[^1]\n\n[^1]: x\n\n  \t      code\n", gfm()), gfm_html())
+
+    assert(html.contains("<p>x</p>\n<pre><code>  code\n</code></pre>\n"))

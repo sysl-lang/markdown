@@ -174,7 +174,7 @@ private struct Scan
 
         val (dest, title, end) = self.link_after(o, i) match
             Some(found) -> found
-            None -> return i + 1
+            None -> return self.unlinked(o, i)
 
         self.flush(i)
 
@@ -197,6 +197,53 @@ private struct Scan
         self.restart(end)
         end
     end close_bracket
+
+    // The `]` at `i`, closing `o` without a link or an image: the first extension that makes a node
+    // of the brackets replaces them and everything between them with it, and otherwise the `]` is
+    // text. The delimiters read inside go unpaired, their nodes going with the rest; an image's `!`
+    // stays, as cmark-gfm leaves it.
+    unlinked(*self, o: Bracket, i: usize) -> usize
+        if self.exts.is_empty() then return i + 1
+
+        val subject = Subject(self.leaf.text[0..<self.b.len], i, self.brackets.len() > 0)
+        var made: Option[Kind] = None
+
+        for ix in 0..<self.exts.len()
+            made = self.exts.at(ix).bracket(subject, o.after)
+            if made.is_some() then break
+
+        val kind = made match
+            Some(k) -> k
+            None -> return i + 1
+
+        self.flush(i)
+        self.ds.cut(o.delims)
+
+        var k = self.d.next_sibling(o.node)
+
+        while k.is_some()
+            val n = k.unwrap()
+
+            k = self.d.next_sibling(n)
+            self.d.unlink(n)
+
+        val opened = self.d.span(o.node).start
+        val start = if o.image then opened + 1 else opened
+
+        if o.image then
+            self.d.set_kind(o.node, Text("!"))
+            self.d.set_span(o.node, Span(opened, start))
+        else
+            self.d.unlink(o.node)
+
+        val span = Span(start, self.m.src(i + 1))
+        val node = self.d.append_child(self.leaf.node, kind, span)
+
+        if is_container(kind) then self.d.append_child(node, Text(self.leaf.text[o.after..<i]), span)
+
+        self.restart(i + 1)
+        i + 1
+    end unlinked
 
     // What the `]` at `i` closing `o` links to, and where the link ends: an inline destination in
     // parentheses, then a reference -- full where a label follows, collapsed or shortcut where

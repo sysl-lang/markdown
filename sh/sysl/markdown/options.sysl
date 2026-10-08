@@ -43,16 +43,19 @@ struct HtmlOptions
 commonmark() -> ParseOptions = ParseOptions(registry())
 
 /** The GitHub preset for a parse: CommonMark plus the extensions GitHub's own renderer runs --
- * `tables()`, `strikethrough()`, `autolinks()` and `task_lists()`, asked in that order. Each is an
- * ordinary `Extension`, so a parse wanting only some of them builds its own registry.
+ * `footnotes()`, `tables()`, `strikethrough()`, `autolinks()`, `task_lists()` and `alerts()`, asked
+ * in that order. Each is an ordinary `Extension`, so a parse wanting only some of them builds its own
+ * registry.
  */
 gfm() -> ParseOptions
     val r = registry()
 
+    r.add(footnotes())
     r.add(tables())
     r.add(strikethrough())
     r.add(autolinks())
     r.add(task_lists())
+    r.add(alerts())
     ParseOptions(r)
 
 /** The CommonMark preset for a rendering: raw HTML passed through, a soft break as a newline, and no
