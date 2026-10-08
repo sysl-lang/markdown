@@ -31,42 +31,32 @@ ENABLED = {
     "Indented code blocks",
     "Fenced code blocks",
     "HTML blocks",
+    "Tabs",
+    "Block quotes",
+    "List items",
+    "Lists",
 }
 
 # Examples in an ENABLED section that need a construct of a section not yet read, by number, with
 # the reason written into their `ignore:`. Each comes off this table when that construct lands.
-LISTS = "needs list items"
-INDENTED = "needs indented code blocks"
-SETEXT = "needs setext headings"
 EMPHASIS = "needs emphasis"
 ESCAPES = "needs backslash escapes"
 CODE_SPANS = "needs code spans"
 RAW_HTML = "needs raw HTML"
-QUOTES = "needs block quotes"
+REFS = "needs link reference definitions"
 
 IGNORED = {
-    42: LISTS + " and code spans",
+    42: CODE_SPANS,
     56: EMPHASIS,
-    57: LISTS,
-    60: LISTS,
-    61: LISTS,
     65: ESCAPES,
     66: EMPHASIS + " and backslash escapes",
     76: ESCAPES,
     80: EMPHASIS,
     81: EMPHASIS,
     82: EMPHASIS,
-    92: QUOTES,
-    93: QUOTES,
-    94: LISTS,
-    99: LISTS,
-    101: QUOTES,
     102: ESCAPES,
     106: ESCAPES,
-    108: LISTS,
-    109: LISTS,
     121: CODE_SPANS,
-    128: QUOTES,
     138: CODE_SPANS,
     145: CODE_SPANS,
     148: EMPHASIS + " and raw HTML",
@@ -74,12 +64,11 @@ IGNORED = {
     155: EMPHASIS,
     167: EMPHASIS,
     168: EMPHASIS + " and raw HTML",
-    174: QUOTES,
-    175: LISTS,
     176: EMPHASIS,
     177: EMPHASIS,
     187: RAW_HTML,
     188: EMPHASIS,
+    317: REFS,
     638: EMPHASIS,
     639: EMPHASIS,
     640: CODE_SPANS,

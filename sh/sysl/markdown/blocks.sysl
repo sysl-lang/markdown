@@ -14,21 +14,31 @@ import sysl.text.{StrBuilder, str_builder}
 //    the line or does not. The first that does not stops the walk; the blocks above it are
 //    *unmatched*, but are not closed yet, because the line may still be a lazy continuation.
 // 2. **Block starts.** Unless the last matched block is a leaf that reads its lines verbatim, the
-//    starters are tried in the spec's order -- ATX heading, code fence, HTML block, setext underline
-//    (only on a paragraph that took the line), thematic break, indented code (never while a
-//    paragraph is open) -- then each extension's `block_start`. A start closes the unmatched blocks
-//    and opens under the last block that may hold it; a container that opens is tried again for
-//    starts inside it.
+//    starters are tried in the spec's order -- block quote, ATX heading, code fence, HTML block,
+//    setext underline (only on a paragraph that took the line), thematic break, list item, indented
+//    code (never while a paragraph is open) -- then each extension's `block_start`. A start closes
+//    the unmatched blocks and opens under the last block that may hold it; a container that opens is
+//    tried again for starts inside it.
 // 3. **The rest of the line.** If nothing started, a paragraph is the tip, and the line is not
 //    blank, the line is a lazy continuation of that paragraph and the unmatched blocks stay open.
 //    Otherwise they close, and the rest goes to the tip if it takes lines, or opens a paragraph.
 //
 // **A leaf's lines are gathered into one string as they arrive**, with a map from offsets in it back
 // to the source; phase 2 reads it once every block is closed.
+//
+// **Whether a list is tight is decided by blank lines, recorded per node as cmark records them.** A
+// blank line marks the block it ended in, and that block's last child; any other line clears the
+// mark on every open block. A list is loose when an item that is not the last carries the mark, or
+// when a child of an item ends with one and something follows it in the list. "Ends with one" looks
+// through a nested list or item to its last descendant, which `tail` holds once that list or item
+// closes, so the question costs no walk.
 
 /** What an open block is, as far as the parser's own steps need to know. */
 private enum Block
     Root
+    Quote
+    ListBlock(ordered: bool, mark: u8)          // a list: numbered or not, and its bullet or delimiter
+    ItemBlock(need: usize, line: usize)         // a list item: the indent a line needs to stay in it, and the line it opened on
     Para
     Indented                                    // an indented code block
     Fenced(mark: u8, len: usize, indent: usize) // a fenced code block: its fence, and the columns before it
@@ -72,10 +82,14 @@ private[markdown] struct Parser
     private content: StrBuilder         // the tip leaf's text so far
     private segs: Buf[Seg]              // and its map back to the source
     private cur: Cursor
+    private line: usize                 // the number of the line being read, from 1
+    private blank: Buf[bool]            // per node: the last line it saw was blank
+    private tail: Buf[u32]              // per node: whose mark says whether it ends with a blank line
 
     /** Read one line: `text`, beginning at `start` in the source. */
     process(*self, text: string, start: usize)
         self.cur = cursor(text, start)
+        self.line += 1
 
         val line_end = start + text.len
         var last: usize = 0
@@ -101,7 +115,9 @@ private[markdown] struct Parser
             self.cur.find_next_nonspace()
 
             self.start(container) match
-                Done | Took -> return
+                Done | Took ->
+                    self.mark_blank(self.stack.len() - 1)
+                    return
                 Nothing ->
                     self.cur.advance_next_nonspace()
                     break
@@ -112,9 +128,11 @@ private[markdown] struct Parser
 
         if !closed && !self.cur.blank && self.is_para(self.stack.len() - 1) then
             self.reach(self.stack.len(), line_end)
+            self.mark_blank(self.stack.len() - 1)
             self.add_line()
         else
             self.close_to(container + 1)
+            self.mark_blank(container)
 
             if self.takes_lines(container) then
                 val ends = self.html_ends(container)
@@ -123,7 +141,8 @@ private[markdown] struct Parser
                 if ends then self.close_to(container)
             else if !self.cur.blank then
                 val at = start + self.cur.offset
-                val para = self.doc.append_child(self.stack[container].node, Paragraph, Span(at, line_end))
+                val parent = self.parent_for(container)
+                val para = self.doc.append_child(self.stack[parent].node, Paragraph, Span(at, line_end))
 
                 self.stack.push(Open(para, Para, line_end))
                 self.add_line()
@@ -144,7 +163,22 @@ private[markdown] struct Parser
         val o = self.stack[i]
 
         o.block match
-            Root -> Match
+            Root | ListBlock(_, _) -> Match
+            Quote ->
+                if self.cur.indent > 3 || self.cur.at(self.cur.next_nonspace) != u8('>') then return Fail
+
+                self.cur.advance(self.cur.indent + 1, true)
+                if is_space_or_tab(self.cur.at(self.cur.offset)) then self.cur.advance(1, true)
+                Match
+            ItemBlock(need, _) ->
+                if self.cur.indent >= need then
+                    self.cur.advance(need, true)
+                    Match
+                else if self.cur.blank && self.doc.first_child(o.node).is_some() then
+                    self.cur.advance_next_nonspace()
+                    Match
+                else
+                    Fail
             Para -> if self.cur.blank then Fail else Match
             Indented ->
                 if self.cur.indent >= 4 then
@@ -183,6 +217,16 @@ private[markdown] struct Parser
         val line_end = c.start + c.text.len
 
         if c.indent < 4 then
+            if c.at(p) == u8('>') then
+                val parent = self.parent_for(container)
+                val node = self.doc.append_child(self.stack[parent].node, BlockQuote, Span(c.start + p, line_end))
+
+                self.cur.advance(p + 1 - c.offset, false)
+                if is_space_or_tab(self.cur.at(self.cur.offset)) then self.cur.advance(1, true)
+
+                self.stack.push(Open(node, Quote, line_end))
+                return Opened(false)
+
             val level = atx_level(c, p)
 
             if level > 0 then
@@ -215,6 +259,10 @@ private[markdown] struct Parser
 
                 self.doc.append_child(self.stack[parent].node, ThematicBreak, Span(c.start + p, line_end))
                 return Done
+
+            val m = list_marker(c, p, self.is_para(container))
+
+            if m.len > 0 then return self.item(container, m)
         else if !in_para && !c.blank then
             val parent = self.parent_for(container)
             val node = self.doc.append_child(self.stack[parent].node, CodeBlock("", "", false), Span(c.start + c.offset, line_end))
@@ -283,6 +331,54 @@ private[markdown] struct Parser
         Took
     end fence
 
+    // A list item whose marker `m` begins at the line's first non-space. The columns of space after
+    // the marker, if one to four, belong to the marker and set the item's content indent; five or
+    // more mean the content starts with indented code, so only one of them is the marker's, and so
+    // is the one where nothing follows. The item continues an open list of the same kind of marker,
+    // or opens a new list.
+    private item(*self, container: usize, m: Marker) -> Started
+        val p = self.cur.next_nonspace
+        val offset = self.cur.indent
+        val at = self.cur.start + p
+        val line_end = self.cur.start + self.cur.text.len
+
+        self.cur.advance(p + m.len - self.cur.offset, false)
+
+        val saved = self.cur
+
+        while self.cur.column - saved.column <= 5 && is_space_or_tab(self.cur.at(self.cur.offset))
+            self.cur.advance(1, true)
+
+        val spaces = self.cur.column - saved.column
+        var padding = m.len + spaces
+
+        if spaces >= 5 || spaces < 1 || self.cur.offset >= self.cur.text.len then
+            padding = m.len + 1
+            self.cur = saved
+            if spaces > 0 then self.cur.advance(1, true)
+
+        val same = self.stack[container].block match
+            ListBlock(ordered, mark) -> ordered == m.ordered && mark == m.mark
+            _ -> false
+
+        var list = container
+
+        if same then
+            self.close_to(container + 1)
+        else
+            val parent = self.parent_for(container)
+            val kind = if m.ordered then Ordered(m.start, m.mark) else Bullet(m.mark)
+            val node = self.doc.append_child(self.stack[parent].node, List(kind, true), Span(at, line_end))
+
+            self.stack.push(Open(node, ListBlock(m.ordered, m.mark), line_end))
+            list = self.stack.len() - 1
+
+        val node = self.doc.append_child(self.stack[list].node, Item(None), Span(at, line_end))
+
+        self.stack.push(Open(node, ItemBlock(offset + padding, self.line), line_end))
+        Opened(false)
+    end item
+
     private open_ext(*self,container: usize, ix: usize, k: Kind, n: usize, state: u64, leaf: bool) -> Started
         val parent = self.parent_for(container)
         val node = self.doc.append_child(self.stack[parent].node, k, Span(self.cur.start + self.cur.offset, self.cur.start + self.cur.text.len))
@@ -334,7 +430,16 @@ private[markdown] struct Parser
         self.doc.set_span(o.node, Span(self.doc.span(o.node).start, o.end))
 
         o.block match
-            Root -> ()
+            Root | Quote -> ()
+            ListBlock(_, _) ->
+                self.end_with_last_child(o.node)
+
+                val tight = self.is_tight(o.node)
+
+                self.doc.kind(o.node) match
+                    List(kind, _) -> self.doc.set_kind(o.node, List(kind, tight))
+                    _ -> ()
+            ItemBlock(_, _) -> self.end_with_last_child(o.node)
             Para -> self.leaves.push(self.take_leaf(o.node))
             Indented ->
                 val leaf = self.take_leaf(o.node)
@@ -368,17 +473,100 @@ private[markdown] struct Parser
             Para -> true
             _ -> false
 
+    // A list holds only items, so it is not among the blocks that hold any block.
     private holds_blocks(self, i: usize) -> bool
         self.stack[i].block match
-            Root -> true
+            Root | Quote | ItemBlock(_, _) -> true
             Ext(_, _, leaf) -> !leaf
             _ -> false
 
     private takes_lines(self, i: usize) -> bool
         self.stack[i].block match
-            Root -> false
+            Root | Quote | ListBlock(_, _) | ItemBlock(_, _) -> false
             Ext(_, _, leaf) -> leaf
             _ -> true
+
+    // Record the current line against the open block at `i`, the deepest the line reached, and the
+    // blocks below it. A blank line marks that block and its last child, except where a blank line
+    // does not separate anything: a quote's line, which holds its `>`, a fenced code block's, and
+    // the line an empty list item opened on. Any other line clears the marks.
+    private mark_blank(*self, i: usize)
+        val o = self.stack[i]
+        val blank = self.cur.blank
+
+        if blank then
+            self.doc.last_child(o.node) match
+                Some(c) -> self.set_blank(c, true)
+                None -> ()
+
+        val counts = o.block match
+            Quote | Fenced(_, _, _) -> false
+            ItemBlock(_, line) -> line != self.line || self.doc.first_child(o.node).is_some()
+            _ -> true
+
+        self.set_blank(o.node, blank && counts)
+
+        for k in 0..<i do self.set_blank(self.stack[k].node, false)
+    end mark_blank
+
+    private set_blank(*self, n: NodeId, v: bool)
+        val i = usize(n.i)
+
+        while self.blank.len() <= i do self.blank.push(false)
+
+        self.blank[i] = v
+
+    private blank_of(self, n: NodeId) -> bool = usize(n.i) < self.blank.len() && self.blank[usize(n.i)]
+
+    // The node whose mark says whether `n` ends with a blank line: `n` itself, or for a list or an
+    // item, the tail of its last child.
+    private tail_of(self, n: NodeId) -> NodeId = if usize(n.i) < self.tail.len() then NodeId(self.tail[usize(n.i)]) else n
+
+    // A closing list or item ends where its last child does, which leaves the blank lines after
+    // that child out; an item with no children ends with its marker's line.
+    private end_with_last_child(*self, n: NodeId)
+        self.doc.last_child(n) match
+            Some(c) ->
+                self.doc.set_span(n, Span(self.doc.span(n).start, self.doc.span(c).end))
+
+                val i = usize(n.i)
+                var k = self.tail.len()
+
+                while k <= i
+                    self.tail.push(u32(k))
+                    k += 1
+
+                self.tail[i] = self.tail_of(c).i
+            None -> ()
+    end end_with_last_child
+
+    // The spec's rule: a list is loose if any of its items is separated from the next by a blank
+    // line, or if any item directly holds two blocks with a blank line between them.
+    private is_tight(self, list: NodeId) -> bool
+        var item = self.doc.first_child(list)
+
+        loop
+            item match
+                None -> return true
+                Some(it) ->
+                    val more = self.doc.next_sibling(it).is_some()
+
+                    if more && self.blank_of(it) then return false
+
+                    var sub = self.doc.first_child(it)
+
+                    loop
+                        sub match
+                            None -> break
+                            Some(s) ->
+                                val after = more || self.doc.next_sibling(s).is_some()
+
+                                if after && self.blank_of(self.tail_of(s)) then return false
+
+                                sub = self.doc.next_sibling(s)
+
+                    item = self.doc.next_sibling(it)
+    end is_tight
 
     // Whether the open block at `i` is an HTML block that the rest of the current line ends.
     private html_ends(self, i: usize) -> bool
@@ -394,7 +582,50 @@ private[markdown] parser(src: string, exts: Registry) -> Parser
     var stack: Buf[Open] = buf()
 
     stack.push(Open(NodeId(0), Root, 0))
-    Parser(new_doc(src), exts, stack, buf(), str_builder(), buf(), cursor("", 0))
+    Parser(new_doc(src), exts, stack, buf(), str_builder(), buf(), cursor("", 0), 0, buf(), buf())
+
+/** A list item's marker: its length in bytes, and what kind of list it belongs to. */
+private struct Marker
+    len: usize          // zero where there is no marker
+    ordered: bool
+    mark: u8            // the bullet, or the delimiter after the number
+    start: u32          // the number, for an ordered marker
+
+// The list item marker at `p`: a `-`, `+` or `*`, or one to nine digits and a `.` or `)`, followed
+// by a space, a tab or the end of the line. One that would interrupt a paragraph must have something
+// after it, and if ordered must be `1`.
+private list_marker(c: Cursor, p: usize, interrupts: bool) -> Marker
+    val none = Marker(0, false, 0, 0)
+    val b = c.text.bytes
+    val first = c.at(p)
+    var e = p
+    var ordered = false
+    var start: u32 = 0
+
+    if p < b.len && (first == u8('-') || first == u8('+') || first == u8('*')) then
+        e = p + 1
+    else
+        while e < b.len && e - p < 9 && b[e] >= u8('0') && b[e] <= u8('9')
+            start = start * 10 + u32(b[e] - u8('0'))
+            e += 1
+
+        if e == p || e >= b.len || (b[e] != u8('.') && b[e] != u8(')')) then return none
+        if interrupts && start != 1 then return none
+
+        ordered = true
+        e += 1
+
+    if e < b.len && !is_space_or_tab(b[e]) then return none
+
+    if interrupts then
+        var i = e
+
+        while i < b.len && is_space_or_tab(b[i]) do i += 1
+
+        if i == b.len then return none
+
+    Marker(e - p, ordered, b[e - 1], start)
+end list_marker
 
 // The level of an ATX heading opening at `p`: one to six `#`, then a space, a tab or the end of the
 // line. Zero where there is none.

@@ -4,102 +4,102 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Block quotes', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 228", ignore: "the parser does not read Block quotes")
+@test("example 228")
 example_228()
     assert_eq(to_html(parse("> # Foo\n> bar\n> baz\n")), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
 
-@test("example 229", ignore: "the parser does not read Block quotes")
+@test("example 229")
 example_229()
     assert_eq(to_html(parse("># Foo\n>bar\n> baz\n")), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
 
-@test("example 230", ignore: "the parser does not read Block quotes")
+@test("example 230")
 example_230()
     assert_eq(to_html(parse("   > # Foo\n   > bar\n > baz\n")), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
 
-@test("example 231", ignore: "the parser does not read Block quotes")
+@test("example 231")
 example_231()
     assert_eq(to_html(parse("    > # Foo\n    > bar\n    > baz\n")), "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n")
 
-@test("example 232", ignore: "the parser does not read Block quotes")
+@test("example 232")
 example_232()
     assert_eq(to_html(parse("> # Foo\n> bar\nbaz\n")), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
 
-@test("example 233", ignore: "the parser does not read Block quotes")
+@test("example 233")
 example_233()
     assert_eq(to_html(parse("> bar\nbaz\n> foo\n")), "<blockquote>\n<p>bar\nbaz\nfoo</p>\n</blockquote>\n")
 
-@test("example 234", ignore: "the parser does not read Block quotes")
+@test("example 234")
 example_234()
     assert_eq(to_html(parse("> foo\n---\n")), "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n")
 
-@test("example 235", ignore: "the parser does not read Block quotes")
+@test("example 235")
 example_235()
     assert_eq(to_html(parse("> - foo\n- bar\n")), "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n")
 
-@test("example 236", ignore: "the parser does not read Block quotes")
+@test("example 236")
 example_236()
     assert_eq(to_html(parse(">     foo\n    bar\n")), "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n<pre><code>bar\n</code></pre>\n")
 
-@test("example 237", ignore: "the parser does not read Block quotes")
+@test("example 237")
 example_237()
     assert_eq(to_html(parse("> ```\nfoo\n```\n")), "<blockquote>\n<pre><code></code></pre>\n</blockquote>\n<p>foo</p>\n<pre><code></code></pre>\n")
 
-@test("example 238", ignore: "the parser does not read Block quotes")
+@test("example 238")
 example_238()
     assert_eq(to_html(parse("> foo\n    - bar\n")), "<blockquote>\n<p>foo\n- bar</p>\n</blockquote>\n")
 
-@test("example 239", ignore: "the parser does not read Block quotes")
+@test("example 239")
 example_239()
     assert_eq(to_html(parse(">\n")), "<blockquote>\n</blockquote>\n")
 
-@test("example 240", ignore: "the parser does not read Block quotes")
+@test("example 240")
 example_240()
     assert_eq(to_html(parse(">\n>  \n> \n")), "<blockquote>\n</blockquote>\n")
 
-@test("example 241", ignore: "the parser does not read Block quotes")
+@test("example 241")
 example_241()
     assert_eq(to_html(parse(">\n> foo\n>  \n")), "<blockquote>\n<p>foo</p>\n</blockquote>\n")
 
-@test("example 242", ignore: "the parser does not read Block quotes")
+@test("example 242")
 example_242()
     assert_eq(to_html(parse("> foo\n\n> bar\n")), "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
 
-@test("example 243", ignore: "the parser does not read Block quotes")
+@test("example 243")
 example_243()
     assert_eq(to_html(parse("> foo\n> bar\n")), "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n")
 
-@test("example 244", ignore: "the parser does not read Block quotes")
+@test("example 244")
 example_244()
     assert_eq(to_html(parse("> foo\n>\n> bar\n")), "<blockquote>\n<p>foo</p>\n<p>bar</p>\n</blockquote>\n")
 
-@test("example 245", ignore: "the parser does not read Block quotes")
+@test("example 245")
 example_245()
     assert_eq(to_html(parse("foo\n> bar\n")), "<p>foo</p>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
 
-@test("example 246", ignore: "the parser does not read Block quotes")
+@test("example 246")
 example_246()
     assert_eq(to_html(parse("> aaa\n***\n> bbb\n")), "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr />\n<blockquote>\n<p>bbb</p>\n</blockquote>\n")
 
-@test("example 247", ignore: "the parser does not read Block quotes")
+@test("example 247")
 example_247()
     assert_eq(to_html(parse("> bar\nbaz\n")), "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n")
 
-@test("example 248", ignore: "the parser does not read Block quotes")
+@test("example 248")
 example_248()
     assert_eq(to_html(parse("> bar\n\nbaz\n")), "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n")
 
-@test("example 249", ignore: "the parser does not read Block quotes")
+@test("example 249")
 example_249()
     assert_eq(to_html(parse("> bar\n>\nbaz\n")), "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n")
 
-@test("example 250", ignore: "the parser does not read Block quotes")
+@test("example 250")
 example_250()
     assert_eq(to_html(parse("> > > foo\nbar\n")), "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n</blockquote>\n</blockquote>\n")
 
-@test("example 251", ignore: "the parser does not read Block quotes")
+@test("example 251")
 example_251()
     assert_eq(to_html(parse(">>> foo\n> bar\n>>baz\n")), "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n")
 
-@test("example 252", ignore: "the parser does not read Block quotes")
+@test("example 252")
 example_252()
     assert_eq(to_html(parse(">     code\n\n>    not code\n")), "<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n<blockquote>\n<p>not code</p>\n</blockquote>\n")

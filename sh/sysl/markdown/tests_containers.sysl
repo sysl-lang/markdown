@@ -1,0 +1,227 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.str_builder
+
+// Block quotes, list items and lists: what the spec's examples leave out -- depth, the tight and
+// loose cases at their edges, tabs that the containers' prefixes consume in part, and spans.
+
+private sp(d: Doc, n: NodeId) -> string
+    val s = d.span(n)
+    var b = str_builder()
+
+    b.push_uint(ulong(s.start))
+    b.push("..")
+    b.push_uint(ulong(s.end))
+    b.finish()
+end sp
+
+private first(d: Doc, n: NodeId) -> NodeId = d.first_child(n).unwrap()
+
+private next(d: Doc, n: NodeId) -> NodeId = d.next_sibling(n).unwrap()
+
+private repeat(s: string, n: usize) -> string
+    var b = str_builder()
+
+    for _ in 0..<n do b.push(s)
+    b.finish()
+
+// ----- depth -----
+
+@test("a thousand nested block quotes on one line")
+deep_quotes()
+    val n: usize = 1000
+    val want = repeat("<blockquote>\n", n) + "<p>a</p>\n" + repeat("</blockquote>\n", n)
+
+    assert_eq(to_html(parse(repeat(">", n) + " a")), want)
+
+@test("a thousand nested lists on one line")
+deep_lists_one_line()
+    val n: usize = 1000
+    val want = repeat("<ul>\n<li>\n", n - 1) + "<ul>\n<li>a</li>\n</ul>\n" + repeat("</li>\n</ul>\n", n - 1)
+
+    assert_eq(to_html(parse(repeat("- ", n) + "a")), want)
+
+@test("a thousand nested lists, one item to a line, each indented under the last")
+deep_lists_by_line()
+    val n: usize = 1000
+    var src = str_builder()
+
+    for k in 0..<n
+        src.push(repeat("  ", k))
+        src.push("- x\n")
+
+    val want = repeat("<ul>\n<li>x\n", n - 1) + "<ul>\n<li>x</li>\n</ul>\n" + repeat("</li>\n</ul>\n", n - 1)
+
+    assert_eq(to_html(parse(src.finish())), want)
+end deep_lists_by_line
+
+@test("quotes and lists alternating a thousand deep")
+deep_mixed()
+    val n: usize = 500
+    val want = repeat("<blockquote>\n<ul>\n<li>\n", n - 1) + "<blockquote>\n<ul>\n<li>a</li>\n</ul>\n</blockquote>\n" + repeat("</li>\n</ul>\n</blockquote>\n", n - 1)
+
+    assert_eq(to_html(parse(repeat("> - ", n) + "a")), want)
+
+// ----- tight and loose -----
+
+@test("a blank line between two items makes the whole list loose")
+loose_between_items()
+    assert_eq(to_html(parse("- a\n- b\n\n- c")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n")
+
+@test("a blank line between two blocks of one item makes the list loose")
+loose_inside_item()
+    assert_eq(to_html(parse("- a\n\n  b")), "<ul>\n<li>\n<p>a</p>\n<p>b</p>\n</li>\n</ul>\n")
+
+@test("blank lines after the last item leave a list tight")
+tight_with_trailing_blanks()
+    assert_eq(to_html(parse("- a\n- b\n\n\n")), "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n")
+    assert_eq(to_html(parse("- a\n- b\n\nc")), "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<p>c</p>\n")
+
+@test("a blank line inside a nested list loosens that list and not the one around it")
+loose_inner_tight_outer()
+    val want = "<ul>\n<li>a\n<ul>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>d</li>\n</ul>\n"
+
+    assert_eq(to_html(parse("- a\n  - b\n\n  - c\n- d")), want)
+
+@test("a blank line ending a nested list's last item loosens the list around it when an item follows")
+loose_through_nested_tail()
+    val want = "<ul>\n<li>\n<p>a</p>\n<ul>\n<li>b</li>\n</ul>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
+
+    assert_eq(to_html(parse("- a\n  - b\n\n- c")), want)
+
+@test("a blank line inside a fenced code block does not loosen its list")
+tight_across_fenced_blank()
+    val want = "<ul>\n<li>\n<pre><code>a\n\nb\n</code></pre>\n</li>\n<li>c</li>\n</ul>\n"
+
+    assert_eq(to_html(parse("- ```\n  a\n\n  b\n  ```\n- c")), want)
+
+@test("an empty item followed by a blank line separates the items, so the list is loose")
+loose_after_empty_item()
+    assert_eq(to_html(parse("-\n\n- a")), "<ul>\n<li></li>\n<li>\n<p>a</p>\n</li>\n</ul>\n")
+    assert_eq(to_html(parse("-\n- a")), "<ul>\n<li></li>\n<li>a</li>\n</ul>\n")
+
+@test("tightness is stored on the list node")
+tight_flag_on_node()
+    val d = parse("- a\n- b\n\n1. c\n\n2. d")
+    val bullets = first(d, d.root())
+    val numbers = next(d, bullets)
+
+    d.kind(bullets) match
+        List(Bullet(m), tight) ->
+            assert_eq(m, u8('-'))
+            assert(tight)
+        _ -> panic("not a bullet list")
+
+    d.kind(numbers) match
+        List(Ordered(start, delim), tight) ->
+            assert_eq(start, 1)
+            assert_eq(delim, u8('.'))
+            assert(!tight)
+        _ -> panic("not an ordered list")
+end tight_flag_on_node
+
+// ----- markers -----
+
+@test("a change of bullet or delimiter starts a new list, and an ordered list keeps its first number")
+new_list_on_new_marker()
+    assert_eq(to_html(parse("- a\n+ b")), "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n")
+    assert_eq(to_html(parse("7) a\n8. b")), "<ol start=\"7\">\n<li>a</li>\n</ol>\n<ol start=\"8\">\n<li>b</li>\n</ol>\n")
+    assert_eq(to_html(parse("3. a\n1. b")), "<ol start=\"3\">\n<li>a</li>\n<li>b</li>\n</ol>\n")
+
+@test("only a list starting at 1 with something after its marker interrupts a paragraph")
+interrupting_a_paragraph()
+    assert_eq(to_html(parse("a\n2. b")), "<p>a\n2. b</p>\n")
+    assert_eq(to_html(parse("a\n1. b")), "<p>a</p>\n<ol>\n<li>b</li>\n</ol>\n")
+    assert_eq(to_html(parse("a\n*\nb")), "<p>a\n*\nb</p>\n")
+    assert_eq(to_html(parse("a\n1.\nb")), "<p>a\n1.\nb</p>\n")
+
+@test("a start number holds at most nine digits")
+nine_digits()
+    assert_eq(to_html(parse("999999999. a")), "<ol start=\"999999999\">\n<li>a</li>\n</ol>\n")
+    assert_eq(to_html(parse("0999999999. a")), "<p>0999999999. a</p>\n")
+
+// ----- tabs -----
+
+@test("a tab after a quote's marker is its one space, and the rest of its columns indent")
+tab_after_quote_marker()
+    assert_eq(to_html(parse(">\tfoo")), "<blockquote>\n<p>foo</p>\n</blockquote>\n")
+    assert_eq(to_html(parse(">\t    foo")), "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n")
+
+@test("a tab after a list marker sets the content indent by its columns")
+tab_after_list_marker()
+    assert_eq(to_html(parse("-\tfoo\n\tbar")), "<ul>\n<li>foo\nbar</li>\n</ul>\n")
+    assert_eq(to_html(parse("1.\t\tcode")), "<ol>\n<li>\n<pre><code> code\n</code></pre>\n</li>\n</ol>\n")
+
+@test("a tab split between a quote's space and an item's indent")
+tab_split_between_containers()
+    assert_eq(to_html(parse("> -\tfoo\n>\t  bar")), "<blockquote>\n<ul>\n<li>foo\nbar</li>\n</ul>\n</blockquote>\n")
+
+@test("a tab split between an item's indent and indented code")
+tab_split_into_code()
+    assert_eq(to_html(parse("- a\n\n \t\tb")),"<ul>\n<li>\n<p>a</p>\n<pre><code>  b\n</code></pre>\n</li>\n</ul>\n")
+
+// ----- laziness -----
+
+@test("a paragraph continuation line needs none of the quote markers above it")
+lazy_in_nested_quotes()
+    val want = "<blockquote>\n<blockquote>\n<p>a\nb</p>\n</blockquote>\n</blockquote>\n"
+
+    assert_eq(to_html(parse("> > a\nb")), want)
+    assert_eq(to_html(parse("> > a\n> b")), want)
+    assert_eq(to_html(parse("> > a\n>\nb")), "<blockquote>\n<blockquote>\n<p>a</p>\n</blockquote>\n</blockquote>\n<p>b</p>\n")
+
+@test("a lazy line continues a paragraph inside a list inside a quote")
+lazy_through_item()
+    assert_eq(to_html(parse("> - a\nb")), "<blockquote>\n<ul>\n<li>a\nb</li>\n</ul>\n</blockquote>\n")
+    assert_eq(to_html(parse("> - a\n> - b\nc")), "<blockquote>\n<ul>\n<li>a</li>\n<li>b\nc</li>\n</ul>\n</blockquote>\n")
+
+@test("a lazy line may not start a block: a thematic break closes the quote")
+lazy_line_no_block()
+    assert_eq(to_html(parse("> > a\n---")), "<blockquote>\n<blockquote>\n<p>a</p>\n</blockquote>\n</blockquote>\n<hr />\n")
+
+// ----- spans -----
+
+@test("a block quote spans the lines it took, a lazy one included")
+quote_spans()
+    val d = parse("> a\n> b\n\nc")
+    val q = first(d, d.root())
+
+    assert_eq(sp(d, q), "0..7")
+    assert_eq(sp(d, first(d, q)), "2..7")
+
+    val lazy = parse("> a\nb")
+
+    assert_eq(sp(lazy, first(lazy, lazy.root())), "0..5")
+end quote_spans
+
+@test("a list and its items end where their last child does, without the blank lines after")
+list_spans()
+    val d = parse("- a\n- b\n\n- c\n")
+    val l = first(d, d.root())
+    val one = first(d, l)
+    val two = next(d, one)
+    val three = next(d, two)
+
+    assert_eq(sp(d, l), "0..12")
+    assert_eq(sp(d, one), "0..3")
+    assert_eq(sp(d, two), "4..7")
+    assert_eq(sp(d, three), "9..12")
+end list_spans
+
+@test("an empty item spans its marker's line, and nested containers their own lines")
+nested_spans()
+    val e = parse("-\n")
+
+    assert_eq(sp(e, first(e, first(e, e.root()))), "0..1")
+
+    val d = parse("1. a\n   > b")
+    val l = first(d, d.root())
+    val item = first(d, l)
+    val q = next(d, first(d, item))
+
+    assert_eq(sp(d, l), "0..11")
+    assert_eq(sp(d, item), "0..11")
+    assert_eq(sp(d, q), "8..11")
+    assert_eq(sp(d, first(d, q)), "10..11")
+end nested_spans

@@ -3,8 +3,10 @@
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
 **Status: in progress.** The document tree, its walk, the HTML renderer and the extension interface
-are written and tested; the parser is not yet, so `parse` answers an empty document and every spec
-example is compiled but ignored. Nothing is tagged.
+are written and tested. The parser reads every block construct -- block quotes, lists, headings,
+code blocks, HTML blocks, thematic breaks, paragraphs -- while inlines are still text and line
+breaks only, so spec examples that need emphasis, code spans, links and the rest are compiled but
+ignored, each naming what it waits for. Nothing is tagged.
 
 ```hocon
 dependencies {

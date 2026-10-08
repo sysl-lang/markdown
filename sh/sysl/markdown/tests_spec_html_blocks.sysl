@@ -108,11 +108,11 @@ example_172()
 example_173()
     assert_eq(to_html(parse("<style\n  type=\"text/css\">\n\nfoo\n")), "<style\n  type=\"text/css\">\n\nfoo\n")
 
-@test("example 174", ignore: "needs block quotes")
+@test("example 174")
 example_174()
     assert_eq(to_html(parse("> <div>\n> foo\n\nbar\n")), "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n")
 
-@test("example 175", ignore: "needs list items")
+@test("example 175")
 example_175()
     assert_eq(to_html(parse("- <div>\n- foo\n")), "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n")
 

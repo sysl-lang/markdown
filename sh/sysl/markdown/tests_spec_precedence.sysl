@@ -4,6 +4,6 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Precedence', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 42", ignore: "needs list items and code spans")
+@test("example 42", ignore: "needs code spans")
 example_42()
     assert_eq(to_html(parse("- `one\n- two`\n")), "<ul>\n<li>`one</li>\n<li>two`</li>\n</ul>\n")

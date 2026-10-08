@@ -40,7 +40,7 @@ example_126()
 example_127()
     assert_eq(to_html(parse("`````\n\n```\naaa\n")), "<pre><code>\n```\naaa\n</code></pre>\n")
 
-@test("example 128", ignore: "needs block quotes")
+@test("example 128")
 example_128()
     assert_eq(to_html(parse("> ```\n> aaa\n\nbbb\n")), "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n")
 

@@ -52,15 +52,15 @@ example_90()
 example_91()
     assert_eq(to_html(parse("`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n")), "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n")
 
-@test("example 92", ignore: "needs block quotes")
+@test("example 92")
 example_92()
     assert_eq(to_html(parse("> Foo\n---\n")), "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr />\n")
 
-@test("example 93", ignore: "needs block quotes")
+@test("example 93")
 example_93()
     assert_eq(to_html(parse("> foo\nbar\n===\n")), "<blockquote>\n<p>foo\nbar\n===</p>\n</blockquote>\n")
 
-@test("example 94", ignore: "needs list items")
+@test("example 94")
 example_94()
     assert_eq(to_html(parse("- Foo\n---\n")), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n")
 
@@ -80,7 +80,7 @@ example_97()
 example_98()
     assert_eq(to_html(parse("---\n---\n")), "<hr />\n<hr />\n")
 
-@test("example 99", ignore: "needs list items")
+@test("example 99")
 example_99()
     assert_eq(to_html(parse("- foo\n-----\n")), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n")
 
@@ -88,7 +88,7 @@ example_99()
 example_100()
     assert_eq(to_html(parse("    foo\n---\n")), "<pre><code>foo\n</code></pre>\n<hr />\n")
 
-@test("example 101", ignore: "needs block quotes")
+@test("example 101")
 example_101()
     assert_eq(to_html(parse("> foo\n-----\n")), "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n")
 

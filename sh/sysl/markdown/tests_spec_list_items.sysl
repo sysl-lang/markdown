@@ -4,194 +4,194 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'List items', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 253", ignore: "the parser does not read List items")
+@test("example 253")
 example_253()
     assert_eq(to_html(parse("A paragraph\nwith two lines.\n\n    indented code\n\n> A block quote.\n")), "<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n")
 
-@test("example 254", ignore: "the parser does not read List items")
+@test("example 254")
 example_254()
     assert_eq(to_html(parse("1.  A paragraph\n    with two lines.\n\n        indented code\n\n    > A block quote.\n")), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 255", ignore: "the parser does not read List items")
+@test("example 255")
 example_255()
     assert_eq(to_html(parse("- one\n\n two\n")), "<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n")
 
-@test("example 256", ignore: "the parser does not read List items")
+@test("example 256")
 example_256()
     assert_eq(to_html(parse("- one\n\n  two\n")), "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n")
 
-@test("example 257", ignore: "the parser does not read List items")
+@test("example 257")
 example_257()
     assert_eq(to_html(parse(" -    one\n\n     two\n")), "<ul>\n<li>one</li>\n</ul>\n<pre><code> two\n</code></pre>\n")
 
-@test("example 258", ignore: "the parser does not read List items")
+@test("example 258")
 example_258()
     assert_eq(to_html(parse(" -    one\n\n      two\n")), "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n")
 
-@test("example 259", ignore: "the parser does not read List items")
+@test("example 259")
 example_259()
     assert_eq(to_html(parse("   > > 1.  one\n>>\n>>     two\n")), "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n")
 
-@test("example 260", ignore: "the parser does not read List items")
+@test("example 260")
 example_260()
     assert_eq(to_html(parse(">>- one\n>>\n  >  > two\n")), "<blockquote>\n<blockquote>\n<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n</blockquote>\n</blockquote>\n")
 
-@test("example 261", ignore: "the parser does not read List items")
+@test("example 261")
 example_261()
     assert_eq(to_html(parse("-one\n\n2.two\n")), "<p>-one</p>\n<p>2.two</p>\n")
 
-@test("example 262", ignore: "the parser does not read List items")
+@test("example 262")
 example_262()
     assert_eq(to_html(parse("- foo\n\n\n  bar\n")), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
 
-@test("example 263", ignore: "the parser does not read List items")
+@test("example 263")
 example_263()
     assert_eq(to_html(parse("1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam\n")), "<ol>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n<blockquote>\n<p>bam</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 264", ignore: "the parser does not read List items")
+@test("example 264")
 example_264()
     assert_eq(to_html(parse("- Foo\n\n      bar\n\n\n      baz\n")), "<ul>\n<li>\n<p>Foo</p>\n<pre><code>bar\n\n\nbaz\n</code></pre>\n</li>\n</ul>\n")
 
-@test("example 265", ignore: "the parser does not read List items")
+@test("example 265")
 example_265()
     assert_eq(to_html(parse("123456789. ok\n")), "<ol start=\"123456789\">\n<li>ok</li>\n</ol>\n")
 
-@test("example 266", ignore: "the parser does not read List items")
+@test("example 266")
 example_266()
     assert_eq(to_html(parse("1234567890. not ok\n")), "<p>1234567890. not ok</p>\n")
 
-@test("example 267", ignore: "the parser does not read List items")
+@test("example 267")
 example_267()
     assert_eq(to_html(parse("0. ok\n")), "<ol start=\"0\">\n<li>ok</li>\n</ol>\n")
 
-@test("example 268", ignore: "the parser does not read List items")
+@test("example 268")
 example_268()
     assert_eq(to_html(parse("003. ok\n")), "<ol start=\"3\">\n<li>ok</li>\n</ol>\n")
 
-@test("example 269", ignore: "the parser does not read List items")
+@test("example 269")
 example_269()
     assert_eq(to_html(parse("-1. not ok\n")), "<p>-1. not ok</p>\n")
 
-@test("example 270", ignore: "the parser does not read List items")
+@test("example 270")
 example_270()
     assert_eq(to_html(parse("- foo\n\n      bar\n")), "<ul>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ul>\n")
 
-@test("example 271", ignore: "the parser does not read List items")
+@test("example 271")
 example_271()
     assert_eq(to_html(parse("  10.  foo\n\n           bar\n")), "<ol start=\"10\">\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ol>\n")
 
-@test("example 272", ignore: "the parser does not read List items")
+@test("example 272")
 example_272()
     assert_eq(to_html(parse("    indented code\n\nparagraph\n\n    more code\n")), "<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n")
 
-@test("example 273", ignore: "the parser does not read List items")
+@test("example 273")
 example_273()
     assert_eq(to_html(parse("1.     indented code\n\n   paragraph\n\n       more code\n")), "<ol>\n<li>\n<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n")
 
-@test("example 274", ignore: "the parser does not read List items")
+@test("example 274")
 example_274()
     assert_eq(to_html(parse("1.      indented code\n\n   paragraph\n\n       more code\n")), "<ol>\n<li>\n<pre><code> indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n")
 
-@test("example 275", ignore: "the parser does not read List items")
+@test("example 275")
 example_275()
     assert_eq(to_html(parse("   foo\n\nbar\n")), "<p>foo</p>\n<p>bar</p>\n")
 
-@test("example 276", ignore: "the parser does not read List items")
+@test("example 276")
 example_276()
     assert_eq(to_html(parse("-    foo\n\n  bar\n")), "<ul>\n<li>foo</li>\n</ul>\n<p>bar</p>\n")
 
-@test("example 277", ignore: "the parser does not read List items")
+@test("example 277")
 example_277()
     assert_eq(to_html(parse("-  foo\n\n   bar\n")), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
 
-@test("example 278", ignore: "the parser does not read List items")
+@test("example 278")
 example_278()
     assert_eq(to_html(parse("-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz\n")), "<ul>\n<li>foo</li>\n<li>\n<pre><code>bar\n</code></pre>\n</li>\n<li>\n<pre><code>baz\n</code></pre>\n</li>\n</ul>\n")
 
-@test("example 279", ignore: "the parser does not read List items")
+@test("example 279")
 example_279()
     assert_eq(to_html(parse("-   \n  foo\n")), "<ul>\n<li>foo</li>\n</ul>\n")
 
-@test("example 280", ignore: "the parser does not read List items")
+@test("example 280")
 example_280()
     assert_eq(to_html(parse("-\n\n  foo\n")), "<ul>\n<li></li>\n</ul>\n<p>foo</p>\n")
 
-@test("example 281", ignore: "the parser does not read List items")
+@test("example 281")
 example_281()
     assert_eq(to_html(parse("- foo\n-\n- bar\n")), "<ul>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ul>\n")
 
-@test("example 282", ignore: "the parser does not read List items")
+@test("example 282")
 example_282()
     assert_eq(to_html(parse("- foo\n-   \n- bar\n")), "<ul>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ul>\n")
 
-@test("example 283", ignore: "the parser does not read List items")
+@test("example 283")
 example_283()
     assert_eq(to_html(parse("1. foo\n2.\n3. bar\n")), "<ol>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ol>\n")
 
-@test("example 284", ignore: "the parser does not read List items")
+@test("example 284")
 example_284()
     assert_eq(to_html(parse("*\n")), "<ul>\n<li></li>\n</ul>\n")
 
-@test("example 285", ignore: "the parser does not read List items")
+@test("example 285")
 example_285()
     assert_eq(to_html(parse("foo\n*\n\nfoo\n1.\n")), "<p>foo\n*</p>\n<p>foo\n1.</p>\n")
 
-@test("example 286", ignore: "the parser does not read List items")
+@test("example 286")
 example_286()
     assert_eq(to_html(parse(" 1.  A paragraph\n     with two lines.\n\n         indented code\n\n     > A block quote.\n")), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 287", ignore: "the parser does not read List items")
+@test("example 287")
 example_287()
     assert_eq(to_html(parse("  1.  A paragraph\n      with two lines.\n\n          indented code\n\n      > A block quote.\n")), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 288", ignore: "the parser does not read List items")
+@test("example 288")
 example_288()
     assert_eq(to_html(parse("   1.  A paragraph\n       with two lines.\n\n           indented code\n\n       > A block quote.\n")), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 289", ignore: "the parser does not read List items")
+@test("example 289")
 example_289()
     assert_eq(to_html(parse("    1.  A paragraph\n        with two lines.\n\n            indented code\n\n        > A block quote.\n")), "<pre><code>1.  A paragraph\n    with two lines.\n\n        indented code\n\n    &gt; A block quote.\n</code></pre>\n")
 
-@test("example 290", ignore: "the parser does not read List items")
+@test("example 290")
 example_290()
     assert_eq(to_html(parse("  1.  A paragraph\nwith two lines.\n\n          indented code\n\n      > A block quote.\n")), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
 
-@test("example 291", ignore: "the parser does not read List items")
+@test("example 291")
 example_291()
     assert_eq(to_html(parse("  1.  A paragraph\n    with two lines.\n")), "<ol>\n<li>A paragraph\nwith two lines.</li>\n</ol>\n")
 
-@test("example 292", ignore: "the parser does not read List items")
+@test("example 292")
 example_292()
     assert_eq(to_html(parse("> 1. > Blockquote\ncontinued here.\n")), "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n")
 
-@test("example 293", ignore: "the parser does not read List items")
+@test("example 293")
 example_293()
     assert_eq(to_html(parse("> 1. > Blockquote\n> continued here.\n")), "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n")
 
-@test("example 294", ignore: "the parser does not read List items")
+@test("example 294")
 example_294()
     assert_eq(to_html(parse("- foo\n  - bar\n    - baz\n      - boo\n")), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz\n<ul>\n<li>boo</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
 
-@test("example 295", ignore: "the parser does not read List items")
+@test("example 295")
 example_295()
     assert_eq(to_html(parse("- foo\n - bar\n  - baz\n   - boo\n")), "<ul>\n<li>foo</li>\n<li>bar</li>\n<li>baz</li>\n<li>boo</li>\n</ul>\n")
 
-@test("example 296", ignore: "the parser does not read List items")
+@test("example 296")
 example_296()
     assert_eq(to_html(parse("10) foo\n    - bar\n")), "<ol start=\"10\">\n<li>foo\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n")
 
-@test("example 297", ignore: "the parser does not read List items")
+@test("example 297")
 example_297()
     assert_eq(to_html(parse("10) foo\n   - bar\n")), "<ol start=\"10\">\n<li>foo</li>\n</ol>\n<ul>\n<li>bar</li>\n</ul>\n")
 
-@test("example 298", ignore: "the parser does not read List items")
+@test("example 298")
 example_298()
     assert_eq(to_html(parse("- - foo\n")), "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n</ul>\n")
 
-@test("example 299", ignore: "the parser does not read List items")
+@test("example 299")
 example_299()
     assert_eq(to_html(parse("1. - 2. foo\n")), "<ol>\n<li>\n<ul>\n<li>\n<ol start=\"2\">\n<li>foo</li>\n</ol>\n</li>\n</ul>\n</li>\n</ol>\n")
 
-@test("example 300", ignore: "the parser does not read List items")
+@test("example 300")
 example_300()
     assert_eq(to_html(parse("- # Foo\n- Bar\n  ---\n  baz\n")), "<ul>\n<li>\n<h1>Foo</h1>\n</li>\n<li>\n<h2>Bar</h2>\nbaz</li>\n</ul>\n")

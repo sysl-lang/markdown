@@ -4,106 +4,106 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Lists', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 301", ignore: "the parser does not read Lists")
+@test("example 301")
 example_301()
     assert_eq(to_html(parse("- foo\n- bar\n+ baz\n")), "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<ul>\n<li>baz</li>\n</ul>\n")
 
-@test("example 302", ignore: "the parser does not read Lists")
+@test("example 302")
 example_302()
     assert_eq(to_html(parse("1. foo\n2. bar\n3) baz\n")), "<ol>\n<li>foo</li>\n<li>bar</li>\n</ol>\n<ol start=\"3\">\n<li>baz</li>\n</ol>\n")
 
-@test("example 303", ignore: "the parser does not read Lists")
+@test("example 303")
 example_303()
     assert_eq(to_html(parse("Foo\n- bar\n- baz\n")), "<p>Foo</p>\n<ul>\n<li>bar</li>\n<li>baz</li>\n</ul>\n")
 
-@test("example 304", ignore: "the parser does not read Lists")
+@test("example 304")
 example_304()
     assert_eq(to_html(parse("The number of windows in my house is\n14.  The number of doors is 6.\n")), "<p>The number of windows in my house is\n14.  The number of doors is 6.</p>\n")
 
-@test("example 305", ignore: "the parser does not read Lists")
+@test("example 305")
 example_305()
     assert_eq(to_html(parse("The number of windows in my house is\n1.  The number of doors is 6.\n")), "<p>The number of windows in my house is</p>\n<ol>\n<li>The number of doors is 6.</li>\n</ol>\n")
 
-@test("example 306", ignore: "the parser does not read Lists")
+@test("example 306")
 example_306()
     assert_eq(to_html(parse("- foo\n\n- bar\n\n\n- baz\n")), "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n")
 
-@test("example 307", ignore: "the parser does not read Lists")
+@test("example 307")
 example_307()
     assert_eq(to_html(parse("- foo\n  - bar\n    - baz\n\n\n      bim\n")), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>\n<p>baz</p>\n<p>bim</p>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
 
-@test("example 308", ignore: "the parser does not read Lists")
+@test("example 308")
 example_308()
     assert_eq(to_html(parse("- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim\n")), "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<!-- -->\n<ul>\n<li>baz</li>\n<li>bim</li>\n</ul>\n")
 
-@test("example 309", ignore: "the parser does not read Lists")
+@test("example 309")
 example_309()
     assert_eq(to_html(parse("-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code\n")), "<ul>\n<li>\n<p>foo</p>\n<p>notcode</p>\n</li>\n<li>\n<p>foo</p>\n</li>\n</ul>\n<!-- -->\n<pre><code>code\n</code></pre>\n")
 
-@test("example 310", ignore: "the parser does not read Lists")
+@test("example 310")
 example_310()
     assert_eq(to_html(parse("- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n")), "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n<li>e</li>\n<li>f</li>\n<li>g</li>\n</ul>\n")
 
-@test("example 311", ignore: "the parser does not read Lists")
+@test("example 311")
 example_311()
     assert_eq(to_html(parse("1. a\n\n  2. b\n\n   3. c\n")), "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ol>\n")
 
-@test("example 312", ignore: "the parser does not read Lists")
+@test("example 312")
 example_312()
     assert_eq(to_html(parse("- a\n - b\n  - c\n   - d\n    - e\n")), "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d\n- e</li>\n</ul>\n")
 
-@test("example 313", ignore: "the parser does not read Lists")
+@test("example 313")
 example_313()
     assert_eq(to_html(parse("1. a\n\n  2. b\n\n    3. c\n")), "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ol>\n<pre><code>3. c\n</code></pre>\n")
 
-@test("example 314", ignore: "the parser does not read Lists")
+@test("example 314")
 example_314()
     assert_eq(to_html(parse("- a\n- b\n\n- c\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n")
 
-@test("example 315", ignore: "the parser does not read Lists")
+@test("example 315")
 example_315()
     assert_eq(to_html(parse("* a\n*\n\n* c\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li></li>\n<li>\n<p>c</p>\n</li>\n</ul>\n")
 
-@test("example 316", ignore: "the parser does not read Lists")
+@test("example 316")
 example_316()
     assert_eq(to_html(parse("- a\n- b\n\n  c\n- d\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
 
-@test("example 317", ignore: "the parser does not read Lists")
+@test("example 317", ignore: "needs link reference definitions")
 example_317()
     assert_eq(to_html(parse("- a\n- b\n\n  [ref]: /url\n- d\n")), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
 
-@test("example 318", ignore: "the parser does not read Lists")
+@test("example 318")
 example_318()
     assert_eq(to_html(parse("- a\n- ```\n  b\n\n\n  ```\n- c\n")), "<ul>\n<li>a</li>\n<li>\n<pre><code>b\n\n\n</code></pre>\n</li>\n<li>c</li>\n</ul>\n")
 
-@test("example 319", ignore: "the parser does not read Lists")
+@test("example 319")
 example_319()
     assert_eq(to_html(parse("- a\n  - b\n\n    c\n- d\n")), "<ul>\n<li>a\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>d</li>\n</ul>\n")
 
-@test("example 320", ignore: "the parser does not read Lists")
+@test("example 320")
 example_320()
     assert_eq(to_html(parse("* a\n  > b\n  >\n* c\n")), "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>c</li>\n</ul>\n")
 
-@test("example 321", ignore: "the parser does not read Lists")
+@test("example 321")
 example_321()
     assert_eq(to_html(parse("- a\n  > b\n  ```\n  c\n  ```\n- d\n")), "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n")
 
-@test("example 322", ignore: "the parser does not read Lists")
+@test("example 322")
 example_322()
     assert_eq(to_html(parse("- a\n")), "<ul>\n<li>a</li>\n</ul>\n")
 
-@test("example 323", ignore: "the parser does not read Lists")
+@test("example 323")
 example_323()
     assert_eq(to_html(parse("- a\n  - b\n")), "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n")
 
-@test("example 324", ignore: "the parser does not read Lists")
+@test("example 324")
 example_324()
     assert_eq(to_html(parse("1. ```\n   foo\n   ```\n\n   bar\n")), "<ol>\n<li>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</li>\n</ol>\n")
 
-@test("example 325", ignore: "the parser does not read Lists")
+@test("example 325")
 example_325()
     assert_eq(to_html(parse("* foo\n  * bar\n\n  baz\n")), "<ul>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n<p>baz</p>\n</li>\n</ul>\n")
 
-@test("example 326", ignore: "the parser does not read Lists")
+@test("example 326")
 example_326()
     assert_eq(to_html(parse("- a\n  - b\n  - c\n\n- d\n  - e\n  - f\n")), "<ul>\n<li>\n<p>a</p>\n<ul>\n<li>b</li>\n<li>c</li>\n</ul>\n</li>\n<li>\n<p>d</p>\n<ul>\n<li>e</li>\n<li>f</li>\n</ul>\n</li>\n</ul>\n")

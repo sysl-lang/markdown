@@ -60,7 +60,7 @@ example_55()
 example_56()
     assert_eq(to_html(parse(" *-*\n")), "<p><em>-</em></p>\n")
 
-@test("example 57", ignore: "needs list items")
+@test("example 57")
 example_57()
     assert_eq(to_html(parse("- foo\n***\n- bar\n")), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n")
 
@@ -72,10 +72,10 @@ example_58()
 example_59()
     assert_eq(to_html(parse("Foo\n---\nbar\n")), "<h2>Foo</h2>\n<p>bar</p>\n")
 
-@test("example 60", ignore: "needs list items")
+@test("example 60")
 example_60()
     assert_eq(to_html(parse("* Foo\n* * *\n* Bar\n")), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n")
 
-@test("example 61", ignore: "needs list items")
+@test("example 61")
 example_61()
     assert_eq(to_html(parse("- Foo\n- * * *\n")), "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n")
