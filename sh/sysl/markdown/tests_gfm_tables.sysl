@@ -1,0 +1,37 @@
+module sh.sysl.markdown
+@tests
+
+// GitHub's spec's 'tables' examples (spec/gfm-spec.txt), read with gfm() and rendered with
+// gfm_html(), compared exactly. Written by tools/gen_spec_tests.py; edit that, not this.
+
+@test("gfm example 198")
+gfm_example_198()
+    assert_eq(to_html_with(parse_with("| foo | bar |\n| --- | --- |\n| baz | bim |\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>foo</th>\n<th>bar</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>baz</td>\n<td>bim</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("gfm example 199")
+gfm_example_199()
+    assert_eq(to_html_with(parse_with("| abc | defghi |\n:-: | -----------:\nbar | baz\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th align=\"center\">abc</th>\n<th align=\"right\">defghi</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">bar</td>\n<td align=\"right\">baz</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("gfm example 200")
+gfm_example_200()
+    assert_eq(to_html_with(parse_with("| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>f|oo</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b <code>|</code> az</td>\n</tr>\n<tr>\n<td>b <strong>|</strong> im</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("gfm example 201")
+gfm_example_201()
+    assert_eq(to_html_with(parse_with("| abc | def |\n| --- | --- |\n| bar | baz |\n> bar\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
+
+@test("gfm example 202")
+gfm_example_202()
+    assert_eq(to_html_with(parse_with("| abc | def |\n| --- | --- |\n| bar | baz |\nbar\n\nbar\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n</tbody>\n</table>\n<p>bar</p>\n")
+
+@test("gfm example 203")
+gfm_example_203()
+    assert_eq(to_html_with(parse_with("| abc | def |\n| --- |\n| bar |\n", gfm()), gfm_html()), "<p>| abc | def |\n| --- |\n| bar |</p>\n")
+
+@test("gfm example 204")
+gfm_example_204()
+    assert_eq(to_html_with(parse_with("| abc | def |\n| --- | --- |\n| bar |\n| bar | baz | boo |\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("gfm example 205")
+gfm_example_205()
+    assert_eq(to_html_with(parse_with("| abc | def |\n| --- | --- |\n", gfm()), gfm_html()), "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n</table>\n")

@@ -1,0 +1,33 @@
+module sh.sysl.markdown
+@tests
+
+// Where cmark-gfm 0.29.0.gfm.13 renders an input differently from this package with the GitHub
+// extensions on, and this package is right by the specs. Each was found by
+// `tools/differential.sh --gfm` and is pinned here with what decides it, so a later change cannot
+// drift toward cmark-gfm's reading unnoticed.
+//
+// The differential also differs on every input where CommonMark 0.29, which cmark-gfm reads, and
+// 0.31.2, which this package reads, disagree -- the script marks those, and each renders here as
+// cmark 0.31.2 does.
+
+private gfm_of(src: string) -> string = to_html_with(parse_with(src, gfm()), gfm_html())
+
+// CommonMark 4.7: the link reference definitions a paragraph begins with are definitions, not text.
+// When a table takes a paragraph's last line as its header, cmark-gfm puts the lines before it back
+// as a paragraph its parser never finishes, so a definition there is neither read nor removed.
+@test("a definition in the lines a table's header leaves behind is still a definition")
+definition_before_a_table()
+    assert_eq(gfm_of("[r]: /u\n| x |\n|-|\n\n[r]\n"), "<table>\n<thead>\n<tr>\n<th>x</th>\n</tr>\n</thead>\n</table>\n<p><a href=\"/u\">r</a></p>\n")
+
+// GitHub's spec, 4.10: a table cell's `\|` is a pipe in the cell. The lines a table's header leaves
+// behind are a paragraph and no part of the table, so a `\|` there is CommonMark's escape -- which a
+// code span does not read. cmark-gfm takes the backslash out of that paragraph too.
+@test("a '\\|' in the lines a table's header leaves behind is not a cell's")
+escaped_pipe_before_a_table()
+    assert_eq(gfm_of("`a\\|b`\n| x |\n|-|\n"), "<p><code>a\\|b</code></p>\n<table>\n<thead>\n<tr>\n<th>x</th>\n</tr>\n</thead>\n</table>\n")
+
+// A `'` in a destination is written as it is, as commonmark.js writes it: inside the double-quoted
+// `href` it needs no escape. cmark and cmark-gfm both write `&#x27;`, which means the same.
+@test("a ' in an autolink's destination is written as it is")
+apostrophe_in_a_destination()
+    assert_eq(gfm_of("www.a.com/'x'\n"), "<p><a href=\"http://www.a.com/'x\">www.a.com/'x</a>'</p>\n")

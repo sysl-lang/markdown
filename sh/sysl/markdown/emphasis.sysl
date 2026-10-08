@@ -117,19 +117,22 @@ private[markdown] process_emphasis(d: Doc, ds: Delims, exts: Registry, bottom: u
             continue
 
         val slot = c.orig % 3 + (if c.ch == u8('_') then 6 else 0) + (if c.can_open then 3 else 0)
-        val low = if c.ext == 0 then floor[slot] else ext_floor.get_or((c.ch, c.can_open, c.orig), bottom)
+        val low = if c.ext == 0 then floor[slot] else ext_floor.get_or((c.ch, c.can_open, c.orig % 3), bottom)
         var o = c.prev
         var found = false
 
         while !found && o != 0 && o >= low
             val od = ds.at(o)
 
-            if od.can_open && od.ch == c.ch && od.ext == c.ext && suits(exts, od, c) then found = true else o = od.prev
+            if od.can_open && od.ch == c.ch && od.ext == c.ext && suits(od, c) then found = true else o = od.prev
 
-        if found then
+        if found && c.ext != 0 && exts.at(c.ext - 1).delimiter_node(c.ch, ds.at(o).orig, c.orig).is_none() then
+            ds.join(ds.at(o).prev, c.next)
+            closer = c.next
+        else if found then
             closer = pair(d, ds, exts, o, closer)
         else
-            if c.ext == 0 then floor[slot] = closer else ext_floor.put((c.ch, c.can_open, c.orig), closer)
+            if c.ext == 0 then floor[slot] = closer else ext_floor.put((c.ch, c.can_open, c.orig % 3), closer)
 
             if !c.can_open then ds.remove(closer)
 
@@ -139,13 +142,10 @@ private[markdown] process_emphasis(d: Doc, ds: Delims, exts: Registry, bottom: u
     ds.cut(bottom)
 end process_emphasis
 
-// Whether opener `o` may pair with closer `c`. For emphasis, the rule of three: where either run
-// could both open and close, the two runs' lengths may not sum to a multiple of 3 unless both are
-// multiples of 3 themselves.
-private suits(exts: Registry, o: Delim, c: Delim) -> bool
-    if c.ext != 0 then return exts.at(c.ext - 1).delimiter_node(c.ch, o.orig, c.orig).is_some()
-
-    !(c.can_open || o.can_close) || c.orig % 3 == 0 || (o.orig + c.orig) % 3 != 0
+// Whether opener `o` may pair with closer `c`: the rule of three, for every delimiter as cmark-gfm
+// applies it. Where either run could both open and close, the two runs' lengths may not sum to a
+// multiple of 3 unless both are multiples of 3 themselves.
+private suits(o: Delim, c: Delim) -> bool = !(c.can_open || o.can_close) || c.orig % 3 == 0 || (o.orig + c.orig) % 3 != 0
 
 // Opener `o` and closer `c` paired: the node they make, holding everything between them, put after
 // the opener's text. Answers the closer to look at next -- `c` again while it has delimiters left.

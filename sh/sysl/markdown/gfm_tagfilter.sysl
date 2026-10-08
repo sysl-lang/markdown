@@ -1,0 +1,48 @@
+module sh.sysl.markdown
+
+// GitHub's tag filter, read by the HTML renderer where `HtmlOptions.tagfilter` is on: the tags whose
+// content a browser does not parse as HTML, so that one left open swallows the rest of the page.
+
+private filtered_names() -> string = "title textarea style xmp iframe noembed noframes script plaintext"
+
+/** Whether `b` from `at` begins one of the filtered tags, opening or closing: `<`, an optional `/`,
+ * the name in any case, and then a space, a `>` or `/>` -- cmark-gfm's `is_tag`.
+ */
+private[markdown] filtered_tag(b: []const u8, at: usize) -> bool
+    if b.len - at < 3 || b[at] != u8('<') then return false
+
+    var s = at + 1
+
+    if b[s] == u8('/') then s += 1
+
+    val names = filtered_names().bytes
+    var n: usize = 0
+
+    while n < names.len
+        var e = n
+
+        while e < names.len && names[e] != u8(' ') do e += 1
+
+        if names_at(b, s, names[n..<e]) then return true
+
+        n = e + 1
+
+    false
+end filtered_tag
+
+// Whether `name` is at `s` in `b`, case aside, and is followed by what ends a tag name there.
+private names_at(b: []const u8, s: usize, name: []const u8) -> bool
+    val i = s + name.len
+
+    if i >= b.len then return false
+
+    for k in 0..<name.len
+        if lower(b[s + k]) != name[k] then return false
+
+    val c = b[i]
+
+    if c == u8(' ') || c == u8('\t') || c == u8('\n') || c == u8('\r') || c == 11 || c == 12 || c == u8('>') then return true
+
+    c == u8('/') && i + 1 < b.len && b[i + 1] == u8('>')
+
+private lower(c: u8) -> u8 = if c >= u8('A') && c <= u8('Z') then c + 32 else c

@@ -1,0 +1,13 @@
+module sh.sysl.markdown
+@tests
+
+// GitHub's spec's 'strikethrough' examples (spec/gfm-spec.txt), read with gfm() and rendered with
+// gfm_html(), compared exactly. Written by tools/gen_spec_tests.py; edit that, not this.
+
+@test("gfm example 491")
+gfm_example_491()
+    assert_eq(to_html_with(parse_with("~~Hi~~ Hello, world!\n", gfm()), gfm_html()), "<p><del>Hi</del> Hello, world!</p>\n")
+
+@test("gfm example 492")
+gfm_example_492()
+    assert_eq(to_html_with(parse_with("This ~~has a\n\nnew paragraph~~.\n", gfm()), gfm_html()), "<p>This ~~has a</p>\n<p>new paragraph~~.</p>\n")

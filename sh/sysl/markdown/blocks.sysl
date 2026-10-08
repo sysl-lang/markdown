@@ -43,7 +43,13 @@ private enum Block
     Indented                                    // an indented code block
     Fenced(mark: u8, len: usize, indent: usize) // a fenced code block: its fence, and the columns before it
     Html(cond: u8)                              // an HTML block, by the start condition that opened it
-    Ext(ix: usize, state: u64, leaf: bool)      // an extension's, by its place in the registry
+    Ext(ix: usize, state: u64, shape: Shape)    // an extension's, by its place in the registry
+
+/** How an extension's open block takes lines: `BlockStart`'s three ways of opening one. */
+private enum Shape
+    Verbatim        // a leaf no block starts inside, as a code block
+    Holds           // a container of blocks
+    Prose           // a leaf that takes lines as a paragraph does, ended by any block that starts
 
 private struct Open
     node: NodeId
@@ -87,6 +93,7 @@ private[markdown] struct Parser
     private marked: usize               // no open block at or past this place on the stack is marked blank
     private tail: Buf[u32]              // per node: whose mark says whether it ends with a blank line
     private blank_list: Buf[bool]       // per list: the last line to reach it was blank
+    private para_words: Buf[u64]        // per extension: what it kept with the open paragraph
 
     /** Read one line: `text`, beginning at `start` in the source. */
     process(*self, text: string, start: usize)
@@ -156,6 +163,7 @@ private[markdown] struct Parser
                 val para = self.doc.append_child(self.stack[parent].node, Paragraph, Span(at, line_end))
 
                 self.stack.push(Open(para, Para, line_end))
+                self.para_words.clear()
                 self.add_line()
     end process
 
@@ -247,8 +255,14 @@ private[markdown] struct Parser
 
                 Match
             Html(cond) -> if self.cur.blank && cond >= 6 then Fail else Match
-            Ext(ix, state, _) ->
-                self.exts.at(ix).block_continue(self.cur.line(), self.doc.kind(o.node), state) match
+            Ext(ix, state, shape) ->
+                var word = state
+                val line = self.cur.line(self.doc.kind(self.stack[i - 1].node), "".bytes, 0)
+                val answer = self.exts.at(ix).block_continue(line, self.doc.kind(o.node), &word)
+
+                self.stack.view()[i].block = Ext(ix, word, shape)
+
+                answer match
                     Takes(n) ->
                         self.cur.advance(n, false)
                         Match
@@ -323,14 +337,29 @@ private[markdown] struct Parser
             self.stack.push(Open(node, Indented, line_end))
             return Opened(true)
 
+        if self.exts.is_empty() then return Nothing
+
+        val within = self.doc.kind(self.stack[container].node)
+        val in_this = self.is_para(container)
+        val para = if in_this then self.content.bytes.view() else "".bytes
+
+        while self.para_words.len() < self.exts.len() do self.para_words.push(0)
+
         for ix in 0..<self.exts.len()
             val e = self.exts.at(ix)
 
             if !in_para || e.interrupts_paragraph() then
-                e.block_start(c.line()) match
+                e.block_start(c.line(within, para, if in_this then self.para_words[ix] else 0)) match
                     Declined -> ()
-                    Leaf(k, n, state) -> return self.open_ext(container, ix, k, n, state, true)
-                    Container(k, n, state) -> return self.open_ext(container, ix, k, n, state, false)
+                    Mark(word) -> if in_this then self.para_words[ix] = word
+                    Leaf(k, n, state) -> return self.open_ext(container, ix, k, n, state, Verbatim)
+                    Container(k, n, state) -> return self.open_ext(container, ix, k, n, state, Holds)
+                    Lines(k, n, state, from) -> return self.open_lines(container, ix, k, n, state, from)
+                    Retag(k, n) ->
+                        self.doc.set_kind(self.stack[container].node, k)
+                        self.cur.advance(n, false)
+                        self.cur.find_next_nonspace()
+                        return Nothing
 
         Nothing
     end start
@@ -431,13 +460,53 @@ private[markdown] struct Parser
         Opened(false)
     end item
 
-    private open_ext(*self,container: usize, ix: usize, k: Kind, n: usize, state: u64, leaf: bool) -> Started
+    private open_ext(*self, container: usize, ix: usize, k: Kind, n: usize, state: u64, shape: Shape) -> Started
         val parent = self.parent_for(container)
         val node = self.doc.append_child(self.stack[parent].node, k, Span(self.cur.start + self.cur.offset, self.cur.start + self.cur.text.len))
 
         self.cur.advance(n, false)
-        self.stack.push(Open(node, Ext(ix, state, leaf), self.cur.start + self.cur.text.len))
-        Opened(leaf)
+        self.stack.push(Open(node, Ext(ix, state, shape), self.cur.start + self.cur.text.len))
+        Opened(shape != Holds)
+
+    // An extension's leaf that takes lines as a paragraph does, its first lines the last `from_para`
+    // of the paragraph open at `container`, which keeps the rest -- their text, their map back to
+    // the source, and an end at the last line it kept.
+    private open_lines(*self, container: usize, ix: usize, k: Kind, n: usize, state: u64, from_para: usize) -> Started
+        val line_end = self.cur.start + self.cur.text.len
+        var start = self.cur.start + self.cur.offset
+        var taken = ""
+        var taken_segs: Buf[Seg] = buf()
+
+        if from_para > 0 && self.is_para(container) then
+            val leaf = self.take_leaf(self.stack[container].node)
+            val b = leaf.text.bytes
+            var cut = b.len
+            var left = from_para
+
+            while left > 0 && cut > 0
+                cut -= 1
+                while cut > 0 && b[cut - 1] != u8('\n') do cut -= 1
+                left -= 1
+
+            for s in leaf.segs.view()
+                if s.at < cut then self.segs.push(s) else if s.at > cut then taken_segs.push(Seg(s.at - cut, s.src))
+
+            start = src_of(leaf.segs, cut)
+            taken_segs.insert(0, Seg(0, start))
+            self.content.push(leaf.text[0..<cut])
+            taken = leaf.text[cut..<b.len]
+
+            if cut > 0 then self.stack.view()[container].end = src_of(leaf.segs, cut - 1)
+
+        val parent = self.parent_for(container)
+        val node = self.doc.append_child(self.stack[parent].node, k, Span(start, line_end))
+
+        self.cur.advance(n, false)
+        self.stack.push(Open(node, Ext(ix, state, Prose), line_end))
+        self.content.push(taken)
+        self.segs = taken_segs
+        Opened(true)
+    end open_lines
 
     // The nearest open block at or below `container` that may hold a new block, with everything
     // above it closed: a paragraph is closed by any block that starts while it is open.
@@ -515,10 +584,11 @@ private[markdown] struct Parser
                     CodeBlock(info, _, _) -> self.doc.set_kind(o.node, CodeBlock(unescape(info), text, true))
                     _ -> ()
             Html(_) -> self.doc.set_kind(o.node, HtmlBlock(self.take_leaf(o.node).text))
-            Ext(ix, state, leaf) ->
-                val text = if leaf then self.take_leaf(o.node).text else ""
+            Ext(ix, state, shape) ->
+                val leaf = if shape == Holds then Leaf(o.node, "", buf()) else self.take_leaf(o.node)
+                val c = Closing(o.node, self.doc.kind(o.node), leaf.text, self.doc, leaf.segs, self.leaves)
 
-                self.doc.set_kind(o.node, self.exts.at(ix).block_close(self.doc.kind(o.node), text, state))
+                self.doc.set_kind(o.node, self.exts.at(ix).block_close(c, state))
     end close_top
 
     // The tip leaf's gathered text, leaving the parser ready to gather the next one's.
@@ -547,14 +617,22 @@ private[markdown] struct Parser
     private holds_blocks(self, i: usize) -> bool
         self.stack[i].block match
             Root | Quote | ItemBlock(_, _) -> true
-            Ext(_, _, leaf) -> !leaf
+            Ext(_, _, shape) -> shape == Holds
             _ -> false
 
     private takes_lines(self, i: usize) -> bool
         self.stack[i].block match
             Root | Quote | ListBlock(_, _) | ItemBlock(_, _) -> false
-            Ext(_, _, leaf) -> leaf
+            Ext(_, _, shape) -> shape != Holds
             _ -> true
+
+    // A leaf on which block starts are still tried: a paragraph, or an extension's that takes its
+    // lines as one does.
+    private is_prose(self, i: usize) -> bool
+        self.stack[i].block match
+            Para -> true
+            Ext(_, _, shape) -> shape == Prose
+            _ -> false
 
     // Record the current line against the open block at `i`, the deepest the line reached, and the
     // blocks below it. A blank line marks that block and its last child, except where a blank line
@@ -647,14 +725,17 @@ private[markdown] struct Parser
             _ -> false
 
     // A leaf that takes its lines as they are, so that no block may start inside it.
-    private reads_verbatim(self, i: usize) -> bool = self.takes_lines(i) && !self.is_para(i)
+    private reads_verbatim(self, i: usize) -> bool = self.takes_lines(i) && !self.is_prose(i)
 end Parser
 
 private[markdown] parser(src: string, exts: Registry) -> Parser
     var stack: Buf[Open] = buf()
 
+    var doc = new_doc(src)
+
+    doc.exts = exts
     stack.push(Open(NodeId(0), Root, 0))
-    Parser(new_doc(src), exts, stack, buf(), str_builder(), buf(), cursor("", 0), 0, buf(), 0, buf(), buf())
+    Parser(doc, exts, stack, buf(), str_builder(), buf(), cursor("", 0), 0, buf(), 0, buf(), buf(), buf())
 
 /** A list item's marker: its length in bytes, and what kind of list it belongs to. */
 private struct Marker
@@ -803,12 +884,21 @@ private without_trailing_blank_lines(text: string) -> usize
 
     if i < b.len then i + 1 else i
 
-// Where the byte at `at` in a leaf's text came from in the source.
-private src_of(segs: Buf[Seg], at: usize) -> usize
-    var k = segs.len()
-
-    while k > 1 && segs[k - 1].at > at do k -= 1
-
-    val g = segs[k - 1]
+// Where the byte at `at` in a leaf's text came from in the source: the last run starting at or before
+// it, found by halving, so that a table asking once per cell stays linear.
+private[markdown] src_of(segs: Buf[Seg], at: usize) -> usize
+    val g = segs[seg_at(segs, at)]
 
     if at < g.at then g.src else g.src + (at - g.at)
+
+// The index of the last run that starts at or before `at`, or 0 where none does.
+private[markdown] seg_at(segs: Buf[Seg], at: usize) -> usize
+    var lo: usize = 0
+    var hi = segs.len()
+
+    while hi - lo > 1
+        val mid = lo + (hi - lo) / 2
+
+        if segs[mid].at <= at then lo = mid else hi = mid
+
+    lo

@@ -1,0 +1,62 @@
+module sh.sysl.markdown
+
+// GitHub's task list items: a list item whose text begins `[ ]` or `[x]` is a task, rendered with a
+// disabled checkbox in front of it -- `Item(Some(checked))` in the tree.
+//
+// **The rule is cmark-gfm's, and it reads the line from its start**: optional spaces and tabs, a list
+// marker (`-`, `+`, `*`, or digits and one more character), at least one space or tab, `[ ]`, `[x]`
+// or `[X]`, and at least one more space or tab. So the box has to be on the line that opened the
+// item, nothing may come before the marker but indentation -- a task list inside a block quote is
+// plain text, as it is on GitHub -- and `- [ ]` with nothing after the box is not a task. A task is
+// checked where its line holds `[x]` or `[X]` anywhere, as cmark-gfm decides it, so `- [ ] [x] a`
+// is a checked box before the text `[x] a`.
+
+import sysl.text.Search
+
+/** The task list extension, for a `Registry`. */
+task_lists() -> &Extension = TaskLists()
+
+private struct TaskLists
+end TaskLists
+
+impl Extension for TaskLists
+    name(self) -> string = "tasklist"
+
+    override block_start(self, line: Line) -> BlockStart
+        line.within match
+            Item(_) -> ()
+            _ -> return Declined
+
+        val b = line.text.bytes
+        var i: usize = 0
+
+        while i < b.len && is_task_space(b[i]) do i += 1
+
+        if i < b.len && (b[i] == u8('-') || b[i] == u8('+') || b[i] == u8('*')) then
+            i += 1
+        else
+            val digits = i
+
+            while i < b.len && b[i] >= u8('0') && b[i] <= u8('9') do i += 1
+
+            if i == digits || i >= b.len then return Declined
+
+            i += 1
+
+        val gap = i
+
+        while i < b.len && is_task_space(b[i]) do i += 1
+
+        if i == gap || i + 3 >= b.len || b[i] != u8('[') || b[i + 2] != u8(']') then return Declined
+
+        val mark = b[i + 1]
+
+        if mark != u8(' ') && mark != u8('x') && mark != u8('X') then return Declined
+
+        if !is_task_space(b[i + 3]) then return Declined
+
+        Retag(Item(Some(line.text.contains("[x]") || line.text.contains("[X]"))), 3)
+    end block_start
+
+// cmark-gfm's `spacechar`: a space, a tab, a vertical tab or a form feed.
+private is_task_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == 11 || c == 12

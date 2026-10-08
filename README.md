@@ -2,9 +2,11 @@
 
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
-**Status: CommonMark complete, not yet tagged.** Every one of the spec's 652 examples renders
-exactly, cmark's pathological inputs are read in linear time, and a differential check against cmark
-agrees on its whole corpus. The GitHub extensions, math and mermaid are still to come.
+**Status: CommonMark and GitHub's core extensions complete, not yet tagged.** Every one of the
+CommonMark spec's 652 examples renders exactly, with the GitHub extensions off and on; every
+extension example of GitHub's spec renders exactly; hostile inputs are read in linear time; and
+differential checks against cmark and cmark-gfm agree on their whole corpora but for the cases
+listed below. Footnotes, alerts, heading ids, emoji, math and mermaid are still to come.
 
 ```hocon
 dependencies {
@@ -32,12 +34,13 @@ render_html(d: Doc, opts: HtmlOptions, out: *Writer)
 plain_text(d: Doc, n: NodeId) -> string                     // the text under a node, for slugs, alt text, search
 
 struct ParseOptions                                         // commonmark(): no extensions
-    exts: Registry
+    exts: Registry                                          // gfm(): tables, strikethrough, autolinks, task lists
 
-struct HtmlOptions                                          // commonmark_html(): true, "\n", None
-    raw_html: bool
+struct HtmlOptions                                          // commonmark_html(): true, "\n", None, false
+    raw_html: bool                                          // gfm_html(): true, "\n", None, true
     softbreak: string
     highlight: Option[&Fn(string, string) -> Option[string]]   // (info, code) -> the block's markup
+    tagfilter: bool                                         // GitHub's filter on raw HTML
 
 struct Region                                               // a run of program lines, for weave
     span: Span
@@ -68,16 +71,93 @@ import sh.sysl.markdown.*
 val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
 
 print(to_html(d))                                       // <h1>Hello, <em>world</em></h1> <p>See <b>this</b>.</p>
-print(to_html_with(d, HtmlOptions(false, "\n", None)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
+print(to_html_with(d, HtmlOptions(false, "\n", None, false)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
 print(plain_text(d, d.root()))                          // Hello, world / See this.
 
 val code: &Fn(string, string) -> Option[string] = (info, text) ->
     if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
 
-val opts = HtmlOptions(true, "\n", Some(code))
+val opts = HtmlOptions(true, "\n", Some(code), false)
 
 print(to_html_with(parse("```sysl\na < b\n```\n"), opts))   // <pre class="sysl">a &lt; b</pre>
 ```
+
+## GitHub Flavored Markdown
+
+```sysl
+val d = parse_with("| a | b |\n|---|--:|\n| ~~c~~ | www.d.com |\n", gfm())
+
+print(to_html_with(d, gfm_html()))
+```
+
+`gfm()` turns on the four extensions GitHub's own renderer runs, and `gfm_html()` its tag filter.
+Each extension is an ordinary `Extension`, so a parse wanting some of them builds its own
+`Registry`: `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`. **Every rule is
+cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not write down:
+
+- **Tables** -- a delimiter row under a paragraph whose last line has as many cells; `\|` is a pipe
+  in a cell, code spans included; a short row is filled out and a long one cut; any line that is not
+  blank continues the table unless a block starts on it; a paragraph that met a delimiter row of the
+  wrong width never becomes a table; and a table stops taking rows once it has filled out 524,288
+  cells, so a wide header over many one-cell rows stays linear. Cells carry `align="…"`.
+- **Strikethrough** -- `~a~` or `~~a~~`, both runs the same length; three or more `~` are text.
+- **Task list items** -- `[ ]`, `[x]` or `[X]` after a list marker that begins the line, written as a
+  disabled checkbox (`Item(Some(checked))` in the tree).
+- **Extended autolinks** -- `http://`, `https://`, `ftp://`, `www.` and email addresses (with
+  `mailto:` and `xmpp:` forms), without trailing punctuation or an unmatched `)`.
+- **The tag filter** -- `HtmlOptions.tagfilter` writes the `<` of `title`, `textarea`, `style`,
+  `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext` as `&lt;`.
+
+## Writing an extension
+
+An extension is an `impl Extension`; every method but `name` has a default that declines, so it
+writes only the hooks it uses. The built-in extensions are written against exactly this.
+
+```sysl
+trait Extension
+    name(self) -> string
+    block_start(self, line: Line) -> BlockStart = Declined
+    interrupts_paragraph(self) -> bool = false
+    block_continue(self, line: Line, kind: Kind, state: *u64) -> BlockContinue = Ends
+    block_close(self, c: Closing, state: u64) -> Kind = c.kind
+    triggers(self) -> string = ""
+    inline_match(self, s: Subject) -> InlineMatch = NoMatch
+    delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind] = None
+    post_pass(self, d: Doc) = ()
+    render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = ()
+
+enum BlockStart
+    Declined
+    Mark(word: u64)                                             // decline, and keep a word with the paragraph
+    Leaf(kind: Kind, consumed: usize, state: u64)               // lines taken verbatim
+    Container(kind: Kind, consumed: usize, state: u64)          // holds blocks
+    Lines(kind: Kind, consumed: usize, state: u64, from_para: usize)   // lines taken as a paragraph's
+    Retag(container: Kind, consumed: usize)                     // re-mark the block the line reached
+
+struct ExtNode                                                  // Kind.Ext(node: ExtNode)
+    ext: string                                                 // the extension that made it, and renders it
+    tag: u32
+    data: string
+    holds: bool                                                 // has children
+```
+
+- **A node of the extension's own is `Ext(ExtNode(...))`**, so an extension outside this package adds
+  kinds of node without touching `Kind`. The document keeps the registry it was read with, and the
+  HTML renderer hands each `Ext` node to the `render` of the extension `ext` names -- on entering it,
+  and on exiting it where it holds children -- with the `HtmlWriter` the page goes to: `lit`, `tag`
+  (nothing inside an image's alt text), `esc`, `href`, `cr` and `options()`.
+- **A block hook sees a `Line`** -- the text, where the containers' prefixes stop, the block the line
+  has reached (`within`), the open paragraph's text (`para`) and the word the extension kept with it
+  (`para_word`). `Lines` is how a block takes a paragraph's last lines as its own, as a table's
+  header does; `Retag` is how a task list marks its list item.
+- **A closing block is shown a `Closing`**: its text, and `child(parent, kind, from, to)` and
+  `inlines(node, pieces)`, which give it children read from that text -- each mapped back to the
+  source for its span, and `pieces` leaving out bytes the block's own syntax owns, as a cell's `\|`.
+- **An inline hook sees a `Subject`** -- the leaf's text, the trigger's offset, and whether a link's
+  brackets are open -- and answers a node (a container node is given the bytes it read as its `Text`)
+  or a run of delimiters, paired by the rule of three as emphasis is, then by `delimiter_node`.
+- **`post_pass` sees the finished `Doc`** and rewrites it with `set_kind`, `append_child`,
+  `insert_after` and `unlink`, as the email autolinks do.
 
 ## What it is
 
@@ -105,9 +185,10 @@ print(to_html_with(parse("```sysl\na < b\n```\n"), opts))   // <pre class="sysl"
 - **Linear on hostile input.** cmark's pathological inputs are read in time proportional to their
   size, and references expand to at most the document's size (or 100,000 bytes, whichever is more),
   as cmark caps them, so a long definition used many times cannot make the output explode.
-- **Extensions are an open trait**, `Extension`, asked at three points: a block starter (with whether
+- **Extensions are an open trait**, `Extension`, asked at three points -- a block starter (with whether
   it may interrupt a paragraph, a continuation check and a close), an inline trigger byte, and a pass
-  over the finished tree. The built-in extensions are written against the same trait.
+  over the finished tree -- and asked to render the nodes it made. The built-in extensions are
+  written against the same trait; see *Writing an extension*.
 - **Link reference definitions live on the `Doc`**, so one parse can be rendered several ways.
 
 ## The spec
@@ -123,6 +204,23 @@ sha256  d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20
 section and one `@test` per example. A section the parser does not read yet is generated with its
 examples ignored; listing it in the script's `ENABLED` and rerunning makes them run. The generated
 files are committed.
+
+`spec/gfm-spec.txt` is GitHub Flavored Markdown's spec, unmodified, as `test/spec.txt` of
+[github/cmark-gfm](https://github.com/github/cmark-gfm) at the tag **0.29.0.gfm.13** (commit
+`587a12bb54d95ac37241377e6ddc93ea0e45439b`):
+
+```
+sha256  7d8e5814befec287ac116786d81ff14e0adc9b13295b4494649e995408fd871c
+```
+
+The same script writes its 24 extension examples -- 8 tables, 2 strikethrough, 2 task lists, 11
+autolinks, 1 tag filter -- as `tests_gfm_<extension>.sysl`, read with `gfm()` and `gfm_html()` and
+compared exactly. The two task-list examples' HTML is written normalised in that spec (its runner
+normalises before comparing), so their tests assert the HTML cmark-gfm writes. Its CommonMark
+examples are 0.29's and are not taken; instead `tests_gfm_commonmark.sysl` reads all 652 of
+CommonMark 0.31.2's with every extension on. Eleven render differently, as cmark-gfm's own runner
+lists such examples -- six HTML blocks the tag filter rewrites and five autolink examples whose text
+an extended autolink now links -- and each asserts what cmark-gfm renders with the same extensions.
 
 `spec/entities.json` is WHATWG's list of HTML5 named character references, unmodified, as published
 at <https://html.spec.whatwg.org/entities.json>:
@@ -147,11 +245,17 @@ sysl test .
 (<https://github.com/commonmark/cmark/blob/0.31.2/test/pathological_tests.py>), each at cmark's size
 and a tenth of it, with the HTML checked exactly at both and the time checked against the input's
 growth: a ratio under 20 where linear reading gives about 10 and quadratic about 100.
+`tests_gfm_scaling.sysl` does the same for the extensions' own hostile inputs: tables of 50,000
+columns and of 50,000 rows, a cell of escaped pipes, a paragraph of mismatched delimiter rows, runs of
+`~`, and text an autolink almost starts in at every byte.
+
+`tests_gfm_edges.sysl` holds 187 corner cases for the extensions, each asserting the HTML cmark-gfm
+writes for it -- the inputs `tools/differential.sh --gfm` was run over while they were written.
 
 ### The differential check against cmark
 
 ```
-tools/differential.sh [file or directory ...]
+tools/differential.sh [--gfm] [file or directory ...]
 ```
 
 renders a corpus through this package and through `cmark --unsafe` and names every file whose HTML
@@ -159,6 +263,13 @@ differs, keeping a diff of each. With no arguments the corpus is the spec's exam
 regression examples, the README of every repository under `~/dev/sysl-lang` and the pages of
 `~/dev/sysl-lang/sysl-census-34/docs/content`; it needs `cmark` on the `PATH` (`brew install
 cmark`) and `python3`. `SYSL` and `CMARK` name other binaries.
+
+**`--gfm`** compares GitHub Flavored Markdown: `gfm()` and `gfm_html()` here against `cmark-gfm
+--unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter` (`brew install cmark-gfm`;
+`CMARK_GFM` names another binary), with GitHub's spec examples added to the corpus. cmark-gfm reads
+CommonMark 0.29, so a file on which it and cmark 0.31.2 disagree with every extension off is marked
+as such: there the difference is the CommonMark version's, and this package renders as cmark 0.31.2
+does. Over the whole corpus -- 1,560 files -- every difference is one of those.
 
 `spec/cmark-regression.txt` is cmark 0.31.2's `test/regression.txt`, unmodified:
 
@@ -179,6 +290,15 @@ sha256  aaa16d0e50464dfd03628acb4eaa4db462efb3ae523d7419ba15787add74d3ed
 | `[x [a](b) [c] ](d)` | a link inside a link | §6.3, examples 518 and 519: links never contain links |
 | `<script/>` alone on a line | an HTML block | §4.6, start condition 7 excludes open tags named `pre`, `script`, `style` and `textarea` |
 | a tab before a line ending | removed | §6.8: *spaces* at the end of a line are removed |
+
+**Where cmark-gfm and this package disagree with the extensions on**, each is pinned in
+`tests_gfm_deviations.sysl`:
+
+| input | cmark-gfm 0.29.0.gfm.13 | this package |
+|---|---|---|
+| a link reference definition in the lines above a table's header | left as paragraph text, and never defined | a definition (CommonMark §4.7) |
+| `\|` in the lines above a table's header | its backslash removed, inside a code span too | CommonMark's escape, which a code span does not read |
+| a `'` in a link's destination | written `&#x27;` (cmark does the same) | written `'`, as commonmark.js writes it |
 
 ## License
 

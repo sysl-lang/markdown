@@ -23,7 +23,7 @@ to_html_with(d: Doc, opts: HtmlOptions) -> string
 
 /** A tree rendered to HTML as `opts` says, written to `out` as it is produced. */
 render_html(d: Doc, opts: HtmlOptions, out: *Writer)
-    var h = Html(out, u8('\n'), 0, opts)
+    var h = HtmlWriter(out, u8('\n'), 0, opts)
 
     for (ev, n) in d.walk() do h.node(d, ev, n)
 
@@ -33,7 +33,7 @@ render_html(d: Doc, opts: HtmlOptions, out: *Writer)
  */
 escape_html(s: string) -> string
     var sink = byte_sink()
-    var h = Html(&sink, 0, 0, commonmark_html())
+    var h = HtmlWriter(&sink, 0, 0, commonmark_html())
 
     h.esc(s)
     from_utf8_unchecked(sink.text())
@@ -47,34 +47,46 @@ escape_html(s: string) -> string
  */
 encode_href(s: string) -> string
     var sink = byte_sink()
-    var h = Html(&sink, 0, 0, commonmark_html())
+    var h = HtmlWriter(&sink, 0, 0, commonmark_html())
 
     h.href(s, false)
     from_utf8_unchecked(sink.text())
 
-private struct Html
-    out: *Writer
-    last: u8            // the last byte written, so that `cr` writes a newline only where none is
-    alt: usize          // how many images deep the walk is; inside one, text is written and tags are not
-    opts: HtmlOptions
+/** Where a page's HTML is written, as an extension's `render` is handed it: the output, the page's
+ * `HtmlOptions`, and the few things every node's writing needs -- markup, escaped text, a URL, and a
+ * newline only where the output does not already end with one.
+ *
+ * **Inside an image's alt text only text survives**, so there `tag` writes nothing while `esc` still
+ * writes; an extension that writes its markup through `tag` is right inside an image for free.
+ */
+struct HtmlWriter
+    private out: *Writer
+    private last: u8            // the last byte written, so that `cr` writes a newline only where none is
+    private alt: usize          // how many images deep the walk is; inside one, text is written and tags are not
+    private opts: HtmlOptions
+
+    /** What the page is being rendered with. */
+    options(self) -> HtmlOptions = self.opts
 
     // Bytes written verbatim.
-    put(*self, b: []const u8)
+    private put(*self, b: []const u8)
         if b.len == 0 then return
 
         self.out.write(b)
         self.last = b[b.len - 1]
 
+    /** `s` written as it is. */
     lit(*self, s: string) = self.put(s.bytes)
 
-    // A newline, unless the output already ends with one.
+    /** A newline, unless the output already ends with one -- where a block's tag begins. */
     cr(*self)
         if self.last != u8('\n') then self.lit("\n")
 
-    // A tag, or nothing inside an image's alt text, where only the text survives.
+    /** Markup: written as it is, or not at all inside an image's alt text. */
     tag(*self, s: string)
         if self.alt == 0 then self.lit(s)
 
+    /** Text, with `&`, `<`, `>` and `"` written as entities: what `escape_html` answers. */
     esc(*self, s: string)
         val b = s.bytes
         var from: usize = 0
@@ -90,8 +102,9 @@ private struct Html
         self.put(b[from..<b.len])
     end esc
 
-    // `encode_href`, and with `in_attr` the `&` it keeps becomes `&amp;` -- the only one of the four
-    // escapable bytes that survives encoding.
+    /** A destination as `encode_href` makes it a URL; with `in_attr`, for an attribute, the `&` it
+     * keeps becomes `&amp;` -- the only one of the four escapable bytes that survives encoding.
+     */
     href(*self, s: string, in_attr: bool)
         val b = s.bytes
         var from: usize = 0
@@ -118,12 +131,12 @@ private struct Html
         self.put(b[from..<b.len])
     end href
 
-    percent(*self, c: u8)
+    private percent(*self, c: u8)
         var tmp: [3]u8 = [u8('%'), hex_digit(c >> 4), hex_digit(c & 15)]
 
         self.put(tmp[0..<3])
 
-    node(*self, d: Doc, ev: Event, n: NodeId)
+    private node(*self, d: Doc, ev: Event, n: NodeId)
         val entering = ev == Enter
 
         d.kind(n) match
@@ -137,7 +150,14 @@ private struct Html
                 self.tag("<code>")
                 self.esc(t)
                 self.tag("</code>")
-            HtmlInline(t) -> if self.opts.raw_html then self.lit(t) else self.tag(omitted())
+            HtmlInline(t) ->
+                if !self.opts.raw_html then
+                    self.tag(omitted())
+                else if self.opts.tagfilter && filtered_tag(t.bytes, 0) then
+                    self.lit("&lt;")
+                    self.lit(t[1..<t.len])
+                else
+                    self.lit(t)
             Emph -> self.tag(if entering then "<em>" else "</em>")
             Strong -> self.tag(if entering then "<strong>" else "</strong>")
             Link(dest, title) ->
@@ -162,7 +182,14 @@ private struct Html
             CodeBlock(info, literal, _) -> self.code_block(info, literal)
             HtmlBlock(t) ->
                 self.cr()
-                self.lit(if self.opts.raw_html then t else omitted())
+
+                if !self.opts.raw_html then
+                    self.lit(omitted())
+                else if self.opts.tagfilter then
+                    self.filtered(t)
+                else
+                    self.lit(t)
+
                 self.cr()
             ThematicBreak ->
                 self.cr()
@@ -173,18 +200,42 @@ private struct Html
                 self.tag(if entering then "<blockquote>" else "</blockquote>")
                 self.cr()
             List(kind, _) -> self.list(entering, kind)
-            Item(_) ->
-                if entering then
-                    self.tag("<li>")
-                else
+            Item(task) ->
+                if !entering then
                     self.tag("</li>")
                     self.cr()
+                    return
+
+                self.tag("<li>")
+
+                task match
+                    Some(checked) ->
+                        self.tag(if checked then "<input type=\"checkbox\" checked=\"\" disabled=\"\" /> " else "<input type=\"checkbox\" disabled=\"\" /> ")
+                    None -> ()
+            Ext(x) ->
+                d.exts.named(x.ext) match
+                    Some(e) -> e.render(self, d, n, ev)
+                    None -> ()
     end node
+
+    // An HTML block with the tag filter on: each `<` that opens one of the filtered tags is written
+    // `&lt;`, so the browser shows the tag instead of obeying it.
+    private filtered(*self, t: string)
+        val b = t.bytes
+        var from: usize = 0
+
+        for i in 0..<b.len
+            if b[i] == u8('<') && filtered_tag(b, i) then
+                self.put(b[from..<i])
+                self.lit("&lt;")
+                from = i + 1
+
+        self.put(b[from..<b.len])
 
     // An image's alt text is its children's text with every tag inside dropped, so the tag opened on
     // entering stays open across them and is closed on exiting -- and an image inside an image's alt
     // writes nothing of its own.
-    image(*self, entering: bool, dest: string, title: string)
+    private image(*self, entering: bool, dest: string, title: string)
         if entering then
             if self.alt == 0 then
                 self.lit("<img src=\"")
@@ -204,7 +255,7 @@ private struct Html
     end image
 
     // A paragraph directly inside a tight list's item writes no `<p>`: its text sits in the `<li>`.
-    paragraph(*self, d: Doc, entering: bool, n: NodeId)
+    private paragraph(*self, d: Doc, entering: bool, n: NodeId)
         val grand = d.parent(n).and_then((p) -> d.parent(p))
 
         grand match
@@ -222,7 +273,7 @@ private struct Html
             self.cr()
     end paragraph
 
-    heading_tag(*self, open: string, level: u8)
+    private heading_tag(*self, open: string, level: u8)
         self.tag(open)
         if self.alt == 0 then
             var digit: [1]u8 = [u8('0') + level]
@@ -232,7 +283,7 @@ private struct Html
     // The highlighter is asked first, and what it answers stands in for the whole block. Otherwise
     // the info string's first word names the language, as a class on the `<code>`: `language-` and
     // the word, unless the word already begins with `language-`, as cmark writes it.
-    code_block(*self, info: string, literal: string)
+    private code_block(*self, info: string, literal: string)
         self.cr()
 
         self.opts.highlight match
@@ -261,7 +312,7 @@ private struct Html
         self.cr()
     end code_block
 
-    list(*self, entering: bool, kind: ListKind)
+    private list(*self, entering: bool, kind: ListKind)
         self.cr()
 
         kind match
@@ -278,7 +329,7 @@ private struct Html
 
         self.cr()
     end list
-end Html
+end HtmlWriter
 
 // What stands in for raw HTML when `raw_html` is off: cmark's words, so output stays comparable.
 private omitted() -> string = "<!-- raw HTML omitted -->"

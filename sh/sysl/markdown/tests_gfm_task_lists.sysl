@@ -1,0 +1,15 @@
+module sh.sysl.markdown
+@tests
+
+// GitHub's spec's 'task_lists' examples (spec/gfm-spec.txt), read with gfm() and rendered with
+// gfm_html(), compared exactly. Written by tools/gen_spec_tests.py; edit that, not this.
+
+// The spec writes this normalised; this is the HTML cmark-gfm writes.
+@test("gfm example 279")
+gfm_example_279()
+    assert_eq(to_html_with(parse_with("- [ ] foo\n- [x] bar\n", gfm()), gfm_html()), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> foo</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> bar</li>\n</ul>\n")
+
+// The spec writes this normalised; this is the HTML cmark-gfm writes.
+@test("gfm example 280")
+gfm_example_280()
+    assert_eq(to_html_with(parse_with("- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n", gfm()), gfm_html()), "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> foo\n<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> bar</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> baz</li>\n</ul>\n</li>\n<li><input type=\"checkbox\" disabled=\"\" /> bim</li>\n</ul>\n")

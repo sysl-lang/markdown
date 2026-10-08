@@ -4,7 +4,7 @@
 # differs. cmark is the second oracle the spec's own expected HTML cannot be: it reads documents
 # nobody wrote a test for.
 #
-#     tools/differential.sh [file or directory ...]
+#     tools/differential.sh [--gfm] [file or directory ...]
 #
 # With no arguments the corpus is
 #
@@ -20,17 +20,39 @@
 # package does. Our side is a small program written into a scratch directory and built against this
 # checkout with --lib, so the package's own tree holds no program for `sysl test .` to walk.
 #
+# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm() and renders with
+# gfm_html(), and the other side is cmark-gfm (`CMARK_GFM` names another binary) run as
+# `cmark-gfm --unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter`. The default
+# corpus then also holds every example of GitHub's spec (spec/gfm-spec.txt).
+#
 # The report names each differing file, and a unified diff of the two outputs is kept beside it in
 # the scratch directory, whose path is printed last. Exits 1 if any file differs.
 
-setopt err_exit pipe_fail no_unset
+setopt err_exit pipe_fail no_unset extended_glob
 
 root=${0:A:h:h}
 sysl_bin=${SYSL:-sysl}
-cmark_bin=${CMARK:-cmark}
+gfm=0
+
+if [[ ${1:-} == --gfm ]]; then
+    gfm=1
+    shift
+fi
+
+if (( gfm )); then
+    cmark_bin=${CMARK_GFM:-cmark-gfm}
+    cmark_args=(--unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
+    imports='parse_with, to_html_with, gfm, gfm_html'
+    render='to_html_with(parse_with(src, gfm()), gfm_html())'
+else
+    cmark_bin=${CMARK:-cmark}
+    cmark_args=(--unsafe)
+    imports='parse, to_html'
+    render='to_html(parse(src))'
+fi
 
 if ! command -v $cmark_bin > /dev/null; then
-    print -u2 "differential: no '$cmark_bin' on PATH; install cmark (or set CMARK)"
+    print -u2 "differential: no '$cmark_bin' on PATH; install it (or set CMARK / CMARK_GFM)"
     exit 2
 fi
 
@@ -51,14 +73,14 @@ dependencies {
   markdown { git = "github.com/sysl-lang/markdown", version = "0.1.0" }
 }' > $prog/package.hocon
 
-print -r -- 'import sh.sysl.markdown.{parse, to_html}
+print -r -- "import sh.sysl.markdown.{$imports}
 import sysl.io.{read_all_text, stdin}
 
 var input = stdin()
 
 read_all_text(&input) match
-    Ok(src) -> prints(to_html(parse(src)))
-    Err(_) -> eprints("md2html: the input is not UTF-8\n")' > $prog/main.sysl
+    Ok(src) -> prints($render)
+    Err(_) -> eprints(\"md2html: the input is not UTF-8\\n\")" > $prog/main.sysl
 
 $sysl_bin build --lib $root -o $work/md2html.bin $prog > $work/build.log 2>&1 || {
     print -u2 "differential: building the renderer failed; see $work/build.log"
@@ -70,6 +92,10 @@ files=()
 if (( $# == 0 )); then
     python3 -I $root/tools/split_examples.py $root/spec/spec.json $corpus spec > /dev/null
     python3 -I $root/tools/split_examples.py $root/spec/cmark-regression.txt $corpus regression > /dev/null
+
+    if (( gfm )); then
+        python3 -I $root/tools/split_examples.py $root/spec/gfm-spec.txt $corpus gfm > /dev/null
+    fi
 
     files+=($corpus/*.md(N))
 
@@ -104,7 +130,7 @@ for file in $files; do
         continue
     fi
 
-    $cmark_bin --unsafe < $file > $theirs
+    $cmark_bin $cmark_args < $file > $theirs
 
     if ! cmp -s $ours $theirs; then
         differing=$(( differing + 1 ))
@@ -112,7 +138,15 @@ for file in $files; do
         name=${${${file#$HOME/}//\//_}##[._]#}
 
         diff -u --label cmark --label markdown $theirs $ours > $diffs/$name.diff || true
-        print -r -- "differs $file"
+
+        # cmark-gfm reads CommonMark 0.29 where cmark reads 0.31.2, so a file on which the two
+        # disagree with every extension off is marked: its difference may be the spec's, not ours.
+        if (( gfm )) && command -v ${CMARK:-cmark} > /dev/null && \
+            ! cmp -s <($cmark_bin --unsafe < $file) <(${CMARK:-cmark} --unsafe < $file); then
+            print -r -- "differs $file  (CommonMark 0.29 and 0.31.2 disagree on it)"
+        else
+            print -r -- "differs $file"
+        fi
     fi
 done
 

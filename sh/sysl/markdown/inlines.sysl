@@ -239,7 +239,7 @@ private struct Scan
             val e = self.exts.at(ix)
 
             if contains(e.triggers().bytes, c) then
-                e.inline_match(Subject(self.leaf.text, i)) match
+                e.inline_match(Subject(self.leaf.text[0..<self.b.len], i, self.brackets.len() > 0)) match
                     NoMatch -> ()
                     Inline(kind, n) ->
                         if n > 0 then
@@ -247,9 +247,11 @@ private struct Scan
 
                             self.flush(i)
 
-                            val start = self.m.src(i)
+                            val span = Span(self.m.src(i), self.m.src(j))
+                            val node = self.d.append_child(self.leaf.node, kind, span)
 
-                            self.d.append_child(self.leaf.node, kind, Span(start, self.m.src(j)))
+                            if is_container(kind) then self.d.append_child(node, Text(self.leaf.text[i..<j]), span)
+
                             self.restart(j)
                             return j
                     Delimiters(n, open, close) ->

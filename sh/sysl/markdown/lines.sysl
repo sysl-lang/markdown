@@ -121,7 +121,8 @@ private[markdown] struct Cursor
         self.partial = false
 
     /** The line as an extension's block hook is shown it. `find_next_nonspace` comes first. */
-    line(self) -> Line = Line(self.text, self.start, self.offset, self.column, self.indent, self.blank)
+    line(self, within: Kind, para: []const u8, word: u64) -> Line
+        Line(self.text, self.start, self.offset, self.column, self.indent, self.blank, within, para, word)
 end Cursor
 
 /** A cursor at the start of the line `text`, which begins at `start` in the source. */

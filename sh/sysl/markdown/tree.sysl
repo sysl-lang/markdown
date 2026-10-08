@@ -50,6 +50,23 @@ enum Kind
     Link(dest: string, title: string)
     Image(dest: string, title: string)
     HtmlInline(lit: string)
+    Ext(node: ExtNode)                          // a node an extension made: see `ExtNode`
+
+/** A node of a kind CommonMark does not have, made by an extension -- a table, a table cell, a
+ * strikethrough.
+ *
+ * **An extension written outside this package defines its nodes with this and nothing else**, so
+ * adding syntax never means editing `Kind`. The extension that made a node is named by `ext`, which
+ * is how the HTML renderer finds the `render` that writes it; `tag` tells the extension's own kinds
+ * of node apart, numbered however it likes; `data` carries whatever else rendering needs (a table
+ * cell's alignment); and `holds` says whether the node has children, which decides whether a walk
+ * enters and exits it or only enters it, as `is_container` does for the CommonMark kinds.
+ */
+struct ExtNode
+    ext: string
+    tag: u32
+    data: string
+    holds: bool
 
 /** Whether a kind of node holds children, which is what decides whether a walk exits it.
  *
@@ -60,6 +77,7 @@ is_container(k: Kind) -> bool
     k match
         ThematicBreak | CodeBlock(_, _, _) | HtmlBlock(_) -> false
         Text(_) | SoftBreak | HardBreak | Code(_) | HtmlInline(_) -> false
+        Ext(x) -> x.holds
         _ -> true
 
 struct Node
@@ -76,16 +94,19 @@ struct LinkRef
     dest: string
     title: string
 
-/** A parsed document: the source, the arena, and the link reference definitions found in it.
+/** A parsed document: the source, the arena, the link reference definitions found in it, and the
+ * extensions it was read with.
  *
  * The definitions are kept on the document rather than returned beside it, so that one parse can be
  * rendered several ways and a renderer or a rewrite can resolve a label without being handed a
- * second value.
+ * second value. The extensions are kept for the same reason: an `Ext` node is written by the
+ * extension that made it, which the renderer finds here by name.
  */
 struct Doc
     src: string
     nodes: Buf[Node]
     refs: Map[string, LinkRef]
+    exts: Registry
 
     /** The document node, which every other node descends from. */
     root(self) -> NodeId = NodeId(0)
@@ -207,7 +228,7 @@ new_doc(src: string) -> Doc
     var nodes: Buf[Node] = buf()
 
     nodes.push(Node(Document, Span(0, src.len), 0, 0, 0, 0, 0))
-    Doc(src, nodes, map())
+    Doc(src, nodes, map(), registry())
 
 /** Whether a walk is arriving at a node or leaving it. */
 enum Event

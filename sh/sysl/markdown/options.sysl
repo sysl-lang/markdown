@@ -28,16 +28,39 @@ struct ParseOptions
  *   and its text. `Some(markup)` is written verbatim in place of the whole `<pre><code>…</code></pre>`,
  *   on lines of its own; `None` writes the block as though there were no hook, the text escaped
  *   inside `<pre><code class="language-…">`.
+ * - `tagfilter` -- GitHub's filter on the raw HTML that is passed through: the `<` opening any of
+ *   `title`, `textarea`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext`
+ *   (or closing one) is written `&lt;`, so the page shows the tag rather than obeying it. Every
+ *   other tag passes as written. Off in the CommonMark preset and on in the GFM one.
  */
 struct HtmlOptions
     raw_html: bool
     softbreak: string
     highlight: Option[&Fn(string, string) -> Option[string]]
+    tagfilter: bool
 
 /** The CommonMark preset for a parse: no extensions. */
 commonmark() -> ParseOptions = ParseOptions(registry())
 
+/** The GitHub preset for a parse: CommonMark plus the extensions GitHub's own renderer runs --
+ * `tables()`, `strikethrough()`, `autolinks()` and `task_lists()`, asked in that order. Each is an
+ * ordinary `Extension`, so a parse wanting only some of them builds its own registry.
+ */
+gfm() -> ParseOptions
+    val r = registry()
+
+    r.add(tables())
+    r.add(strikethrough())
+    r.add(autolinks())
+    r.add(task_lists())
+    ParseOptions(r)
+
 /** The CommonMark preset for a rendering: raw HTML passed through, a soft break as a newline, and no
  * highlighter -- exactly the HTML the spec's examples show.
  */
-commonmark_html() -> HtmlOptions = HtmlOptions(true, "\n", None)
+commonmark_html() -> HtmlOptions = HtmlOptions(true, "\n", None, false)
+
+/** The GitHub preset for a rendering: the CommonMark one with the tag filter on, which is what GitHub
+ * Flavored Markdown's spec shows.
+ */
+gfm_html() -> HtmlOptions = HtmlOptions(true, "\n", None, true)

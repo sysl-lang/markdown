@@ -1,0 +1,44 @@
+module sh.sysl.markdown
+
+// GitHub's strikethrough: text between runs of `~` is struck through, `<del>` in HTML.
+//
+// **The rules are cmark-gfm's.** A run of one or two `~` is a delimiter where it is left- or
+// right-flanking as emphasis reckons it; three or more is plain text. An opener and a closer pair
+// only where the two runs are the same length, so `~a~` and `~~a~~` strike and `~a~~` does not --
+// and a closer that meets an opener of the other length leaves both, and every delimiter between
+// them, as text.
+
+/** The strikethrough extension, for a `Registry`. */
+strikethrough() -> &Extension = Strikethrough()
+
+/** The `tag` of a strikethrough's `ExtNode`; it holds the struck text. */
+const STRIKETHROUGH_NODE: u32 = 0
+
+private struct Strikethrough
+end Strikethrough
+
+impl Extension for Strikethrough
+    name(self) -> string = "strikethrough"
+
+    override triggers(self) -> string = "~"
+
+    override inline_match(self, s: Subject) -> InlineMatch
+        val b = s.text.bytes
+        var j = s.pos
+
+        while j < b.len && b[j] == u8('~') do j += 1
+
+        val n = j - s.pos
+
+        if n > 2 then return Delimiters(n, false, false)
+
+        val (left, right) = flanking(b, s.pos, j)
+
+        Delimiters(n, left, right)
+
+    override delimiter_node(self, ch: u8, opener: usize, closer: usize) -> Option[Kind]
+        if opener != closer then return None
+
+        Some(Ext(ExtNode("strikethrough", STRIKETHROUGH_NODE, "", true)))
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event) = w.tag(if ev == Enter then "<del>" else "</del>")

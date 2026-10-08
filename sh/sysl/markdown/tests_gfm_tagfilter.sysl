@@ -1,0 +1,9 @@
+module sh.sysl.markdown
+@tests
+
+// GitHub's spec's 'tagfilter' examples (spec/gfm-spec.txt), read with gfm() and rendered with
+// gfm_html(), compared exactly. Written by tools/gen_spec_tests.py; edit that, not this.
+
+@test("gfm example 652")
+gfm_example_652()
+    assert_eq(to_html_with(parse_with("<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n", gfm()), gfm_html()), "<p><strong> &lt;title> &lt;style> <em></p>\n<blockquote>\n  &lt;xmp> is disallowed.  &lt;XMP> is also disallowed.\n</blockquote>\n")

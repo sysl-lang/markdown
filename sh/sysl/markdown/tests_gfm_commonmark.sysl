@@ -1,0 +1,2625 @@
+module sh.sysl.markdown
+@tests
+
+// The CommonMark 0.31.2 spec's examples read with every GitHub extension on: each renders as the
+// spec says, but for the few an extension changes, which assert what cmark-gfm renders with the
+// same extensions. Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
+
+@test("example 1 with the GitHub extensions")
+gfm_commonmark_1()
+    assert_eq(to_html_with(parse_with("\tfoo\tbaz\t\tbim\n", gfm()), gfm_html()), "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n")
+
+@test("example 2 with the GitHub extensions")
+gfm_commonmark_2()
+    assert_eq(to_html_with(parse_with("  \tfoo\tbaz\t\tbim\n", gfm()), gfm_html()), "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n")
+
+@test("example 3 with the GitHub extensions")
+gfm_commonmark_3()
+    assert_eq(to_html_with(parse_with("    a\ta\n    \u{1f50}\ta\n", gfm()), gfm_html()), "<pre><code>a\ta\n\u{1f50}\ta\n</code></pre>\n")
+
+@test("example 4 with the GitHub extensions")
+gfm_commonmark_4()
+    assert_eq(to_html_with(parse_with("  - foo\n\n\tbar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
+
+@test("example 5 with the GitHub extensions")
+gfm_commonmark_5()
+    assert_eq(to_html_with(parse_with("- foo\n\n\t\tbar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 6 with the GitHub extensions")
+gfm_commonmark_6()
+    assert_eq(to_html_with(parse_with(">\t\tfoo\n", gfm()), gfm_html()), "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n")
+
+@test("example 7 with the GitHub extensions")
+gfm_commonmark_7()
+    assert_eq(to_html_with(parse_with("-\t\tfoo\n", gfm()), gfm_html()), "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 8 with the GitHub extensions")
+gfm_commonmark_8()
+    assert_eq(to_html_with(parse_with("    foo\n\tbar\n", gfm()), gfm_html()), "<pre><code>foo\nbar\n</code></pre>\n")
+
+@test("example 9 with the GitHub extensions")
+gfm_commonmark_9()
+    assert_eq(to_html_with(parse_with(" - foo\n   - bar\n\t - baz\n", gfm()), gfm_html()), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 10 with the GitHub extensions")
+gfm_commonmark_10()
+    assert_eq(to_html_with(parse_with("#\tFoo\n", gfm()), gfm_html()), "<h1>Foo</h1>\n")
+
+@test("example 11 with the GitHub extensions")
+gfm_commonmark_11()
+    assert_eq(to_html_with(parse_with("*\t*\t*\t\n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 12 with the GitHub extensions")
+gfm_commonmark_12()
+    assert_eq(to_html_with(parse_with("\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n", gfm()), gfm_html()), "<p>!&quot;#$%&amp;'()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n")
+
+@test("example 13 with the GitHub extensions")
+gfm_commonmark_13()
+    assert_eq(to_html_with(parse_with("\\\t\\A\\a\\ \\3\\\u{3c6}\\\u{ab}\n", gfm()), gfm_html()), "<p>\\\t\\A\\a\\ \\3\\\u{3c6}\\\u{ab}</p>\n")
+
+@test("example 14 with the GitHub extensions")
+gfm_commonmark_14()
+    assert_eq(to_html_with(parse_with("\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n", gfm()), gfm_html()), "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;\n&amp;ouml; not a character entity</p>\n")
+
+@test("example 15 with the GitHub extensions")
+gfm_commonmark_15()
+    assert_eq(to_html_with(parse_with("\\\\*emphasis*\n", gfm()), gfm_html()), "<p>\\<em>emphasis</em></p>\n")
+
+@test("example 16 with the GitHub extensions")
+gfm_commonmark_16()
+    assert_eq(to_html_with(parse_with("foo\\\nbar\n", gfm()), gfm_html()), "<p>foo<br />\nbar</p>\n")
+
+@test("example 17 with the GitHub extensions")
+gfm_commonmark_17()
+    assert_eq(to_html_with(parse_with("`` \\[\\` ``\n", gfm()), gfm_html()), "<p><code>\\[\\`</code></p>\n")
+
+@test("example 18 with the GitHub extensions")
+gfm_commonmark_18()
+    assert_eq(to_html_with(parse_with("    \\[\\]\n", gfm()), gfm_html()), "<pre><code>\\[\\]\n</code></pre>\n")
+
+@test("example 19 with the GitHub extensions")
+gfm_commonmark_19()
+    assert_eq(to_html_with(parse_with("~~~\n\\[\\]\n~~~\n", gfm()), gfm_html()), "<pre><code>\\[\\]\n</code></pre>\n")
+
+@test("example 20 with the GitHub extensions")
+gfm_commonmark_20()
+    assert_eq(to_html_with(parse_with("<https://example.com?find=\\*>\n", gfm()), gfm_html()), "<p><a href=\"https://example.com?find=%5C*\">https://example.com?find=\\*</a></p>\n")
+
+@test("example 21 with the GitHub extensions")
+gfm_commonmark_21()
+    assert_eq(to_html_with(parse_with("<a href=\"/bar\\/)\">\n", gfm()), gfm_html()), "<a href=\"/bar\\/)\">\n")
+
+@test("example 22 with the GitHub extensions")
+gfm_commonmark_22()
+    assert_eq(to_html_with(parse_with("[foo](/bar\\* \"ti\\*tle\")\n", gfm()), gfm_html()), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
+
+@test("example 23 with the GitHub extensions")
+gfm_commonmark_23()
+    assert_eq(to_html_with(parse_with("[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"\n", gfm()), gfm_html()), "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n")
+
+@test("example 24 with the GitHub extensions")
+gfm_commonmark_24()
+    assert_eq(to_html_with(parse_with("``` foo\\+bar\nfoo\n```\n", gfm()), gfm_html()), "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n")
+
+@test("example 25 with the GitHub extensions")
+gfm_commonmark_25()
+    assert_eq(to_html_with(parse_with("&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n", gfm()), gfm_html()), "<p>\u{a0} &amp; \u{a9} \u{c6} \u{10e}\n\u{be} \u{210b} \u{2146}\n\u{2232} \u{2267}\u{338}</p>\n")
+
+@test("example 26 with the GitHub extensions")
+gfm_commonmark_26()
+    assert_eq(to_html_with(parse_with("&#35; &#1234; &#992; &#0;\n", gfm()), gfm_html()), "<p># \u{4d2} \u{3e0} \u{fffd}</p>\n")
+
+@test("example 27 with the GitHub extensions")
+gfm_commonmark_27()
+    assert_eq(to_html_with(parse_with("&#X22; &#XD06; &#xcab;\n", gfm()), gfm_html()), "<p>&quot; \u{d06} \u{cab}</p>\n")
+
+@test("example 28 with the GitHub extensions")
+gfm_commonmark_28()
+    assert_eq(to_html_with(parse_with("&nbsp &x; &#; &#x;\n&#87654321;\n&#abcdef0;\n&ThisIsNotDefined; &hi?;\n", gfm()), gfm_html()), "<p>&amp;nbsp &amp;x; &amp;#; &amp;#x;\n&amp;#87654321;\n&amp;#abcdef0;\n&amp;ThisIsNotDefined; &amp;hi?;</p>\n")
+
+@test("example 29 with the GitHub extensions")
+gfm_commonmark_29()
+    assert_eq(to_html_with(parse_with("&copy\n", gfm()), gfm_html()), "<p>&amp;copy</p>\n")
+
+@test("example 30 with the GitHub extensions")
+gfm_commonmark_30()
+    assert_eq(to_html_with(parse_with("&MadeUpEntity;\n", gfm()), gfm_html()), "<p>&amp;MadeUpEntity;</p>\n")
+
+@test("example 31 with the GitHub extensions")
+gfm_commonmark_31()
+    assert_eq(to_html_with(parse_with("<a href=\"&ouml;&ouml;.html\">\n", gfm()), gfm_html()), "<a href=\"&ouml;&ouml;.html\">\n")
+
+@test("example 32 with the GitHub extensions")
+gfm_commonmark_32()
+    assert_eq(to_html_with(parse_with("[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n", gfm()), gfm_html()), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
+
+@test("example 33 with the GitHub extensions")
+gfm_commonmark_33()
+    assert_eq(to_html_with(parse_with("[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n", gfm()), gfm_html()), "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u{f6}\u{f6}\">foo</a></p>\n")
+
+@test("example 34 with the GitHub extensions")
+gfm_commonmark_34()
+    assert_eq(to_html_with(parse_with("``` f&ouml;&ouml;\nfoo\n```\n", gfm()), gfm_html()), "<pre><code class=\"language-f\u{f6}\u{f6}\">foo\n</code></pre>\n")
+
+@test("example 35 with the GitHub extensions")
+gfm_commonmark_35()
+    assert_eq(to_html_with(parse_with("`f&ouml;&ouml;`\n", gfm()), gfm_html()), "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n")
+
+@test("example 36 with the GitHub extensions")
+gfm_commonmark_36()
+    assert_eq(to_html_with(parse_with("    f&ouml;f&ouml;\n", gfm()), gfm_html()), "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n")
+
+@test("example 37 with the GitHub extensions")
+gfm_commonmark_37()
+    assert_eq(to_html_with(parse_with("&#42;foo&#42;\n*foo*\n", gfm()), gfm_html()), "<p>*foo*\n<em>foo</em></p>\n")
+
+@test("example 38 with the GitHub extensions")
+gfm_commonmark_38()
+    assert_eq(to_html_with(parse_with("&#42; foo\n\n* foo\n", gfm()), gfm_html()), "<p>* foo</p>\n<ul>\n<li>foo</li>\n</ul>\n")
+
+@test("example 39 with the GitHub extensions")
+gfm_commonmark_39()
+    assert_eq(to_html_with(parse_with("foo&#10;&#10;bar\n", gfm()), gfm_html()), "<p>foo\n\nbar</p>\n")
+
+@test("example 40 with the GitHub extensions")
+gfm_commonmark_40()
+    assert_eq(to_html_with(parse_with("&#9;foo\n", gfm()), gfm_html()), "<p>\tfoo</p>\n")
+
+@test("example 41 with the GitHub extensions")
+gfm_commonmark_41()
+    assert_eq(to_html_with(parse_with("[a](url &quot;tit&quot;)\n", gfm()), gfm_html()), "<p>[a](url &quot;tit&quot;)</p>\n")
+
+@test("example 42 with the GitHub extensions")
+gfm_commonmark_42()
+    assert_eq(to_html_with(parse_with("- `one\n- two`\n", gfm()), gfm_html()), "<ul>\n<li>`one</li>\n<li>two`</li>\n</ul>\n")
+
+@test("example 43 with the GitHub extensions")
+gfm_commonmark_43()
+    assert_eq(to_html_with(parse_with("***\n---\n___\n", gfm()), gfm_html()), "<hr />\n<hr />\n<hr />\n")
+
+@test("example 44 with the GitHub extensions")
+gfm_commonmark_44()
+    assert_eq(to_html_with(parse_with("+++\n", gfm()), gfm_html()), "<p>+++</p>\n")
+
+@test("example 45 with the GitHub extensions")
+gfm_commonmark_45()
+    assert_eq(to_html_with(parse_with("===\n", gfm()), gfm_html()), "<p>===</p>\n")
+
+@test("example 46 with the GitHub extensions")
+gfm_commonmark_46()
+    assert_eq(to_html_with(parse_with("--\n**\n__\n", gfm()), gfm_html()), "<p>--\n**\n__</p>\n")
+
+@test("example 47 with the GitHub extensions")
+gfm_commonmark_47()
+    assert_eq(to_html_with(parse_with(" ***\n  ***\n   ***\n", gfm()), gfm_html()), "<hr />\n<hr />\n<hr />\n")
+
+@test("example 48 with the GitHub extensions")
+gfm_commonmark_48()
+    assert_eq(to_html_with(parse_with("    ***\n", gfm()), gfm_html()), "<pre><code>***\n</code></pre>\n")
+
+@test("example 49 with the GitHub extensions")
+gfm_commonmark_49()
+    assert_eq(to_html_with(parse_with("Foo\n    ***\n", gfm()), gfm_html()), "<p>Foo\n***</p>\n")
+
+@test("example 50 with the GitHub extensions")
+gfm_commonmark_50()
+    assert_eq(to_html_with(parse_with("_____________________________________\n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 51 with the GitHub extensions")
+gfm_commonmark_51()
+    assert_eq(to_html_with(parse_with(" - - -\n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 52 with the GitHub extensions")
+gfm_commonmark_52()
+    assert_eq(to_html_with(parse_with(" **  * ** * ** * **\n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 53 with the GitHub extensions")
+gfm_commonmark_53()
+    assert_eq(to_html_with(parse_with("-     -      -      -\n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 54 with the GitHub extensions")
+gfm_commonmark_54()
+    assert_eq(to_html_with(parse_with("- - - -    \n", gfm()), gfm_html()), "<hr />\n")
+
+@test("example 55 with the GitHub extensions")
+gfm_commonmark_55()
+    assert_eq(to_html_with(parse_with("_ _ _ _ a\n\na------\n\n---a---\n", gfm()), gfm_html()), "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n")
+
+@test("example 56 with the GitHub extensions")
+gfm_commonmark_56()
+    assert_eq(to_html_with(parse_with(" *-*\n", gfm()), gfm_html()), "<p><em>-</em></p>\n")
+
+@test("example 57 with the GitHub extensions")
+gfm_commonmark_57()
+    assert_eq(to_html_with(parse_with("- foo\n***\n- bar\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n")
+
+@test("example 58 with the GitHub extensions")
+gfm_commonmark_58()
+    assert_eq(to_html_with(parse_with("Foo\n***\nbar\n", gfm()), gfm_html()), "<p>Foo</p>\n<hr />\n<p>bar</p>\n")
+
+@test("example 59 with the GitHub extensions")
+gfm_commonmark_59()
+    assert_eq(to_html_with(parse_with("Foo\n---\nbar\n", gfm()), gfm_html()), "<h2>Foo</h2>\n<p>bar</p>\n")
+
+@test("example 60 with the GitHub extensions")
+gfm_commonmark_60()
+    assert_eq(to_html_with(parse_with("* Foo\n* * *\n* Bar\n", gfm()), gfm_html()), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n")
+
+@test("example 61 with the GitHub extensions")
+gfm_commonmark_61()
+    assert_eq(to_html_with(parse_with("- Foo\n- * * *\n", gfm()), gfm_html()), "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n")
+
+@test("example 62 with the GitHub extensions")
+gfm_commonmark_62()
+    assert_eq(to_html_with(parse_with("# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n", gfm()), gfm_html()), "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n")
+
+@test("example 63 with the GitHub extensions")
+gfm_commonmark_63()
+    assert_eq(to_html_with(parse_with("####### foo\n", gfm()), gfm_html()), "<p>####### foo</p>\n")
+
+@test("example 64 with the GitHub extensions")
+gfm_commonmark_64()
+    assert_eq(to_html_with(parse_with("#5 bolt\n\n#hashtag\n", gfm()), gfm_html()), "<p>#5 bolt</p>\n<p>#hashtag</p>\n")
+
+@test("example 65 with the GitHub extensions")
+gfm_commonmark_65()
+    assert_eq(to_html_with(parse_with("\\## foo\n", gfm()), gfm_html()), "<p>## foo</p>\n")
+
+@test("example 66 with the GitHub extensions")
+gfm_commonmark_66()
+    assert_eq(to_html_with(parse_with("# foo *bar* \\*baz\\*\n", gfm()), gfm_html()), "<h1>foo <em>bar</em> *baz*</h1>\n")
+
+@test("example 67 with the GitHub extensions")
+gfm_commonmark_67()
+    assert_eq(to_html_with(parse_with("#                  foo                     \n", gfm()), gfm_html()), "<h1>foo</h1>\n")
+
+@test("example 68 with the GitHub extensions")
+gfm_commonmark_68()
+    assert_eq(to_html_with(parse_with(" ### foo\n  ## foo\n   # foo\n", gfm()), gfm_html()), "<h3>foo</h3>\n<h2>foo</h2>\n<h1>foo</h1>\n")
+
+@test("example 69 with the GitHub extensions")
+gfm_commonmark_69()
+    assert_eq(to_html_with(parse_with("    # foo\n", gfm()), gfm_html()), "<pre><code># foo\n</code></pre>\n")
+
+@test("example 70 with the GitHub extensions")
+gfm_commonmark_70()
+    assert_eq(to_html_with(parse_with("foo\n    # bar\n", gfm()), gfm_html()), "<p>foo\n# bar</p>\n")
+
+@test("example 71 with the GitHub extensions")
+gfm_commonmark_71()
+    assert_eq(to_html_with(parse_with("## foo ##\n  ###   bar    ###\n", gfm()), gfm_html()), "<h2>foo</h2>\n<h3>bar</h3>\n")
+
+@test("example 72 with the GitHub extensions")
+gfm_commonmark_72()
+    assert_eq(to_html_with(parse_with("# foo ##################################\n##### foo ##\n", gfm()), gfm_html()), "<h1>foo</h1>\n<h5>foo</h5>\n")
+
+@test("example 73 with the GitHub extensions")
+gfm_commonmark_73()
+    assert_eq(to_html_with(parse_with("### foo ###     \n", gfm()), gfm_html()), "<h3>foo</h3>\n")
+
+@test("example 74 with the GitHub extensions")
+gfm_commonmark_74()
+    assert_eq(to_html_with(parse_with("### foo ### b\n", gfm()), gfm_html()), "<h3>foo ### b</h3>\n")
+
+@test("example 75 with the GitHub extensions")
+gfm_commonmark_75()
+    assert_eq(to_html_with(parse_with("# foo#\n", gfm()), gfm_html()), "<h1>foo#</h1>\n")
+
+@test("example 76 with the GitHub extensions")
+gfm_commonmark_76()
+    assert_eq(to_html_with(parse_with("### foo \\###\n## foo #\\##\n# foo \\#\n", gfm()), gfm_html()), "<h3>foo ###</h3>\n<h2>foo ###</h2>\n<h1>foo #</h1>\n")
+
+@test("example 77 with the GitHub extensions")
+gfm_commonmark_77()
+    assert_eq(to_html_with(parse_with("****\n## foo\n****\n", gfm()), gfm_html()), "<hr />\n<h2>foo</h2>\n<hr />\n")
+
+@test("example 78 with the GitHub extensions")
+gfm_commonmark_78()
+    assert_eq(to_html_with(parse_with("Foo bar\n# baz\nBar foo\n", gfm()), gfm_html()), "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n")
+
+@test("example 79 with the GitHub extensions")
+gfm_commonmark_79()
+    assert_eq(to_html_with(parse_with("## \n#\n### ###\n", gfm()), gfm_html()), "<h2></h2>\n<h1></h1>\n<h3></h3>\n")
+
+@test("example 80 with the GitHub extensions")
+gfm_commonmark_80()
+    assert_eq(to_html_with(parse_with("Foo *bar*\n=========\n\nFoo *bar*\n---------\n", gfm()), gfm_html()), "<h1>Foo <em>bar</em></h1>\n<h2>Foo <em>bar</em></h2>\n")
+
+@test("example 81 with the GitHub extensions")
+gfm_commonmark_81()
+    assert_eq(to_html_with(parse_with("Foo *bar\nbaz*\n====\n", gfm()), gfm_html()), "<h1>Foo <em>bar\nbaz</em></h1>\n")
+
+@test("example 82 with the GitHub extensions")
+gfm_commonmark_82()
+    assert_eq(to_html_with(parse_with("  Foo *bar\nbaz*\t\n====\n", gfm()), gfm_html()), "<h1>Foo <em>bar\nbaz</em></h1>\n")
+
+@test("example 83 with the GitHub extensions")
+gfm_commonmark_83()
+    assert_eq(to_html_with(parse_with("Foo\n-------------------------\n\nFoo\n=\n", gfm()), gfm_html()), "<h2>Foo</h2>\n<h1>Foo</h1>\n")
+
+@test("example 84 with the GitHub extensions")
+gfm_commonmark_84()
+    assert_eq(to_html_with(parse_with("   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===\n", gfm()), gfm_html()), "<h2>Foo</h2>\n<h2>Foo</h2>\n<h1>Foo</h1>\n")
+
+@test("example 85 with the GitHub extensions")
+gfm_commonmark_85()
+    assert_eq(to_html_with(parse_with("    Foo\n    ---\n\n    Foo\n---\n", gfm()), gfm_html()), "<pre><code>Foo\n---\n\nFoo\n</code></pre>\n<hr />\n")
+
+@test("example 86 with the GitHub extensions")
+gfm_commonmark_86()
+    assert_eq(to_html_with(parse_with("Foo\n   ----      \n", gfm()), gfm_html()), "<h2>Foo</h2>\n")
+
+@test("example 87 with the GitHub extensions")
+gfm_commonmark_87()
+    assert_eq(to_html_with(parse_with("Foo\n    ---\n", gfm()), gfm_html()), "<p>Foo\n---</p>\n")
+
+@test("example 88 with the GitHub extensions")
+gfm_commonmark_88()
+    assert_eq(to_html_with(parse_with("Foo\n= =\n\nFoo\n--- -\n", gfm()), gfm_html()), "<p>Foo\n= =</p>\n<p>Foo</p>\n<hr />\n")
+
+@test("example 89 with the GitHub extensions")
+gfm_commonmark_89()
+    assert_eq(to_html_with(parse_with("Foo  \n-----\n", gfm()), gfm_html()), "<h2>Foo</h2>\n")
+
+@test("example 90 with the GitHub extensions")
+gfm_commonmark_90()
+    assert_eq(to_html_with(parse_with("Foo\\\n----\n", gfm()), gfm_html()), "<h2>Foo\\</h2>\n")
+
+@test("example 91 with the GitHub extensions")
+gfm_commonmark_91()
+    assert_eq(to_html_with(parse_with("`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n", gfm()), gfm_html()), "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n")
+
+@test("example 92 with the GitHub extensions")
+gfm_commonmark_92()
+    assert_eq(to_html_with(parse_with("> Foo\n---\n", gfm()), gfm_html()), "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr />\n")
+
+@test("example 93 with the GitHub extensions")
+gfm_commonmark_93()
+    assert_eq(to_html_with(parse_with("> foo\nbar\n===\n", gfm()), gfm_html()), "<blockquote>\n<p>foo\nbar\n===</p>\n</blockquote>\n")
+
+@test("example 94 with the GitHub extensions")
+gfm_commonmark_94()
+    assert_eq(to_html_with(parse_with("- Foo\n---\n", gfm()), gfm_html()), "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n")
+
+@test("example 95 with the GitHub extensions")
+gfm_commonmark_95()
+    assert_eq(to_html_with(parse_with("Foo\nBar\n---\n", gfm()), gfm_html()), "<h2>Foo\nBar</h2>\n")
+
+@test("example 96 with the GitHub extensions")
+gfm_commonmark_96()
+    assert_eq(to_html_with(parse_with("---\nFoo\n---\nBar\n---\nBaz\n", gfm()), gfm_html()), "<hr />\n<h2>Foo</h2>\n<h2>Bar</h2>\n<p>Baz</p>\n")
+
+@test("example 97 with the GitHub extensions")
+gfm_commonmark_97()
+    assert_eq(to_html_with(parse_with("\n====\n", gfm()), gfm_html()), "<p>====</p>\n")
+
+@test("example 98 with the GitHub extensions")
+gfm_commonmark_98()
+    assert_eq(to_html_with(parse_with("---\n---\n", gfm()), gfm_html()), "<hr />\n<hr />\n")
+
+@test("example 99 with the GitHub extensions")
+gfm_commonmark_99()
+    assert_eq(to_html_with(parse_with("- foo\n-----\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n</ul>\n<hr />\n")
+
+@test("example 100 with the GitHub extensions")
+gfm_commonmark_100()
+    assert_eq(to_html_with(parse_with("    foo\n---\n", gfm()), gfm_html()), "<pre><code>foo\n</code></pre>\n<hr />\n")
+
+@test("example 101 with the GitHub extensions")
+gfm_commonmark_101()
+    assert_eq(to_html_with(parse_with("> foo\n-----\n", gfm()), gfm_html()), "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n")
+
+@test("example 102 with the GitHub extensions")
+gfm_commonmark_102()
+    assert_eq(to_html_with(parse_with("\\> foo\n------\n", gfm()), gfm_html()), "<h2>&gt; foo</h2>\n")
+
+@test("example 103 with the GitHub extensions")
+gfm_commonmark_103()
+    assert_eq(to_html_with(parse_with("Foo\n\nbar\n---\nbaz\n", gfm()), gfm_html()), "<p>Foo</p>\n<h2>bar</h2>\n<p>baz</p>\n")
+
+@test("example 104 with the GitHub extensions")
+gfm_commonmark_104()
+    assert_eq(to_html_with(parse_with("Foo\nbar\n\n---\n\nbaz\n", gfm()), gfm_html()), "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n")
+
+@test("example 105 with the GitHub extensions")
+gfm_commonmark_105()
+    assert_eq(to_html_with(parse_with("Foo\nbar\n* * *\nbaz\n", gfm()), gfm_html()), "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n")
+
+@test("example 106 with the GitHub extensions")
+gfm_commonmark_106()
+    assert_eq(to_html_with(parse_with("Foo\nbar\n\\---\nbaz\n", gfm()), gfm_html()), "<p>Foo\nbar\n---\nbaz</p>\n")
+
+@test("example 107 with the GitHub extensions")
+gfm_commonmark_107()
+    assert_eq(to_html_with(parse_with("    a simple\n      indented code block\n", gfm()), gfm_html()), "<pre><code>a simple\n  indented code block\n</code></pre>\n")
+
+@test("example 108 with the GitHub extensions")
+gfm_commonmark_108()
+    assert_eq(to_html_with(parse_with("  - foo\n\n    bar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
+
+@test("example 109 with the GitHub extensions")
+gfm_commonmark_109()
+    assert_eq(to_html_with(parse_with("1.  foo\n\n    - bar\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n")
+
+@test("example 110 with the GitHub extensions")
+gfm_commonmark_110()
+    assert_eq(to_html_with(parse_with("    <a/>\n    *hi*\n\n    - one\n", gfm()), gfm_html()), "<pre><code>&lt;a/&gt;\n*hi*\n\n- one\n</code></pre>\n")
+
+@test("example 111 with the GitHub extensions")
+gfm_commonmark_111()
+    assert_eq(to_html_with(parse_with("    chunk1\n\n    chunk2\n  \n \n \n    chunk3\n", gfm()), gfm_html()), "<pre><code>chunk1\n\nchunk2\n\n\n\nchunk3\n</code></pre>\n")
+
+@test("example 112 with the GitHub extensions")
+gfm_commonmark_112()
+    assert_eq(to_html_with(parse_with("    chunk1\n      \n      chunk2\n", gfm()), gfm_html()), "<pre><code>chunk1\n  \n  chunk2\n</code></pre>\n")
+
+@test("example 113 with the GitHub extensions")
+gfm_commonmark_113()
+    assert_eq(to_html_with(parse_with("Foo\n    bar\n\n", gfm()), gfm_html()), "<p>Foo\nbar</p>\n")
+
+@test("example 114 with the GitHub extensions")
+gfm_commonmark_114()
+    assert_eq(to_html_with(parse_with("    foo\nbar\n", gfm()), gfm_html()), "<pre><code>foo\n</code></pre>\n<p>bar</p>\n")
+
+@test("example 115 with the GitHub extensions")
+gfm_commonmark_115()
+    assert_eq(to_html_with(parse_with("# Heading\n    foo\nHeading\n------\n    foo\n----\n", gfm()), gfm_html()), "<h1>Heading</h1>\n<pre><code>foo\n</code></pre>\n<h2>Heading</h2>\n<pre><code>foo\n</code></pre>\n<hr />\n")
+
+@test("example 116 with the GitHub extensions")
+gfm_commonmark_116()
+    assert_eq(to_html_with(parse_with("        foo\n    bar\n", gfm()), gfm_html()), "<pre><code>    foo\nbar\n</code></pre>\n")
+
+@test("example 117 with the GitHub extensions")
+gfm_commonmark_117()
+    assert_eq(to_html_with(parse_with("\n    \n    foo\n    \n\n", gfm()), gfm_html()), "<pre><code>foo\n</code></pre>\n")
+
+@test("example 118 with the GitHub extensions")
+gfm_commonmark_118()
+    assert_eq(to_html_with(parse_with("    foo  \n", gfm()), gfm_html()), "<pre><code>foo  \n</code></pre>\n")
+
+@test("example 119 with the GitHub extensions")
+gfm_commonmark_119()
+    assert_eq(to_html_with(parse_with("```\n<\n >\n```\n", gfm()), gfm_html()), "<pre><code>&lt;\n &gt;\n</code></pre>\n")
+
+@test("example 120 with the GitHub extensions")
+gfm_commonmark_120()
+    assert_eq(to_html_with(parse_with("~~~\n<\n >\n~~~\n", gfm()), gfm_html()), "<pre><code>&lt;\n &gt;\n</code></pre>\n")
+
+@test("example 121 with the GitHub extensions")
+gfm_commonmark_121()
+    assert_eq(to_html_with(parse_with("``\nfoo\n``\n", gfm()), gfm_html()), "<p><code>foo</code></p>\n")
+
+@test("example 122 with the GitHub extensions")
+gfm_commonmark_122()
+    assert_eq(to_html_with(parse_with("```\naaa\n~~~\n```\n", gfm()), gfm_html()), "<pre><code>aaa\n~~~\n</code></pre>\n")
+
+@test("example 123 with the GitHub extensions")
+gfm_commonmark_123()
+    assert_eq(to_html_with(parse_with("~~~\naaa\n```\n~~~\n", gfm()), gfm_html()), "<pre><code>aaa\n```\n</code></pre>\n")
+
+@test("example 124 with the GitHub extensions")
+gfm_commonmark_124()
+    assert_eq(to_html_with(parse_with("````\naaa\n```\n``````\n", gfm()), gfm_html()), "<pre><code>aaa\n```\n</code></pre>\n")
+
+@test("example 125 with the GitHub extensions")
+gfm_commonmark_125()
+    assert_eq(to_html_with(parse_with("~~~~\naaa\n~~~\n~~~~\n", gfm()), gfm_html()), "<pre><code>aaa\n~~~\n</code></pre>\n")
+
+@test("example 126 with the GitHub extensions")
+gfm_commonmark_126()
+    assert_eq(to_html_with(parse_with("```\n", gfm()), gfm_html()), "<pre><code></code></pre>\n")
+
+@test("example 127 with the GitHub extensions")
+gfm_commonmark_127()
+    assert_eq(to_html_with(parse_with("`````\n\n```\naaa\n", gfm()), gfm_html()), "<pre><code>\n```\naaa\n</code></pre>\n")
+
+@test("example 128 with the GitHub extensions")
+gfm_commonmark_128()
+    assert_eq(to_html_with(parse_with("> ```\n> aaa\n\nbbb\n", gfm()), gfm_html()), "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n")
+
+@test("example 129 with the GitHub extensions")
+gfm_commonmark_129()
+    assert_eq(to_html_with(parse_with("```\n\n  \n```\n", gfm()), gfm_html()), "<pre><code>\n  \n</code></pre>\n")
+
+@test("example 130 with the GitHub extensions")
+gfm_commonmark_130()
+    assert_eq(to_html_with(parse_with("```\n```\n", gfm()), gfm_html()), "<pre><code></code></pre>\n")
+
+@test("example 131 with the GitHub extensions")
+gfm_commonmark_131()
+    assert_eq(to_html_with(parse_with(" ```\n aaa\naaa\n```\n", gfm()), gfm_html()), "<pre><code>aaa\naaa\n</code></pre>\n")
+
+@test("example 132 with the GitHub extensions")
+gfm_commonmark_132()
+    assert_eq(to_html_with(parse_with("  ```\naaa\n  aaa\naaa\n  ```\n", gfm()), gfm_html()), "<pre><code>aaa\naaa\naaa\n</code></pre>\n")
+
+@test("example 133 with the GitHub extensions")
+gfm_commonmark_133()
+    assert_eq(to_html_with(parse_with("   ```\n   aaa\n    aaa\n  aaa\n   ```\n", gfm()), gfm_html()), "<pre><code>aaa\n aaa\naaa\n</code></pre>\n")
+
+@test("example 134 with the GitHub extensions")
+gfm_commonmark_134()
+    assert_eq(to_html_with(parse_with("    ```\n    aaa\n    ```\n", gfm()), gfm_html()), "<pre><code>```\naaa\n```\n</code></pre>\n")
+
+@test("example 135 with the GitHub extensions")
+gfm_commonmark_135()
+    assert_eq(to_html_with(parse_with("```\naaa\n  ```\n", gfm()), gfm_html()), "<pre><code>aaa\n</code></pre>\n")
+
+@test("example 136 with the GitHub extensions")
+gfm_commonmark_136()
+    assert_eq(to_html_with(parse_with("   ```\naaa\n  ```\n", gfm()), gfm_html()), "<pre><code>aaa\n</code></pre>\n")
+
+@test("example 137 with the GitHub extensions")
+gfm_commonmark_137()
+    assert_eq(to_html_with(parse_with("```\naaa\n    ```\n", gfm()), gfm_html()), "<pre><code>aaa\n    ```\n</code></pre>\n")
+
+@test("example 138 with the GitHub extensions")
+gfm_commonmark_138()
+    assert_eq(to_html_with(parse_with("``` ```\naaa\n", gfm()), gfm_html()), "<p><code> </code>\naaa</p>\n")
+
+@test("example 139 with the GitHub extensions")
+gfm_commonmark_139()
+    assert_eq(to_html_with(parse_with("~~~~~~\naaa\n~~~ ~~\n", gfm()), gfm_html()), "<pre><code>aaa\n~~~ ~~\n</code></pre>\n")
+
+@test("example 140 with the GitHub extensions")
+gfm_commonmark_140()
+    assert_eq(to_html_with(parse_with("foo\n```\nbar\n```\nbaz\n", gfm()), gfm_html()), "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n")
+
+@test("example 141 with the GitHub extensions")
+gfm_commonmark_141()
+    assert_eq(to_html_with(parse_with("foo\n---\n~~~\nbar\n~~~\n# baz\n", gfm()), gfm_html()), "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n")
+
+@test("example 142 with the GitHub extensions")
+gfm_commonmark_142()
+    assert_eq(to_html_with(parse_with("```ruby\ndef foo(x)\n  return 3\nend\n```\n", gfm()), gfm_html()), "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n")
+
+@test("example 143 with the GitHub extensions")
+gfm_commonmark_143()
+    assert_eq(to_html_with(parse_with("~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~\n", gfm()), gfm_html()), "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n")
+
+@test("example 144 with the GitHub extensions")
+gfm_commonmark_144()
+    assert_eq(to_html_with(parse_with("````;\n````\n", gfm()), gfm_html()), "<pre><code class=\"language-;\"></code></pre>\n")
+
+@test("example 145 with the GitHub extensions")
+gfm_commonmark_145()
+    assert_eq(to_html_with(parse_with("``` aa ```\nfoo\n", gfm()), gfm_html()), "<p><code>aa</code>\nfoo</p>\n")
+
+@test("example 146 with the GitHub extensions")
+gfm_commonmark_146()
+    assert_eq(to_html_with(parse_with("~~~ aa ``` ~~~\nfoo\n~~~\n", gfm()), gfm_html()), "<pre><code class=\"language-aa\">foo\n</code></pre>\n")
+
+@test("example 147 with the GitHub extensions")
+gfm_commonmark_147()
+    assert_eq(to_html_with(parse_with("```\n``` aaa\n```\n", gfm()), gfm_html()), "<pre><code>``` aaa\n</code></pre>\n")
+
+@test("example 148 with the GitHub extensions")
+gfm_commonmark_148()
+    assert_eq(to_html_with(parse_with("<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n", gfm()), gfm_html()), "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n")
+
+@test("example 149 with the GitHub extensions")
+gfm_commonmark_149()
+    assert_eq(to_html_with(parse_with("<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n\nokay.\n", gfm()), gfm_html()), "<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n<p>okay.</p>\n")
+
+@test("example 150 with the GitHub extensions")
+gfm_commonmark_150()
+    assert_eq(to_html_with(parse_with(" <div>\n  *hello*\n         <foo><a>\n", gfm()), gfm_html()), " <div>\n  *hello*\n         <foo><a>\n")
+
+@test("example 151 with the GitHub extensions")
+gfm_commonmark_151()
+    assert_eq(to_html_with(parse_with("</div>\n*foo*\n", gfm()), gfm_html()), "</div>\n*foo*\n")
+
+@test("example 152 with the GitHub extensions")
+gfm_commonmark_152()
+    assert_eq(to_html_with(parse_with("<DIV CLASS=\"foo\">\n\n*Markdown*\n\n</DIV>\n", gfm()), gfm_html()), "<DIV CLASS=\"foo\">\n<p><em>Markdown</em></p>\n</DIV>\n")
+
+@test("example 153 with the GitHub extensions")
+gfm_commonmark_153()
+    assert_eq(to_html_with(parse_with("<div id=\"foo\"\n  class=\"bar\">\n</div>\n", gfm()), gfm_html()), "<div id=\"foo\"\n  class=\"bar\">\n</div>\n")
+
+@test("example 154 with the GitHub extensions")
+gfm_commonmark_154()
+    assert_eq(to_html_with(parse_with("<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n", gfm()), gfm_html()), "<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n")
+
+@test("example 155 with the GitHub extensions")
+gfm_commonmark_155()
+    assert_eq(to_html_with(parse_with("<div>\n*foo*\n\n*bar*\n", gfm()), gfm_html()), "<div>\n*foo*\n<p><em>bar</em></p>\n")
+
+@test("example 156 with the GitHub extensions")
+gfm_commonmark_156()
+    assert_eq(to_html_with(parse_with("<div id=\"foo\"\n*hi*\n", gfm()), gfm_html()), "<div id=\"foo\"\n*hi*\n")
+
+@test("example 157 with the GitHub extensions")
+gfm_commonmark_157()
+    assert_eq(to_html_with(parse_with("<div class\nfoo\n", gfm()), gfm_html()), "<div class\nfoo\n")
+
+@test("example 158 with the GitHub extensions")
+gfm_commonmark_158()
+    assert_eq(to_html_with(parse_with("<div *???-&&&-<---\n*foo*\n", gfm()), gfm_html()), "<div *???-&&&-<---\n*foo*\n")
+
+@test("example 159 with the GitHub extensions")
+gfm_commonmark_159()
+    assert_eq(to_html_with(parse_with("<div><a href=\"bar\">*foo*</a></div>\n", gfm()), gfm_html()), "<div><a href=\"bar\">*foo*</a></div>\n")
+
+@test("example 160 with the GitHub extensions")
+gfm_commonmark_160()
+    assert_eq(to_html_with(parse_with("<table><tr><td>\nfoo\n</td></tr></table>\n", gfm()), gfm_html()), "<table><tr><td>\nfoo\n</td></tr></table>\n")
+
+@test("example 161 with the GitHub extensions")
+gfm_commonmark_161()
+    assert_eq(to_html_with(parse_with("<div></div>\n``` c\nint x = 33;\n```\n", gfm()), gfm_html()), "<div></div>\n``` c\nint x = 33;\n```\n")
+
+@test("example 162 with the GitHub extensions")
+gfm_commonmark_162()
+    assert_eq(to_html_with(parse_with("<a href=\"foo\">\n*bar*\n</a>\n", gfm()), gfm_html()), "<a href=\"foo\">\n*bar*\n</a>\n")
+
+@test("example 163 with the GitHub extensions")
+gfm_commonmark_163()
+    assert_eq(to_html_with(parse_with("<Warning>\n*bar*\n</Warning>\n", gfm()), gfm_html()), "<Warning>\n*bar*\n</Warning>\n")
+
+@test("example 164 with the GitHub extensions")
+gfm_commonmark_164()
+    assert_eq(to_html_with(parse_with("<i class=\"foo\">\n*bar*\n</i>\n", gfm()), gfm_html()), "<i class=\"foo\">\n*bar*\n</i>\n")
+
+@test("example 165 with the GitHub extensions")
+gfm_commonmark_165()
+    assert_eq(to_html_with(parse_with("</ins>\n*bar*\n", gfm()), gfm_html()), "</ins>\n*bar*\n")
+
+@test("example 166 with the GitHub extensions")
+gfm_commonmark_166()
+    assert_eq(to_html_with(parse_with("<del>\n*foo*\n</del>\n", gfm()), gfm_html()), "<del>\n*foo*\n</del>\n")
+
+@test("example 167 with the GitHub extensions")
+gfm_commonmark_167()
+    assert_eq(to_html_with(parse_with("<del>\n\n*foo*\n\n</del>\n", gfm()), gfm_html()), "<del>\n<p><em>foo</em></p>\n</del>\n")
+
+@test("example 168 with the GitHub extensions")
+gfm_commonmark_168()
+    assert_eq(to_html_with(parse_with("<del>*foo*</del>\n", gfm()), gfm_html()), "<p><del><em>foo</em></del></p>\n")
+
+@test("example 169 with the GitHub extensions")
+gfm_commonmark_169()
+    assert_eq(to_html_with(parse_with("<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\nokay\n", gfm()), gfm_html()), "<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\n<p>okay</p>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 170 with the GitHub extensions")
+gfm_commonmark_170()
+    assert_eq(to_html_with(parse_with("<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\nokay\n", gfm()), gfm_html()), "&lt;script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n&lt;/script>\n<p>okay</p>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 171 with the GitHub extensions")
+gfm_commonmark_171()
+    assert_eq(to_html_with(parse_with("<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n", gfm()), gfm_html()), "&lt;textarea>\n\n*foo*\n\n_bar_\n\n&lt;/textarea>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 172 with the GitHub extensions")
+gfm_commonmark_172()
+    assert_eq(to_html_with(parse_with("<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\nokay\n", gfm()), gfm_html()), "&lt;style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n&lt;/style>\n<p>okay</p>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 173 with the GitHub extensions")
+gfm_commonmark_173()
+    assert_eq(to_html_with(parse_with("<style\n  type=\"text/css\">\n\nfoo\n", gfm()), gfm_html()), "&lt;style\n  type=\"text/css\">\n\nfoo\n")
+
+@test("example 174 with the GitHub extensions")
+gfm_commonmark_174()
+    assert_eq(to_html_with(parse_with("> <div>\n> foo\n\nbar\n", gfm()), gfm_html()), "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n")
+
+@test("example 175 with the GitHub extensions")
+gfm_commonmark_175()
+    assert_eq(to_html_with(parse_with("- <div>\n- foo\n", gfm()), gfm_html()), "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 176 with the GitHub extensions")
+gfm_commonmark_176()
+    assert_eq(to_html_with(parse_with("<style>p{color:red;}</style>\n*foo*\n", gfm()), gfm_html()), "&lt;style>p{color:red;}&lt;/style>\n<p><em>foo</em></p>\n")
+
+@test("example 177 with the GitHub extensions")
+gfm_commonmark_177()
+    assert_eq(to_html_with(parse_with("<!-- foo -->*bar*\n*baz*\n", gfm()), gfm_html()), "<!-- foo -->*bar*\n<p><em>baz</em></p>\n")
+
+// the tag filter writes the '<' of a filtered tag as '&lt;'
+@test("example 178 with the GitHub extensions")
+gfm_commonmark_178()
+    assert_eq(to_html_with(parse_with("<script>\nfoo\n</script>1. *bar*\n", gfm()), gfm_html()), "&lt;script>\nfoo\n&lt;/script>1. *bar*\n")
+
+@test("example 179 with the GitHub extensions")
+gfm_commonmark_179()
+    assert_eq(to_html_with(parse_with("<!-- Foo\n\nbar\n   baz -->\nokay\n", gfm()), gfm_html()), "<!-- Foo\n\nbar\n   baz -->\n<p>okay</p>\n")
+
+@test("example 180 with the GitHub extensions")
+gfm_commonmark_180()
+    assert_eq(to_html_with(parse_with("<?php\n\n  echo '>';\n\n?>\nokay\n", gfm()), gfm_html()), "<?php\n\n  echo '>';\n\n?>\n<p>okay</p>\n")
+
+@test("example 181 with the GitHub extensions")
+gfm_commonmark_181()
+    assert_eq(to_html_with(parse_with("<!DOCTYPE html>\n", gfm()), gfm_html()), "<!DOCTYPE html>\n")
+
+@test("example 182 with the GitHub extensions")
+gfm_commonmark_182()
+    assert_eq(to_html_with(parse_with("<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\nokay\n", gfm()), gfm_html()), "<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\n<p>okay</p>\n")
+
+@test("example 183 with the GitHub extensions")
+gfm_commonmark_183()
+    assert_eq(to_html_with(parse_with("  <!-- foo -->\n\n    <!-- foo -->\n", gfm()), gfm_html()), "  <!-- foo -->\n<pre><code>&lt;!-- foo --&gt;\n</code></pre>\n")
+
+@test("example 184 with the GitHub extensions")
+gfm_commonmark_184()
+    assert_eq(to_html_with(parse_with("  <div>\n\n    <div>\n", gfm()), gfm_html()), "  <div>\n<pre><code>&lt;div&gt;\n</code></pre>\n")
+
+@test("example 185 with the GitHub extensions")
+gfm_commonmark_185()
+    assert_eq(to_html_with(parse_with("Foo\n<div>\nbar\n</div>\n", gfm()), gfm_html()), "<p>Foo</p>\n<div>\nbar\n</div>\n")
+
+@test("example 186 with the GitHub extensions")
+gfm_commonmark_186()
+    assert_eq(to_html_with(parse_with("<div>\nbar\n</div>\n*foo*\n", gfm()), gfm_html()), "<div>\nbar\n</div>\n*foo*\n")
+
+@test("example 187 with the GitHub extensions")
+gfm_commonmark_187()
+    assert_eq(to_html_with(parse_with("Foo\n<a href=\"bar\">\nbaz\n", gfm()), gfm_html()), "<p>Foo\n<a href=\"bar\">\nbaz</p>\n")
+
+@test("example 188 with the GitHub extensions")
+gfm_commonmark_188()
+    assert_eq(to_html_with(parse_with("<div>\n\n*Emphasized* text.\n\n</div>\n", gfm()), gfm_html()), "<div>\n<p><em>Emphasized</em> text.</p>\n</div>\n")
+
+@test("example 189 with the GitHub extensions")
+gfm_commonmark_189()
+    assert_eq(to_html_with(parse_with("<div>\n*Emphasized* text.\n</div>\n", gfm()), gfm_html()), "<div>\n*Emphasized* text.\n</div>\n")
+
+@test("example 190 with the GitHub extensions")
+gfm_commonmark_190()
+    assert_eq(to_html_with(parse_with("<table>\n\n<tr>\n\n<td>\nHi\n</td>\n\n</tr>\n\n</table>\n", gfm()), gfm_html()), "<table>\n<tr>\n<td>\nHi\n</td>\n</tr>\n</table>\n")
+
+@test("example 191 with the GitHub extensions")
+gfm_commonmark_191()
+    assert_eq(to_html_with(parse_with("<table>\n\n  <tr>\n\n    <td>\n      Hi\n    </td>\n\n  </tr>\n\n</table>\n", gfm()), gfm_html()), "<table>\n  <tr>\n<pre><code>&lt;td&gt;\n  Hi\n&lt;/td&gt;\n</code></pre>\n  </tr>\n</table>\n")
+
+@test("example 192 with the GitHub extensions")
+gfm_commonmark_192()
+    assert_eq(to_html_with(parse_with("[foo]: /url \"title\"\n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 193 with the GitHub extensions")
+gfm_commonmark_193()
+    assert_eq(to_html_with(parse_with("   [foo]: \n      /url  \n           'the title'  \n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"the title\">foo</a></p>\n")
+
+@test("example 194 with the GitHub extensions")
+gfm_commonmark_194()
+    assert_eq(to_html_with(parse_with("[Foo*bar\\]]:my_(url) 'title (with parens)'\n\n[Foo*bar\\]]\n", gfm()), gfm_html()), "<p><a href=\"my_(url)\" title=\"title (with parens)\">Foo*bar]</a></p>\n")
+
+@test("example 195 with the GitHub extensions")
+gfm_commonmark_195()
+    assert_eq(to_html_with(parse_with("[Foo bar]:\n<my url>\n'title'\n\n[Foo bar]\n", gfm()), gfm_html()), "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n")
+
+@test("example 196 with the GitHub extensions")
+gfm_commonmark_196()
+    assert_eq(to_html_with(parse_with("[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"\ntitle\nline1\nline2\n\">foo</a></p>\n")
+
+@test("example 197 with the GitHub extensions")
+gfm_commonmark_197()
+    assert_eq(to_html_with(parse_with("[foo]: /url 'title\n\nwith blank line'\n\n[foo]\n", gfm()), gfm_html()), "<p>[foo]: /url 'title</p>\n<p>with blank line'</p>\n<p>[foo]</p>\n")
+
+@test("example 198 with the GitHub extensions")
+gfm_commonmark_198()
+    assert_eq(to_html_with(parse_with("[foo]:\n/url\n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"/url\">foo</a></p>\n")
+
+@test("example 199 with the GitHub extensions")
+gfm_commonmark_199()
+    assert_eq(to_html_with(parse_with("[foo]:\n\n[foo]\n", gfm()), gfm_html()), "<p>[foo]:</p>\n<p>[foo]</p>\n")
+
+@test("example 200 with the GitHub extensions")
+gfm_commonmark_200()
+    assert_eq(to_html_with(parse_with("[foo]: <>\n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"\">foo</a></p>\n")
+
+@test("example 201 with the GitHub extensions")
+gfm_commonmark_201()
+    assert_eq(to_html_with(parse_with("[foo]: <bar>(baz)\n\n[foo]\n", gfm()), gfm_html()), "<p>[foo]: <bar>(baz)</p>\n<p>[foo]</p>\n")
+
+@test("example 202 with the GitHub extensions")
+gfm_commonmark_202()
+    assert_eq(to_html_with(parse_with("[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n", gfm()), gfm_html()), "<p><a href=\"/url%5Cbar*baz\" title=\"foo&quot;bar\\baz\">foo</a></p>\n")
+
+@test("example 203 with the GitHub extensions")
+gfm_commonmark_203()
+    assert_eq(to_html_with(parse_with("[foo]\n\n[foo]: url\n", gfm()), gfm_html()), "<p><a href=\"url\">foo</a></p>\n")
+
+@test("example 204 with the GitHub extensions")
+gfm_commonmark_204()
+    assert_eq(to_html_with(parse_with("[foo]\n\n[foo]: first\n[foo]: second\n", gfm()), gfm_html()), "<p><a href=\"first\">foo</a></p>\n")
+
+@test("example 205 with the GitHub extensions")
+gfm_commonmark_205()
+    assert_eq(to_html_with(parse_with("[FOO]: /url\n\n[Foo]\n", gfm()), gfm_html()), "<p><a href=\"/url\">Foo</a></p>\n")
+
+@test("example 206 with the GitHub extensions")
+gfm_commonmark_206()
+    assert_eq(to_html_with(parse_with("[\u{391}\u{393}\u{3a9}]: /\u{3c6}\u{3bf}\u{3c5}\n\n[\u{3b1}\u{3b3}\u{3c9}]\n", gfm()), gfm_html()), "<p><a href=\"/%CF%86%CE%BF%CF%85\">\u{3b1}\u{3b3}\u{3c9}</a></p>\n")
+
+@test("example 207 with the GitHub extensions")
+gfm_commonmark_207()
+    assert_eq(to_html_with(parse_with("[foo]: /url\n", gfm()), gfm_html()), "")
+
+@test("example 208 with the GitHub extensions")
+gfm_commonmark_208()
+    assert_eq(to_html_with(parse_with("[\nfoo\n]: /url\nbar\n", gfm()), gfm_html()), "<p>bar</p>\n")
+
+@test("example 209 with the GitHub extensions")
+gfm_commonmark_209()
+    assert_eq(to_html_with(parse_with("[foo]: /url \"title\" ok\n", gfm()), gfm_html()), "<p>[foo]: /url &quot;title&quot; ok</p>\n")
+
+@test("example 210 with the GitHub extensions")
+gfm_commonmark_210()
+    assert_eq(to_html_with(parse_with("[foo]: /url\n\"title\" ok\n", gfm()), gfm_html()), "<p>&quot;title&quot; ok</p>\n")
+
+@test("example 211 with the GitHub extensions")
+gfm_commonmark_211()
+    assert_eq(to_html_with(parse_with("    [foo]: /url \"title\"\n\n[foo]\n", gfm()), gfm_html()), "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n<p>[foo]</p>\n")
+
+@test("example 212 with the GitHub extensions")
+gfm_commonmark_212()
+    assert_eq(to_html_with(parse_with("```\n[foo]: /url\n```\n\n[foo]\n", gfm()), gfm_html()), "<pre><code>[foo]: /url\n</code></pre>\n<p>[foo]</p>\n")
+
+@test("example 213 with the GitHub extensions")
+gfm_commonmark_213()
+    assert_eq(to_html_with(parse_with("Foo\n[bar]: /baz\n\n[bar]\n", gfm()), gfm_html()), "<p>Foo\n[bar]: /baz</p>\n<p>[bar]</p>\n")
+
+@test("example 214 with the GitHub extensions")
+gfm_commonmark_214()
+    assert_eq(to_html_with(parse_with("# [Foo]\n[foo]: /url\n> bar\n", gfm()), gfm_html()), "<h1><a href=\"/url\">Foo</a></h1>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
+
+@test("example 215 with the GitHub extensions")
+gfm_commonmark_215()
+    assert_eq(to_html_with(parse_with("[foo]: /url\nbar\n===\n[foo]\n", gfm()), gfm_html()), "<h1>bar</h1>\n<p><a href=\"/url\">foo</a></p>\n")
+
+@test("example 216 with the GitHub extensions")
+gfm_commonmark_216()
+    assert_eq(to_html_with(parse_with("[foo]: /url\n===\n[foo]\n", gfm()), gfm_html()), "<p>===\n<a href=\"/url\">foo</a></p>\n")
+
+@test("example 217 with the GitHub extensions")
+gfm_commonmark_217()
+    assert_eq(to_html_with(parse_with("[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]\n", gfm()), gfm_html()), "<p><a href=\"/foo-url\" title=\"foo\">foo</a>,\n<a href=\"/bar-url\" title=\"bar\">bar</a>,\n<a href=\"/baz-url\">baz</a></p>\n")
+
+@test("example 218 with the GitHub extensions")
+gfm_commonmark_218()
+    assert_eq(to_html_with(parse_with("[foo]\n\n> [foo]: /url\n", gfm()), gfm_html()), "<p><a href=\"/url\">foo</a></p>\n<blockquote>\n</blockquote>\n")
+
+@test("example 219 with the GitHub extensions")
+gfm_commonmark_219()
+    assert_eq(to_html_with(parse_with("aaa\n\nbbb\n", gfm()), gfm_html()), "<p>aaa</p>\n<p>bbb</p>\n")
+
+@test("example 220 with the GitHub extensions")
+gfm_commonmark_220()
+    assert_eq(to_html_with(parse_with("aaa\nbbb\n\nccc\nddd\n", gfm()), gfm_html()), "<p>aaa\nbbb</p>\n<p>ccc\nddd</p>\n")
+
+@test("example 221 with the GitHub extensions")
+gfm_commonmark_221()
+    assert_eq(to_html_with(parse_with("aaa\n\n\nbbb\n", gfm()), gfm_html()), "<p>aaa</p>\n<p>bbb</p>\n")
+
+@test("example 222 with the GitHub extensions")
+gfm_commonmark_222()
+    assert_eq(to_html_with(parse_with("  aaa\n bbb\n", gfm()), gfm_html()), "<p>aaa\nbbb</p>\n")
+
+@test("example 223 with the GitHub extensions")
+gfm_commonmark_223()
+    assert_eq(to_html_with(parse_with("aaa\n             bbb\n                                       ccc\n", gfm()), gfm_html()), "<p>aaa\nbbb\nccc</p>\n")
+
+@test("example 224 with the GitHub extensions")
+gfm_commonmark_224()
+    assert_eq(to_html_with(parse_with("   aaa\nbbb\n", gfm()), gfm_html()), "<p>aaa\nbbb</p>\n")
+
+@test("example 225 with the GitHub extensions")
+gfm_commonmark_225()
+    assert_eq(to_html_with(parse_with("    aaa\nbbb\n", gfm()), gfm_html()), "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n")
+
+@test("example 226 with the GitHub extensions")
+gfm_commonmark_226()
+    assert_eq(to_html_with(parse_with("aaa     \nbbb     \n", gfm()), gfm_html()), "<p>aaa<br />\nbbb</p>\n")
+
+@test("example 227 with the GitHub extensions")
+gfm_commonmark_227()
+    assert_eq(to_html_with(parse_with("  \n\naaa\n  \n\n# aaa\n\n  \n", gfm()), gfm_html()), "<p>aaa</p>\n<h1>aaa</h1>\n")
+
+@test("example 228 with the GitHub extensions")
+gfm_commonmark_228()
+    assert_eq(to_html_with(parse_with("> # Foo\n> bar\n> baz\n", gfm()), gfm_html()), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
+
+@test("example 229 with the GitHub extensions")
+gfm_commonmark_229()
+    assert_eq(to_html_with(parse_with("># Foo\n>bar\n> baz\n", gfm()), gfm_html()), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
+
+@test("example 230 with the GitHub extensions")
+gfm_commonmark_230()
+    assert_eq(to_html_with(parse_with("   > # Foo\n   > bar\n > baz\n", gfm()), gfm_html()), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
+
+@test("example 231 with the GitHub extensions")
+gfm_commonmark_231()
+    assert_eq(to_html_with(parse_with("    > # Foo\n    > bar\n    > baz\n", gfm()), gfm_html()), "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n")
+
+@test("example 232 with the GitHub extensions")
+gfm_commonmark_232()
+    assert_eq(to_html_with(parse_with("> # Foo\n> bar\nbaz\n", gfm()), gfm_html()), "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n")
+
+@test("example 233 with the GitHub extensions")
+gfm_commonmark_233()
+    assert_eq(to_html_with(parse_with("> bar\nbaz\n> foo\n", gfm()), gfm_html()), "<blockquote>\n<p>bar\nbaz\nfoo</p>\n</blockquote>\n")
+
+@test("example 234 with the GitHub extensions")
+gfm_commonmark_234()
+    assert_eq(to_html_with(parse_with("> foo\n---\n", gfm()), gfm_html()), "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n")
+
+@test("example 235 with the GitHub extensions")
+gfm_commonmark_235()
+    assert_eq(to_html_with(parse_with("> - foo\n- bar\n", gfm()), gfm_html()), "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n")
+
+@test("example 236 with the GitHub extensions")
+gfm_commonmark_236()
+    assert_eq(to_html_with(parse_with(">     foo\n    bar\n", gfm()), gfm_html()), "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n<pre><code>bar\n</code></pre>\n")
+
+@test("example 237 with the GitHub extensions")
+gfm_commonmark_237()
+    assert_eq(to_html_with(parse_with("> ```\nfoo\n```\n", gfm()), gfm_html()), "<blockquote>\n<pre><code></code></pre>\n</blockquote>\n<p>foo</p>\n<pre><code></code></pre>\n")
+
+@test("example 238 with the GitHub extensions")
+gfm_commonmark_238()
+    assert_eq(to_html_with(parse_with("> foo\n    - bar\n", gfm()), gfm_html()), "<blockquote>\n<p>foo\n- bar</p>\n</blockquote>\n")
+
+@test("example 239 with the GitHub extensions")
+gfm_commonmark_239()
+    assert_eq(to_html_with(parse_with(">\n", gfm()), gfm_html()), "<blockquote>\n</blockquote>\n")
+
+@test("example 240 with the GitHub extensions")
+gfm_commonmark_240()
+    assert_eq(to_html_with(parse_with(">\n>  \n> \n", gfm()), gfm_html()), "<blockquote>\n</blockquote>\n")
+
+@test("example 241 with the GitHub extensions")
+gfm_commonmark_241()
+    assert_eq(to_html_with(parse_with(">\n> foo\n>  \n", gfm()), gfm_html()), "<blockquote>\n<p>foo</p>\n</blockquote>\n")
+
+@test("example 242 with the GitHub extensions")
+gfm_commonmark_242()
+    assert_eq(to_html_with(parse_with("> foo\n\n> bar\n", gfm()), gfm_html()), "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
+
+@test("example 243 with the GitHub extensions")
+gfm_commonmark_243()
+    assert_eq(to_html_with(parse_with("> foo\n> bar\n", gfm()), gfm_html()), "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n")
+
+@test("example 244 with the GitHub extensions")
+gfm_commonmark_244()
+    assert_eq(to_html_with(parse_with("> foo\n>\n> bar\n", gfm()), gfm_html()), "<blockquote>\n<p>foo</p>\n<p>bar</p>\n</blockquote>\n")
+
+@test("example 245 with the GitHub extensions")
+gfm_commonmark_245()
+    assert_eq(to_html_with(parse_with("foo\n> bar\n", gfm()), gfm_html()), "<p>foo</p>\n<blockquote>\n<p>bar</p>\n</blockquote>\n")
+
+@test("example 246 with the GitHub extensions")
+gfm_commonmark_246()
+    assert_eq(to_html_with(parse_with("> aaa\n***\n> bbb\n", gfm()), gfm_html()), "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr />\n<blockquote>\n<p>bbb</p>\n</blockquote>\n")
+
+@test("example 247 with the GitHub extensions")
+gfm_commonmark_247()
+    assert_eq(to_html_with(parse_with("> bar\nbaz\n", gfm()), gfm_html()), "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n")
+
+@test("example 248 with the GitHub extensions")
+gfm_commonmark_248()
+    assert_eq(to_html_with(parse_with("> bar\n\nbaz\n", gfm()), gfm_html()), "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n")
+
+@test("example 249 with the GitHub extensions")
+gfm_commonmark_249()
+    assert_eq(to_html_with(parse_with("> bar\n>\nbaz\n", gfm()), gfm_html()), "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n")
+
+@test("example 250 with the GitHub extensions")
+gfm_commonmark_250()
+    assert_eq(to_html_with(parse_with("> > > foo\nbar\n", gfm()), gfm_html()), "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n</blockquote>\n</blockquote>\n")
+
+@test("example 251 with the GitHub extensions")
+gfm_commonmark_251()
+    assert_eq(to_html_with(parse_with(">>> foo\n> bar\n>>baz\n", gfm()), gfm_html()), "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n")
+
+@test("example 252 with the GitHub extensions")
+gfm_commonmark_252()
+    assert_eq(to_html_with(parse_with(">     code\n\n>    not code\n", gfm()), gfm_html()), "<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n<blockquote>\n<p>not code</p>\n</blockquote>\n")
+
+@test("example 253 with the GitHub extensions")
+gfm_commonmark_253()
+    assert_eq(to_html_with(parse_with("A paragraph\nwith two lines.\n\n    indented code\n\n> A block quote.\n", gfm()), gfm_html()), "<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n")
+
+@test("example 254 with the GitHub extensions")
+gfm_commonmark_254()
+    assert_eq(to_html_with(parse_with("1.  A paragraph\n    with two lines.\n\n        indented code\n\n    > A block quote.\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 255 with the GitHub extensions")
+gfm_commonmark_255()
+    assert_eq(to_html_with(parse_with("- one\n\n two\n", gfm()), gfm_html()), "<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n")
+
+@test("example 256 with the GitHub extensions")
+gfm_commonmark_256()
+    assert_eq(to_html_with(parse_with("- one\n\n  two\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n")
+
+@test("example 257 with the GitHub extensions")
+gfm_commonmark_257()
+    assert_eq(to_html_with(parse_with(" -    one\n\n     two\n", gfm()), gfm_html()), "<ul>\n<li>one</li>\n</ul>\n<pre><code> two\n</code></pre>\n")
+
+@test("example 258 with the GitHub extensions")
+gfm_commonmark_258()
+    assert_eq(to_html_with(parse_with(" -    one\n\n      two\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n")
+
+@test("example 259 with the GitHub extensions")
+gfm_commonmark_259()
+    assert_eq(to_html_with(parse_with("   > > 1.  one\n>>\n>>     two\n", gfm()), gfm_html()), "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n")
+
+@test("example 260 with the GitHub extensions")
+gfm_commonmark_260()
+    assert_eq(to_html_with(parse_with(">>- one\n>>\n  >  > two\n", gfm()), gfm_html()), "<blockquote>\n<blockquote>\n<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n</blockquote>\n</blockquote>\n")
+
+@test("example 261 with the GitHub extensions")
+gfm_commonmark_261()
+    assert_eq(to_html_with(parse_with("-one\n\n2.two\n", gfm()), gfm_html()), "<p>-one</p>\n<p>2.two</p>\n")
+
+@test("example 262 with the GitHub extensions")
+gfm_commonmark_262()
+    assert_eq(to_html_with(parse_with("- foo\n\n\n  bar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
+
+@test("example 263 with the GitHub extensions")
+gfm_commonmark_263()
+    assert_eq(to_html_with(parse_with("1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n<blockquote>\n<p>bam</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 264 with the GitHub extensions")
+gfm_commonmark_264()
+    assert_eq(to_html_with(parse_with("- Foo\n\n      bar\n\n\n      baz\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>Foo</p>\n<pre><code>bar\n\n\nbaz\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 265 with the GitHub extensions")
+gfm_commonmark_265()
+    assert_eq(to_html_with(parse_with("123456789. ok\n", gfm()), gfm_html()), "<ol start=\"123456789\">\n<li>ok</li>\n</ol>\n")
+
+@test("example 266 with the GitHub extensions")
+gfm_commonmark_266()
+    assert_eq(to_html_with(parse_with("1234567890. not ok\n", gfm()), gfm_html()), "<p>1234567890. not ok</p>\n")
+
+@test("example 267 with the GitHub extensions")
+gfm_commonmark_267()
+    assert_eq(to_html_with(parse_with("0. ok\n", gfm()), gfm_html()), "<ol start=\"0\">\n<li>ok</li>\n</ol>\n")
+
+@test("example 268 with the GitHub extensions")
+gfm_commonmark_268()
+    assert_eq(to_html_with(parse_with("003. ok\n", gfm()), gfm_html()), "<ol start=\"3\">\n<li>ok</li>\n</ol>\n")
+
+@test("example 269 with the GitHub extensions")
+gfm_commonmark_269()
+    assert_eq(to_html_with(parse_with("-1. not ok\n", gfm()), gfm_html()), "<p>-1. not ok</p>\n")
+
+@test("example 270 with the GitHub extensions")
+gfm_commonmark_270()
+    assert_eq(to_html_with(parse_with("- foo\n\n      bar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 271 with the GitHub extensions")
+gfm_commonmark_271()
+    assert_eq(to_html_with(parse_with("  10.  foo\n\n           bar\n", gfm()), gfm_html()), "<ol start=\"10\">\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ol>\n")
+
+@test("example 272 with the GitHub extensions")
+gfm_commonmark_272()
+    assert_eq(to_html_with(parse_with("    indented code\n\nparagraph\n\n    more code\n", gfm()), gfm_html()), "<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n")
+
+@test("example 273 with the GitHub extensions")
+gfm_commonmark_273()
+    assert_eq(to_html_with(parse_with("1.     indented code\n\n   paragraph\n\n       more code\n", gfm()), gfm_html()), "<ol>\n<li>\n<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n")
+
+@test("example 274 with the GitHub extensions")
+gfm_commonmark_274()
+    assert_eq(to_html_with(parse_with("1.      indented code\n\n   paragraph\n\n       more code\n", gfm()), gfm_html()), "<ol>\n<li>\n<pre><code> indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n")
+
+@test("example 275 with the GitHub extensions")
+gfm_commonmark_275()
+    assert_eq(to_html_with(parse_with("   foo\n\nbar\n", gfm()), gfm_html()), "<p>foo</p>\n<p>bar</p>\n")
+
+@test("example 276 with the GitHub extensions")
+gfm_commonmark_276()
+    assert_eq(to_html_with(parse_with("-    foo\n\n  bar\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n</ul>\n<p>bar</p>\n")
+
+@test("example 277 with the GitHub extensions")
+gfm_commonmark_277()
+    assert_eq(to_html_with(parse_with("-  foo\n\n   bar\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n")
+
+@test("example 278 with the GitHub extensions")
+gfm_commonmark_278()
+    assert_eq(to_html_with(parse_with("-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li>\n<pre><code>bar\n</code></pre>\n</li>\n<li>\n<pre><code>baz\n</code></pre>\n</li>\n</ul>\n")
+
+@test("example 279 with the GitHub extensions")
+gfm_commonmark_279()
+    assert_eq(to_html_with(parse_with("-   \n  foo\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n</ul>\n")
+
+@test("example 280 with the GitHub extensions")
+gfm_commonmark_280()
+    assert_eq(to_html_with(parse_with("-\n\n  foo\n", gfm()), gfm_html()), "<ul>\n<li></li>\n</ul>\n<p>foo</p>\n")
+
+@test("example 281 with the GitHub extensions")
+gfm_commonmark_281()
+    assert_eq(to_html_with(parse_with("- foo\n-\n- bar\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ul>\n")
+
+@test("example 282 with the GitHub extensions")
+gfm_commonmark_282()
+    assert_eq(to_html_with(parse_with("- foo\n-   \n- bar\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ul>\n")
+
+@test("example 283 with the GitHub extensions")
+gfm_commonmark_283()
+    assert_eq(to_html_with(parse_with("1. foo\n2.\n3. bar\n", gfm()), gfm_html()), "<ol>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ol>\n")
+
+@test("example 284 with the GitHub extensions")
+gfm_commonmark_284()
+    assert_eq(to_html_with(parse_with("*\n", gfm()), gfm_html()), "<ul>\n<li></li>\n</ul>\n")
+
+@test("example 285 with the GitHub extensions")
+gfm_commonmark_285()
+    assert_eq(to_html_with(parse_with("foo\n*\n\nfoo\n1.\n", gfm()), gfm_html()), "<p>foo\n*</p>\n<p>foo\n1.</p>\n")
+
+@test("example 286 with the GitHub extensions")
+gfm_commonmark_286()
+    assert_eq(to_html_with(parse_with(" 1.  A paragraph\n     with two lines.\n\n         indented code\n\n     > A block quote.\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 287 with the GitHub extensions")
+gfm_commonmark_287()
+    assert_eq(to_html_with(parse_with("  1.  A paragraph\n      with two lines.\n\n          indented code\n\n      > A block quote.\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 288 with the GitHub extensions")
+gfm_commonmark_288()
+    assert_eq(to_html_with(parse_with("   1.  A paragraph\n       with two lines.\n\n           indented code\n\n       > A block quote.\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 289 with the GitHub extensions")
+gfm_commonmark_289()
+    assert_eq(to_html_with(parse_with("    1.  A paragraph\n        with two lines.\n\n            indented code\n\n        > A block quote.\n", gfm()), gfm_html()), "<pre><code>1.  A paragraph\n    with two lines.\n\n        indented code\n\n    &gt; A block quote.\n</code></pre>\n")
+
+@test("example 290 with the GitHub extensions")
+gfm_commonmark_290()
+    assert_eq(to_html_with(parse_with("  1.  A paragraph\nwith two lines.\n\n          indented code\n\n      > A block quote.\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n")
+
+@test("example 291 with the GitHub extensions")
+gfm_commonmark_291()
+    assert_eq(to_html_with(parse_with("  1.  A paragraph\n    with two lines.\n", gfm()), gfm_html()), "<ol>\n<li>A paragraph\nwith two lines.</li>\n</ol>\n")
+
+@test("example 292 with the GitHub extensions")
+gfm_commonmark_292()
+    assert_eq(to_html_with(parse_with("> 1. > Blockquote\ncontinued here.\n", gfm()), gfm_html()), "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n")
+
+@test("example 293 with the GitHub extensions")
+gfm_commonmark_293()
+    assert_eq(to_html_with(parse_with("> 1. > Blockquote\n> continued here.\n", gfm()), gfm_html()), "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n")
+
+@test("example 294 with the GitHub extensions")
+gfm_commonmark_294()
+    assert_eq(to_html_with(parse_with("- foo\n  - bar\n    - baz\n      - boo\n", gfm()), gfm_html()), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz\n<ul>\n<li>boo</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 295 with the GitHub extensions")
+gfm_commonmark_295()
+    assert_eq(to_html_with(parse_with("- foo\n - bar\n  - baz\n   - boo\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li>bar</li>\n<li>baz</li>\n<li>boo</li>\n</ul>\n")
+
+@test("example 296 with the GitHub extensions")
+gfm_commonmark_296()
+    assert_eq(to_html_with(parse_with("10) foo\n    - bar\n", gfm()), gfm_html()), "<ol start=\"10\">\n<li>foo\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n")
+
+@test("example 297 with the GitHub extensions")
+gfm_commonmark_297()
+    assert_eq(to_html_with(parse_with("10) foo\n   - bar\n", gfm()), gfm_html()), "<ol start=\"10\">\n<li>foo</li>\n</ol>\n<ul>\n<li>bar</li>\n</ul>\n")
+
+@test("example 298 with the GitHub extensions")
+gfm_commonmark_298()
+    assert_eq(to_html_with(parse_with("- - foo\n", gfm()), gfm_html()), "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 299 with the GitHub extensions")
+gfm_commonmark_299()
+    assert_eq(to_html_with(parse_with("1. - 2. foo\n", gfm()), gfm_html()), "<ol>\n<li>\n<ul>\n<li>\n<ol start=\"2\">\n<li>foo</li>\n</ol>\n</li>\n</ul>\n</li>\n</ol>\n")
+
+@test("example 300 with the GitHub extensions")
+gfm_commonmark_300()
+    assert_eq(to_html_with(parse_with("- # Foo\n- Bar\n  ---\n  baz\n", gfm()), gfm_html()), "<ul>\n<li>\n<h1>Foo</h1>\n</li>\n<li>\n<h2>Bar</h2>\nbaz</li>\n</ul>\n")
+
+@test("example 301 with the GitHub extensions")
+gfm_commonmark_301()
+    assert_eq(to_html_with(parse_with("- foo\n- bar\n+ baz\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<ul>\n<li>baz</li>\n</ul>\n")
+
+@test("example 302 with the GitHub extensions")
+gfm_commonmark_302()
+    assert_eq(to_html_with(parse_with("1. foo\n2. bar\n3) baz\n", gfm()), gfm_html()), "<ol>\n<li>foo</li>\n<li>bar</li>\n</ol>\n<ol start=\"3\">\n<li>baz</li>\n</ol>\n")
+
+@test("example 303 with the GitHub extensions")
+gfm_commonmark_303()
+    assert_eq(to_html_with(parse_with("Foo\n- bar\n- baz\n", gfm()), gfm_html()), "<p>Foo</p>\n<ul>\n<li>bar</li>\n<li>baz</li>\n</ul>\n")
+
+@test("example 304 with the GitHub extensions")
+gfm_commonmark_304()
+    assert_eq(to_html_with(parse_with("The number of windows in my house is\n14.  The number of doors is 6.\n", gfm()), gfm_html()), "<p>The number of windows in my house is\n14.  The number of doors is 6.</p>\n")
+
+@test("example 305 with the GitHub extensions")
+gfm_commonmark_305()
+    assert_eq(to_html_with(parse_with("The number of windows in my house is\n1.  The number of doors is 6.\n", gfm()), gfm_html()), "<p>The number of windows in my house is</p>\n<ol>\n<li>The number of doors is 6.</li>\n</ol>\n")
+
+@test("example 306 with the GitHub extensions")
+gfm_commonmark_306()
+    assert_eq(to_html_with(parse_with("- foo\n\n- bar\n\n\n- baz\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n")
+
+@test("example 307 with the GitHub extensions")
+gfm_commonmark_307()
+    assert_eq(to_html_with(parse_with("- foo\n  - bar\n    - baz\n\n\n      bim\n", gfm()), gfm_html()), "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>\n<p>baz</p>\n<p>bim</p>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 308 with the GitHub extensions")
+gfm_commonmark_308()
+    assert_eq(to_html_with(parse_with("- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim\n", gfm()), gfm_html()), "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<!-- -->\n<ul>\n<li>baz</li>\n<li>bim</li>\n</ul>\n")
+
+@test("example 309 with the GitHub extensions")
+gfm_commonmark_309()
+    assert_eq(to_html_with(parse_with("-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<p>notcode</p>\n</li>\n<li>\n<p>foo</p>\n</li>\n</ul>\n<!-- -->\n<pre><code>code\n</code></pre>\n")
+
+@test("example 310 with the GitHub extensions")
+gfm_commonmark_310()
+    assert_eq(to_html_with(parse_with("- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n", gfm()), gfm_html()), "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n<li>e</li>\n<li>f</li>\n<li>g</li>\n</ul>\n")
+
+@test("example 311 with the GitHub extensions")
+gfm_commonmark_311()
+    assert_eq(to_html_with(parse_with("1. a\n\n  2. b\n\n   3. c\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ol>\n")
+
+@test("example 312 with the GitHub extensions")
+gfm_commonmark_312()
+    assert_eq(to_html_with(parse_with("- a\n - b\n  - c\n   - d\n    - e\n", gfm()), gfm_html()), "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d\n- e</li>\n</ul>\n")
+
+@test("example 313 with the GitHub extensions")
+gfm_commonmark_313()
+    assert_eq(to_html_with(parse_with("1. a\n\n  2. b\n\n    3. c\n", gfm()), gfm_html()), "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ol>\n<pre><code>3. c\n</code></pre>\n")
+
+@test("example 314 with the GitHub extensions")
+gfm_commonmark_314()
+    assert_eq(to_html_with(parse_with("- a\n- b\n\n- c\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n")
+
+@test("example 315 with the GitHub extensions")
+gfm_commonmark_315()
+    assert_eq(to_html_with(parse_with("* a\n*\n\n* c\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a</p>\n</li>\n<li></li>\n<li>\n<p>c</p>\n</li>\n</ul>\n")
+
+@test("example 316 with the GitHub extensions")
+gfm_commonmark_316()
+    assert_eq(to_html_with(parse_with("- a\n- b\n\n  c\n- d\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
+
+@test("example 317 with the GitHub extensions")
+gfm_commonmark_317()
+    assert_eq(to_html_with(parse_with("- a\n- b\n\n  [ref]: /url\n- d\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n")
+
+@test("example 318 with the GitHub extensions")
+gfm_commonmark_318()
+    assert_eq(to_html_with(parse_with("- a\n- ```\n  b\n\n\n  ```\n- c\n", gfm()), gfm_html()), "<ul>\n<li>a</li>\n<li>\n<pre><code>b\n\n\n</code></pre>\n</li>\n<li>c</li>\n</ul>\n")
+
+@test("example 319 with the GitHub extensions")
+gfm_commonmark_319()
+    assert_eq(to_html_with(parse_with("- a\n  - b\n\n    c\n- d\n", gfm()), gfm_html()), "<ul>\n<li>a\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>d</li>\n</ul>\n")
+
+@test("example 320 with the GitHub extensions")
+gfm_commonmark_320()
+    assert_eq(to_html_with(parse_with("* a\n  > b\n  >\n* c\n", gfm()), gfm_html()), "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>c</li>\n</ul>\n")
+
+@test("example 321 with the GitHub extensions")
+gfm_commonmark_321()
+    assert_eq(to_html_with(parse_with("- a\n  > b\n  ```\n  c\n  ```\n- d\n", gfm()), gfm_html()), "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n")
+
+@test("example 322 with the GitHub extensions")
+gfm_commonmark_322()
+    assert_eq(to_html_with(parse_with("- a\n", gfm()), gfm_html()), "<ul>\n<li>a</li>\n</ul>\n")
+
+@test("example 323 with the GitHub extensions")
+gfm_commonmark_323()
+    assert_eq(to_html_with(parse_with("- a\n  - b\n", gfm()), gfm_html()), "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 324 with the GitHub extensions")
+gfm_commonmark_324()
+    assert_eq(to_html_with(parse_with("1. ```\n   foo\n   ```\n\n   bar\n", gfm()), gfm_html()), "<ol>\n<li>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</li>\n</ol>\n")
+
+@test("example 325 with the GitHub extensions")
+gfm_commonmark_325()
+    assert_eq(to_html_with(parse_with("* foo\n  * bar\n\n  baz\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n<p>baz</p>\n</li>\n</ul>\n")
+
+@test("example 326 with the GitHub extensions")
+gfm_commonmark_326()
+    assert_eq(to_html_with(parse_with("- a\n  - b\n  - c\n\n- d\n  - e\n  - f\n", gfm()), gfm_html()), "<ul>\n<li>\n<p>a</p>\n<ul>\n<li>b</li>\n<li>c</li>\n</ul>\n</li>\n<li>\n<p>d</p>\n<ul>\n<li>e</li>\n<li>f</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("example 327 with the GitHub extensions")
+gfm_commonmark_327()
+    assert_eq(to_html_with(parse_with("`hi`lo`\n", gfm()), gfm_html()), "<p><code>hi</code>lo`</p>\n")
+
+@test("example 328 with the GitHub extensions")
+gfm_commonmark_328()
+    assert_eq(to_html_with(parse_with("`foo`\n", gfm()), gfm_html()), "<p><code>foo</code></p>\n")
+
+@test("example 329 with the GitHub extensions")
+gfm_commonmark_329()
+    assert_eq(to_html_with(parse_with("`` foo ` bar ``\n", gfm()), gfm_html()), "<p><code>foo ` bar</code></p>\n")
+
+@test("example 330 with the GitHub extensions")
+gfm_commonmark_330()
+    assert_eq(to_html_with(parse_with("` `` `\n", gfm()), gfm_html()), "<p><code>``</code></p>\n")
+
+@test("example 331 with the GitHub extensions")
+gfm_commonmark_331()
+    assert_eq(to_html_with(parse_with("`  ``  `\n", gfm()), gfm_html()), "<p><code> `` </code></p>\n")
+
+@test("example 332 with the GitHub extensions")
+gfm_commonmark_332()
+    assert_eq(to_html_with(parse_with("` a`\n", gfm()), gfm_html()), "<p><code> a</code></p>\n")
+
+@test("example 333 with the GitHub extensions")
+gfm_commonmark_333()
+    assert_eq(to_html_with(parse_with("`\u{a0}b\u{a0}`\n", gfm()), gfm_html()), "<p><code>\u{a0}b\u{a0}</code></p>\n")
+
+@test("example 334 with the GitHub extensions")
+gfm_commonmark_334()
+    assert_eq(to_html_with(parse_with("`\u{a0}`\n`  `\n", gfm()), gfm_html()), "<p><code>\u{a0}</code>\n<code>  </code></p>\n")
+
+@test("example 335 with the GitHub extensions")
+gfm_commonmark_335()
+    assert_eq(to_html_with(parse_with("``\nfoo\nbar  \nbaz\n``\n", gfm()), gfm_html()), "<p><code>foo bar   baz</code></p>\n")
+
+@test("example 336 with the GitHub extensions")
+gfm_commonmark_336()
+    assert_eq(to_html_with(parse_with("``\nfoo \n``\n", gfm()), gfm_html()), "<p><code>foo </code></p>\n")
+
+@test("example 337 with the GitHub extensions")
+gfm_commonmark_337()
+    assert_eq(to_html_with(parse_with("`foo   bar \nbaz`\n", gfm()), gfm_html()), "<p><code>foo   bar  baz</code></p>\n")
+
+@test("example 338 with the GitHub extensions")
+gfm_commonmark_338()
+    assert_eq(to_html_with(parse_with("`foo\\`bar`\n", gfm()), gfm_html()), "<p><code>foo\\</code>bar`</p>\n")
+
+@test("example 339 with the GitHub extensions")
+gfm_commonmark_339()
+    assert_eq(to_html_with(parse_with("``foo`bar``\n", gfm()), gfm_html()), "<p><code>foo`bar</code></p>\n")
+
+@test("example 340 with the GitHub extensions")
+gfm_commonmark_340()
+    assert_eq(to_html_with(parse_with("` foo `` bar `\n", gfm()), gfm_html()), "<p><code>foo `` bar</code></p>\n")
+
+@test("example 341 with the GitHub extensions")
+gfm_commonmark_341()
+    assert_eq(to_html_with(parse_with("*foo`*`\n", gfm()), gfm_html()), "<p>*foo<code>*</code></p>\n")
+
+@test("example 342 with the GitHub extensions")
+gfm_commonmark_342()
+    assert_eq(to_html_with(parse_with("[not a `link](/foo`)\n", gfm()), gfm_html()), "<p>[not a <code>link](/foo</code>)</p>\n")
+
+@test("example 343 with the GitHub extensions")
+gfm_commonmark_343()
+    assert_eq(to_html_with(parse_with("`<a href=\"`\">`\n", gfm()), gfm_html()), "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n")
+
+@test("example 344 with the GitHub extensions")
+gfm_commonmark_344()
+    assert_eq(to_html_with(parse_with("<a href=\"`\">`\n", gfm()), gfm_html()), "<p><a href=\"`\">`</p>\n")
+
+@test("example 345 with the GitHub extensions")
+gfm_commonmark_345()
+    assert_eq(to_html_with(parse_with("`<https://foo.bar.`baz>`\n", gfm()), gfm_html()), "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n")
+
+@test("example 346 with the GitHub extensions")
+gfm_commonmark_346()
+    assert_eq(to_html_with(parse_with("<https://foo.bar.`baz>`\n", gfm()), gfm_html()), "<p><a href=\"https://foo.bar.%60baz\">https://foo.bar.`baz</a>`</p>\n")
+
+@test("example 347 with the GitHub extensions")
+gfm_commonmark_347()
+    assert_eq(to_html_with(parse_with("```foo``\n", gfm()), gfm_html()), "<p>```foo``</p>\n")
+
+@test("example 348 with the GitHub extensions")
+gfm_commonmark_348()
+    assert_eq(to_html_with(parse_with("`foo\n", gfm()), gfm_html()), "<p>`foo</p>\n")
+
+@test("example 349 with the GitHub extensions")
+gfm_commonmark_349()
+    assert_eq(to_html_with(parse_with("`foo``bar``\n", gfm()), gfm_html()), "<p>`foo<code>bar</code></p>\n")
+
+@test("example 350 with the GitHub extensions")
+gfm_commonmark_350()
+    assert_eq(to_html_with(parse_with("*foo bar*\n", gfm()), gfm_html()), "<p><em>foo bar</em></p>\n")
+
+@test("example 351 with the GitHub extensions")
+gfm_commonmark_351()
+    assert_eq(to_html_with(parse_with("a * foo bar*\n", gfm()), gfm_html()), "<p>a * foo bar*</p>\n")
+
+@test("example 352 with the GitHub extensions")
+gfm_commonmark_352()
+    assert_eq(to_html_with(parse_with("a*\"foo\"*\n", gfm()), gfm_html()), "<p>a*&quot;foo&quot;*</p>\n")
+
+@test("example 353 with the GitHub extensions")
+gfm_commonmark_353()
+    assert_eq(to_html_with(parse_with("*\u{a0}a\u{a0}*\n", gfm()), gfm_html()), "<p>*\u{a0}a\u{a0}*</p>\n")
+
+@test("example 354 with the GitHub extensions")
+gfm_commonmark_354()
+    assert_eq(to_html_with(parse_with("*$*alpha.\n\n*\u{a3}*bravo.\n\n*\u{20ac}*charlie.\n", gfm()), gfm_html()), "<p>*$*alpha.</p>\n<p>*\u{a3}*bravo.</p>\n<p>*\u{20ac}*charlie.</p>\n")
+
+@test("example 355 with the GitHub extensions")
+gfm_commonmark_355()
+    assert_eq(to_html_with(parse_with("foo*bar*\n", gfm()), gfm_html()), "<p>foo<em>bar</em></p>\n")
+
+@test("example 356 with the GitHub extensions")
+gfm_commonmark_356()
+    assert_eq(to_html_with(parse_with("5*6*78\n", gfm()), gfm_html()), "<p>5<em>6</em>78</p>\n")
+
+@test("example 357 with the GitHub extensions")
+gfm_commonmark_357()
+    assert_eq(to_html_with(parse_with("_foo bar_\n", gfm()), gfm_html()), "<p><em>foo bar</em></p>\n")
+
+@test("example 358 with the GitHub extensions")
+gfm_commonmark_358()
+    assert_eq(to_html_with(parse_with("_ foo bar_\n", gfm()), gfm_html()), "<p>_ foo bar_</p>\n")
+
+@test("example 359 with the GitHub extensions")
+gfm_commonmark_359()
+    assert_eq(to_html_with(parse_with("a_\"foo\"_\n", gfm()), gfm_html()), "<p>a_&quot;foo&quot;_</p>\n")
+
+@test("example 360 with the GitHub extensions")
+gfm_commonmark_360()
+    assert_eq(to_html_with(parse_with("foo_bar_\n", gfm()), gfm_html()), "<p>foo_bar_</p>\n")
+
+@test("example 361 with the GitHub extensions")
+gfm_commonmark_361()
+    assert_eq(to_html_with(parse_with("5_6_78\n", gfm()), gfm_html()), "<p>5_6_78</p>\n")
+
+@test("example 362 with the GitHub extensions")
+gfm_commonmark_362()
+    assert_eq(to_html_with(parse_with("\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}_\n", gfm()), gfm_html()), "<p>\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}_</p>\n")
+
+@test("example 363 with the GitHub extensions")
+gfm_commonmark_363()
+    assert_eq(to_html_with(parse_with("aa_\"bb\"_cc\n", gfm()), gfm_html()), "<p>aa_&quot;bb&quot;_cc</p>\n")
+
+@test("example 364 with the GitHub extensions")
+gfm_commonmark_364()
+    assert_eq(to_html_with(parse_with("foo-_(bar)_\n", gfm()), gfm_html()), "<p>foo-<em>(bar)</em></p>\n")
+
+@test("example 365 with the GitHub extensions")
+gfm_commonmark_365()
+    assert_eq(to_html_with(parse_with("_foo*\n", gfm()), gfm_html()), "<p>_foo*</p>\n")
+
+@test("example 366 with the GitHub extensions")
+gfm_commonmark_366()
+    assert_eq(to_html_with(parse_with("*foo bar *\n", gfm()), gfm_html()), "<p>*foo bar *</p>\n")
+
+@test("example 367 with the GitHub extensions")
+gfm_commonmark_367()
+    assert_eq(to_html_with(parse_with("*foo bar\n*\n", gfm()), gfm_html()), "<p>*foo bar\n*</p>\n")
+
+@test("example 368 with the GitHub extensions")
+gfm_commonmark_368()
+    assert_eq(to_html_with(parse_with("*(*foo)\n", gfm()), gfm_html()), "<p>*(*foo)</p>\n")
+
+@test("example 369 with the GitHub extensions")
+gfm_commonmark_369()
+    assert_eq(to_html_with(parse_with("*(*foo*)*\n", gfm()), gfm_html()), "<p><em>(<em>foo</em>)</em></p>\n")
+
+@test("example 370 with the GitHub extensions")
+gfm_commonmark_370()
+    assert_eq(to_html_with(parse_with("*foo*bar\n", gfm()), gfm_html()), "<p><em>foo</em>bar</p>\n")
+
+@test("example 371 with the GitHub extensions")
+gfm_commonmark_371()
+    assert_eq(to_html_with(parse_with("_foo bar _\n", gfm()), gfm_html()), "<p>_foo bar _</p>\n")
+
+@test("example 372 with the GitHub extensions")
+gfm_commonmark_372()
+    assert_eq(to_html_with(parse_with("_(_foo)\n", gfm()), gfm_html()), "<p>_(_foo)</p>\n")
+
+@test("example 373 with the GitHub extensions")
+gfm_commonmark_373()
+    assert_eq(to_html_with(parse_with("_(_foo_)_\n", gfm()), gfm_html()), "<p><em>(<em>foo</em>)</em></p>\n")
+
+@test("example 374 with the GitHub extensions")
+gfm_commonmark_374()
+    assert_eq(to_html_with(parse_with("_foo_bar\n", gfm()), gfm_html()), "<p>_foo_bar</p>\n")
+
+@test("example 375 with the GitHub extensions")
+gfm_commonmark_375()
+    assert_eq(to_html_with(parse_with("_\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}\n", gfm()), gfm_html()), "<p>_\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}_\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}</p>\n")
+
+@test("example 376 with the GitHub extensions")
+gfm_commonmark_376()
+    assert_eq(to_html_with(parse_with("_foo_bar_baz_\n", gfm()), gfm_html()), "<p><em>foo_bar_baz</em></p>\n")
+
+@test("example 377 with the GitHub extensions")
+gfm_commonmark_377()
+    assert_eq(to_html_with(parse_with("_(bar)_.\n", gfm()), gfm_html()), "<p><em>(bar)</em>.</p>\n")
+
+@test("example 378 with the GitHub extensions")
+gfm_commonmark_378()
+    assert_eq(to_html_with(parse_with("**foo bar**\n", gfm()), gfm_html()), "<p><strong>foo bar</strong></p>\n")
+
+@test("example 379 with the GitHub extensions")
+gfm_commonmark_379()
+    assert_eq(to_html_with(parse_with("** foo bar**\n", gfm()), gfm_html()), "<p>** foo bar**</p>\n")
+
+@test("example 380 with the GitHub extensions")
+gfm_commonmark_380()
+    assert_eq(to_html_with(parse_with("a**\"foo\"**\n", gfm()), gfm_html()), "<p>a**&quot;foo&quot;**</p>\n")
+
+@test("example 381 with the GitHub extensions")
+gfm_commonmark_381()
+    assert_eq(to_html_with(parse_with("foo**bar**\n", gfm()), gfm_html()), "<p>foo<strong>bar</strong></p>\n")
+
+@test("example 382 with the GitHub extensions")
+gfm_commonmark_382()
+    assert_eq(to_html_with(parse_with("__foo bar__\n", gfm()), gfm_html()), "<p><strong>foo bar</strong></p>\n")
+
+@test("example 383 with the GitHub extensions")
+gfm_commonmark_383()
+    assert_eq(to_html_with(parse_with("__ foo bar__\n", gfm()), gfm_html()), "<p>__ foo bar__</p>\n")
+
+@test("example 384 with the GitHub extensions")
+gfm_commonmark_384()
+    assert_eq(to_html_with(parse_with("__\nfoo bar__\n", gfm()), gfm_html()), "<p>__\nfoo bar__</p>\n")
+
+@test("example 385 with the GitHub extensions")
+gfm_commonmark_385()
+    assert_eq(to_html_with(parse_with("a__\"foo\"__\n", gfm()), gfm_html()), "<p>a__&quot;foo&quot;__</p>\n")
+
+@test("example 386 with the GitHub extensions")
+gfm_commonmark_386()
+    assert_eq(to_html_with(parse_with("foo__bar__\n", gfm()), gfm_html()), "<p>foo__bar__</p>\n")
+
+@test("example 387 with the GitHub extensions")
+gfm_commonmark_387()
+    assert_eq(to_html_with(parse_with("5__6__78\n", gfm()), gfm_html()), "<p>5__6__78</p>\n")
+
+@test("example 388 with the GitHub extensions")
+gfm_commonmark_388()
+    assert_eq(to_html_with(parse_with("\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}__\n", gfm()), gfm_html()), "<p>\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}__</p>\n")
+
+@test("example 389 with the GitHub extensions")
+gfm_commonmark_389()
+    assert_eq(to_html_with(parse_with("__foo, __bar__, baz__\n", gfm()), gfm_html()), "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n")
+
+@test("example 390 with the GitHub extensions")
+gfm_commonmark_390()
+    assert_eq(to_html_with(parse_with("foo-__(bar)__\n", gfm()), gfm_html()), "<p>foo-<strong>(bar)</strong></p>\n")
+
+@test("example 391 with the GitHub extensions")
+gfm_commonmark_391()
+    assert_eq(to_html_with(parse_with("**foo bar **\n", gfm()), gfm_html()), "<p>**foo bar **</p>\n")
+
+@test("example 392 with the GitHub extensions")
+gfm_commonmark_392()
+    assert_eq(to_html_with(parse_with("**(**foo)\n", gfm()), gfm_html()), "<p>**(**foo)</p>\n")
+
+@test("example 393 with the GitHub extensions")
+gfm_commonmark_393()
+    assert_eq(to_html_with(parse_with("*(**foo**)*\n", gfm()), gfm_html()), "<p><em>(<strong>foo</strong>)</em></p>\n")
+
+@test("example 394 with the GitHub extensions")
+gfm_commonmark_394()
+    assert_eq(to_html_with(parse_with("**Gomphocarpus (*Gomphocarpus physocarpus*, syn.\n*Asclepias physocarpa*)**\n", gfm()), gfm_html()), "<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.\n<em>Asclepias physocarpa</em>)</strong></p>\n")
+
+@test("example 395 with the GitHub extensions")
+gfm_commonmark_395()
+    assert_eq(to_html_with(parse_with("**foo \"*bar*\" foo**\n", gfm()), gfm_html()), "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n")
+
+@test("example 396 with the GitHub extensions")
+gfm_commonmark_396()
+    assert_eq(to_html_with(parse_with("**foo**bar\n", gfm()), gfm_html()), "<p><strong>foo</strong>bar</p>\n")
+
+@test("example 397 with the GitHub extensions")
+gfm_commonmark_397()
+    assert_eq(to_html_with(parse_with("__foo bar __\n", gfm()), gfm_html()), "<p>__foo bar __</p>\n")
+
+@test("example 398 with the GitHub extensions")
+gfm_commonmark_398()
+    assert_eq(to_html_with(parse_with("__(__foo)\n", gfm()), gfm_html()), "<p>__(__foo)</p>\n")
+
+@test("example 399 with the GitHub extensions")
+gfm_commonmark_399()
+    assert_eq(to_html_with(parse_with("_(__foo__)_\n", gfm()), gfm_html()), "<p><em>(<strong>foo</strong>)</em></p>\n")
+
+@test("example 400 with the GitHub extensions")
+gfm_commonmark_400()
+    assert_eq(to_html_with(parse_with("__foo__bar\n", gfm()), gfm_html()), "<p>__foo__bar</p>\n")
+
+@test("example 401 with the GitHub extensions")
+gfm_commonmark_401()
+    assert_eq(to_html_with(parse_with("__\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}\n", gfm()), gfm_html()), "<p>__\u{43f}\u{440}\u{438}\u{441}\u{442}\u{430}\u{43d}\u{44f}\u{43c}__\u{441}\u{442}\u{440}\u{435}\u{43c}\u{44f}\u{442}\u{441}\u{44f}</p>\n")
+
+@test("example 402 with the GitHub extensions")
+gfm_commonmark_402()
+    assert_eq(to_html_with(parse_with("__foo__bar__baz__\n", gfm()), gfm_html()), "<p><strong>foo__bar__baz</strong></p>\n")
+
+@test("example 403 with the GitHub extensions")
+gfm_commonmark_403()
+    assert_eq(to_html_with(parse_with("__(bar)__.\n", gfm()), gfm_html()), "<p><strong>(bar)</strong>.</p>\n")
+
+@test("example 404 with the GitHub extensions")
+gfm_commonmark_404()
+    assert_eq(to_html_with(parse_with("*foo [bar](/url)*\n", gfm()), gfm_html()), "<p><em>foo <a href=\"/url\">bar</a></em></p>\n")
+
+@test("example 405 with the GitHub extensions")
+gfm_commonmark_405()
+    assert_eq(to_html_with(parse_with("*foo\nbar*\n", gfm()), gfm_html()), "<p><em>foo\nbar</em></p>\n")
+
+@test("example 406 with the GitHub extensions")
+gfm_commonmark_406()
+    assert_eq(to_html_with(parse_with("_foo __bar__ baz_\n", gfm()), gfm_html()), "<p><em>foo <strong>bar</strong> baz</em></p>\n")
+
+@test("example 407 with the GitHub extensions")
+gfm_commonmark_407()
+    assert_eq(to_html_with(parse_with("_foo _bar_ baz_\n", gfm()), gfm_html()), "<p><em>foo <em>bar</em> baz</em></p>\n")
+
+@test("example 408 with the GitHub extensions")
+gfm_commonmark_408()
+    assert_eq(to_html_with(parse_with("__foo_ bar_\n", gfm()), gfm_html()), "<p><em><em>foo</em> bar</em></p>\n")
+
+@test("example 409 with the GitHub extensions")
+gfm_commonmark_409()
+    assert_eq(to_html_with(parse_with("*foo *bar**\n", gfm()), gfm_html()), "<p><em>foo <em>bar</em></em></p>\n")
+
+@test("example 410 with the GitHub extensions")
+gfm_commonmark_410()
+    assert_eq(to_html_with(parse_with("*foo **bar** baz*\n", gfm()), gfm_html()), "<p><em>foo <strong>bar</strong> baz</em></p>\n")
+
+@test("example 411 with the GitHub extensions")
+gfm_commonmark_411()
+    assert_eq(to_html_with(parse_with("*foo**bar**baz*\n", gfm()), gfm_html()), "<p><em>foo<strong>bar</strong>baz</em></p>\n")
+
+@test("example 412 with the GitHub extensions")
+gfm_commonmark_412()
+    assert_eq(to_html_with(parse_with("*foo**bar*\n", gfm()), gfm_html()), "<p><em>foo**bar</em></p>\n")
+
+@test("example 413 with the GitHub extensions")
+gfm_commonmark_413()
+    assert_eq(to_html_with(parse_with("***foo** bar*\n", gfm()), gfm_html()), "<p><em><strong>foo</strong> bar</em></p>\n")
+
+@test("example 414 with the GitHub extensions")
+gfm_commonmark_414()
+    assert_eq(to_html_with(parse_with("*foo **bar***\n", gfm()), gfm_html()), "<p><em>foo <strong>bar</strong></em></p>\n")
+
+@test("example 415 with the GitHub extensions")
+gfm_commonmark_415()
+    assert_eq(to_html_with(parse_with("*foo**bar***\n", gfm()), gfm_html()), "<p><em>foo<strong>bar</strong></em></p>\n")
+
+@test("example 416 with the GitHub extensions")
+gfm_commonmark_416()
+    assert_eq(to_html_with(parse_with("foo***bar***baz\n", gfm()), gfm_html()), "<p>foo<em><strong>bar</strong></em>baz</p>\n")
+
+@test("example 417 with the GitHub extensions")
+gfm_commonmark_417()
+    assert_eq(to_html_with(parse_with("foo******bar*********baz\n", gfm()), gfm_html()), "<p>foo<strong><strong><strong>bar</strong></strong></strong>***baz</p>\n")
+
+@test("example 418 with the GitHub extensions")
+gfm_commonmark_418()
+    assert_eq(to_html_with(parse_with("*foo **bar *baz* bim** bop*\n", gfm()), gfm_html()), "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n")
+
+@test("example 419 with the GitHub extensions")
+gfm_commonmark_419()
+    assert_eq(to_html_with(parse_with("*foo [*bar*](/url)*\n", gfm()), gfm_html()), "<p><em>foo <a href=\"/url\"><em>bar</em></a></em></p>\n")
+
+@test("example 420 with the GitHub extensions")
+gfm_commonmark_420()
+    assert_eq(to_html_with(parse_with("** is not an empty emphasis\n", gfm()), gfm_html()), "<p>** is not an empty emphasis</p>\n")
+
+@test("example 421 with the GitHub extensions")
+gfm_commonmark_421()
+    assert_eq(to_html_with(parse_with("**** is not an empty strong emphasis\n", gfm()), gfm_html()), "<p>**** is not an empty strong emphasis</p>\n")
+
+@test("example 422 with the GitHub extensions")
+gfm_commonmark_422()
+    assert_eq(to_html_with(parse_with("**foo [bar](/url)**\n", gfm()), gfm_html()), "<p><strong>foo <a href=\"/url\">bar</a></strong></p>\n")
+
+@test("example 423 with the GitHub extensions")
+gfm_commonmark_423()
+    assert_eq(to_html_with(parse_with("**foo\nbar**\n", gfm()), gfm_html()), "<p><strong>foo\nbar</strong></p>\n")
+
+@test("example 424 with the GitHub extensions")
+gfm_commonmark_424()
+    assert_eq(to_html_with(parse_with("__foo _bar_ baz__\n", gfm()), gfm_html()), "<p><strong>foo <em>bar</em> baz</strong></p>\n")
+
+@test("example 425 with the GitHub extensions")
+gfm_commonmark_425()
+    assert_eq(to_html_with(parse_with("__foo __bar__ baz__\n", gfm()), gfm_html()), "<p><strong>foo <strong>bar</strong> baz</strong></p>\n")
+
+@test("example 426 with the GitHub extensions")
+gfm_commonmark_426()
+    assert_eq(to_html_with(parse_with("____foo__ bar__\n", gfm()), gfm_html()), "<p><strong><strong>foo</strong> bar</strong></p>\n")
+
+@test("example 427 with the GitHub extensions")
+gfm_commonmark_427()
+    assert_eq(to_html_with(parse_with("**foo **bar****\n", gfm()), gfm_html()), "<p><strong>foo <strong>bar</strong></strong></p>\n")
+
+@test("example 428 with the GitHub extensions")
+gfm_commonmark_428()
+    assert_eq(to_html_with(parse_with("**foo *bar* baz**\n", gfm()), gfm_html()), "<p><strong>foo <em>bar</em> baz</strong></p>\n")
+
+@test("example 429 with the GitHub extensions")
+gfm_commonmark_429()
+    assert_eq(to_html_with(parse_with("**foo*bar*baz**\n", gfm()), gfm_html()), "<p><strong>foo<em>bar</em>baz</strong></p>\n")
+
+@test("example 430 with the GitHub extensions")
+gfm_commonmark_430()
+    assert_eq(to_html_with(parse_with("***foo* bar**\n", gfm()), gfm_html()), "<p><strong><em>foo</em> bar</strong></p>\n")
+
+@test("example 431 with the GitHub extensions")
+gfm_commonmark_431()
+    assert_eq(to_html_with(parse_with("**foo *bar***\n", gfm()), gfm_html()), "<p><strong>foo <em>bar</em></strong></p>\n")
+
+@test("example 432 with the GitHub extensions")
+gfm_commonmark_432()
+    assert_eq(to_html_with(parse_with("**foo *bar **baz**\nbim* bop**\n", gfm()), gfm_html()), "<p><strong>foo <em>bar <strong>baz</strong>\nbim</em> bop</strong></p>\n")
+
+@test("example 433 with the GitHub extensions")
+gfm_commonmark_433()
+    assert_eq(to_html_with(parse_with("**foo [*bar*](/url)**\n", gfm()), gfm_html()), "<p><strong>foo <a href=\"/url\"><em>bar</em></a></strong></p>\n")
+
+@test("example 434 with the GitHub extensions")
+gfm_commonmark_434()
+    assert_eq(to_html_with(parse_with("__ is not an empty emphasis\n", gfm()), gfm_html()), "<p>__ is not an empty emphasis</p>\n")
+
+@test("example 435 with the GitHub extensions")
+gfm_commonmark_435()
+    assert_eq(to_html_with(parse_with("____ is not an empty strong emphasis\n", gfm()), gfm_html()), "<p>____ is not an empty strong emphasis</p>\n")
+
+@test("example 436 with the GitHub extensions")
+gfm_commonmark_436()
+    assert_eq(to_html_with(parse_with("foo ***\n", gfm()), gfm_html()), "<p>foo ***</p>\n")
+
+@test("example 437 with the GitHub extensions")
+gfm_commonmark_437()
+    assert_eq(to_html_with(parse_with("foo *\\**\n", gfm()), gfm_html()), "<p>foo <em>*</em></p>\n")
+
+@test("example 438 with the GitHub extensions")
+gfm_commonmark_438()
+    assert_eq(to_html_with(parse_with("foo *_*\n", gfm()), gfm_html()), "<p>foo <em>_</em></p>\n")
+
+@test("example 439 with the GitHub extensions")
+gfm_commonmark_439()
+    assert_eq(to_html_with(parse_with("foo *****\n", gfm()), gfm_html()), "<p>foo *****</p>\n")
+
+@test("example 440 with the GitHub extensions")
+gfm_commonmark_440()
+    assert_eq(to_html_with(parse_with("foo **\\***\n", gfm()), gfm_html()), "<p>foo <strong>*</strong></p>\n")
+
+@test("example 441 with the GitHub extensions")
+gfm_commonmark_441()
+    assert_eq(to_html_with(parse_with("foo **_**\n", gfm()), gfm_html()), "<p>foo <strong>_</strong></p>\n")
+
+@test("example 442 with the GitHub extensions")
+gfm_commonmark_442()
+    assert_eq(to_html_with(parse_with("**foo*\n", gfm()), gfm_html()), "<p>*<em>foo</em></p>\n")
+
+@test("example 443 with the GitHub extensions")
+gfm_commonmark_443()
+    assert_eq(to_html_with(parse_with("*foo**\n", gfm()), gfm_html()), "<p><em>foo</em>*</p>\n")
+
+@test("example 444 with the GitHub extensions")
+gfm_commonmark_444()
+    assert_eq(to_html_with(parse_with("***foo**\n", gfm()), gfm_html()), "<p>*<strong>foo</strong></p>\n")
+
+@test("example 445 with the GitHub extensions")
+gfm_commonmark_445()
+    assert_eq(to_html_with(parse_with("****foo*\n", gfm()), gfm_html()), "<p>***<em>foo</em></p>\n")
+
+@test("example 446 with the GitHub extensions")
+gfm_commonmark_446()
+    assert_eq(to_html_with(parse_with("**foo***\n", gfm()), gfm_html()), "<p><strong>foo</strong>*</p>\n")
+
+@test("example 447 with the GitHub extensions")
+gfm_commonmark_447()
+    assert_eq(to_html_with(parse_with("*foo****\n", gfm()), gfm_html()), "<p><em>foo</em>***</p>\n")
+
+@test("example 448 with the GitHub extensions")
+gfm_commonmark_448()
+    assert_eq(to_html_with(parse_with("foo ___\n", gfm()), gfm_html()), "<p>foo ___</p>\n")
+
+@test("example 449 with the GitHub extensions")
+gfm_commonmark_449()
+    assert_eq(to_html_with(parse_with("foo _\\__\n", gfm()), gfm_html()), "<p>foo <em>_</em></p>\n")
+
+@test("example 450 with the GitHub extensions")
+gfm_commonmark_450()
+    assert_eq(to_html_with(parse_with("foo _*_\n", gfm()), gfm_html()), "<p>foo <em>*</em></p>\n")
+
+@test("example 451 with the GitHub extensions")
+gfm_commonmark_451()
+    assert_eq(to_html_with(parse_with("foo _____\n", gfm()), gfm_html()), "<p>foo _____</p>\n")
+
+@test("example 452 with the GitHub extensions")
+gfm_commonmark_452()
+    assert_eq(to_html_with(parse_with("foo __\\___\n", gfm()), gfm_html()), "<p>foo <strong>_</strong></p>\n")
+
+@test("example 453 with the GitHub extensions")
+gfm_commonmark_453()
+    assert_eq(to_html_with(parse_with("foo __*__\n", gfm()), gfm_html()), "<p>foo <strong>*</strong></p>\n")
+
+@test("example 454 with the GitHub extensions")
+gfm_commonmark_454()
+    assert_eq(to_html_with(parse_with("__foo_\n", gfm()), gfm_html()), "<p>_<em>foo</em></p>\n")
+
+@test("example 455 with the GitHub extensions")
+gfm_commonmark_455()
+    assert_eq(to_html_with(parse_with("_foo__\n", gfm()), gfm_html()), "<p><em>foo</em>_</p>\n")
+
+@test("example 456 with the GitHub extensions")
+gfm_commonmark_456()
+    assert_eq(to_html_with(parse_with("___foo__\n", gfm()), gfm_html()), "<p>_<strong>foo</strong></p>\n")
+
+@test("example 457 with the GitHub extensions")
+gfm_commonmark_457()
+    assert_eq(to_html_with(parse_with("____foo_\n", gfm()), gfm_html()), "<p>___<em>foo</em></p>\n")
+
+@test("example 458 with the GitHub extensions")
+gfm_commonmark_458()
+    assert_eq(to_html_with(parse_with("__foo___\n", gfm()), gfm_html()), "<p><strong>foo</strong>_</p>\n")
+
+@test("example 459 with the GitHub extensions")
+gfm_commonmark_459()
+    assert_eq(to_html_with(parse_with("_foo____\n", gfm()), gfm_html()), "<p><em>foo</em>___</p>\n")
+
+@test("example 460 with the GitHub extensions")
+gfm_commonmark_460()
+    assert_eq(to_html_with(parse_with("**foo**\n", gfm()), gfm_html()), "<p><strong>foo</strong></p>\n")
+
+@test("example 461 with the GitHub extensions")
+gfm_commonmark_461()
+    assert_eq(to_html_with(parse_with("*_foo_*\n", gfm()), gfm_html()), "<p><em><em>foo</em></em></p>\n")
+
+@test("example 462 with the GitHub extensions")
+gfm_commonmark_462()
+    assert_eq(to_html_with(parse_with("__foo__\n", gfm()), gfm_html()), "<p><strong>foo</strong></p>\n")
+
+@test("example 463 with the GitHub extensions")
+gfm_commonmark_463()
+    assert_eq(to_html_with(parse_with("_*foo*_\n", gfm()), gfm_html()), "<p><em><em>foo</em></em></p>\n")
+
+@test("example 464 with the GitHub extensions")
+gfm_commonmark_464()
+    assert_eq(to_html_with(parse_with("****foo****\n", gfm()), gfm_html()), "<p><strong><strong>foo</strong></strong></p>\n")
+
+@test("example 465 with the GitHub extensions")
+gfm_commonmark_465()
+    assert_eq(to_html_with(parse_with("____foo____\n", gfm()), gfm_html()), "<p><strong><strong>foo</strong></strong></p>\n")
+
+@test("example 466 with the GitHub extensions")
+gfm_commonmark_466()
+    assert_eq(to_html_with(parse_with("******foo******\n", gfm()), gfm_html()), "<p><strong><strong><strong>foo</strong></strong></strong></p>\n")
+
+@test("example 467 with the GitHub extensions")
+gfm_commonmark_467()
+    assert_eq(to_html_with(parse_with("***foo***\n", gfm()), gfm_html()), "<p><em><strong>foo</strong></em></p>\n")
+
+@test("example 468 with the GitHub extensions")
+gfm_commonmark_468()
+    assert_eq(to_html_with(parse_with("_____foo_____\n", gfm()), gfm_html()), "<p><em><strong><strong>foo</strong></strong></em></p>\n")
+
+@test("example 469 with the GitHub extensions")
+gfm_commonmark_469()
+    assert_eq(to_html_with(parse_with("*foo _bar* baz_\n", gfm()), gfm_html()), "<p><em>foo _bar</em> baz_</p>\n")
+
+@test("example 470 with the GitHub extensions")
+gfm_commonmark_470()
+    assert_eq(to_html_with(parse_with("*foo __bar *baz bim__ bam*\n", gfm()), gfm_html()), "<p><em>foo <strong>bar *baz bim</strong> bam</em></p>\n")
+
+@test("example 471 with the GitHub extensions")
+gfm_commonmark_471()
+    assert_eq(to_html_with(parse_with("**foo **bar baz**\n", gfm()), gfm_html()), "<p>**foo <strong>bar baz</strong></p>\n")
+
+@test("example 472 with the GitHub extensions")
+gfm_commonmark_472()
+    assert_eq(to_html_with(parse_with("*foo *bar baz*\n", gfm()), gfm_html()), "<p>*foo <em>bar baz</em></p>\n")
+
+@test("example 473 with the GitHub extensions")
+gfm_commonmark_473()
+    assert_eq(to_html_with(parse_with("*[bar*](/url)\n", gfm()), gfm_html()), "<p>*<a href=\"/url\">bar*</a></p>\n")
+
+@test("example 474 with the GitHub extensions")
+gfm_commonmark_474()
+    assert_eq(to_html_with(parse_with("_foo [bar_](/url)\n", gfm()), gfm_html()), "<p>_foo <a href=\"/url\">bar_</a></p>\n")
+
+@test("example 475 with the GitHub extensions")
+gfm_commonmark_475()
+    assert_eq(to_html_with(parse_with("*<img src=\"foo\" title=\"*\"/>\n", gfm()), gfm_html()), "<p>*<img src=\"foo\" title=\"*\"/></p>\n")
+
+@test("example 476 with the GitHub extensions")
+gfm_commonmark_476()
+    assert_eq(to_html_with(parse_with("**<a href=\"**\">\n", gfm()), gfm_html()), "<p>**<a href=\"**\"></p>\n")
+
+@test("example 477 with the GitHub extensions")
+gfm_commonmark_477()
+    assert_eq(to_html_with(parse_with("__<a href=\"__\">\n", gfm()), gfm_html()), "<p>__<a href=\"__\"></p>\n")
+
+@test("example 478 with the GitHub extensions")
+gfm_commonmark_478()
+    assert_eq(to_html_with(parse_with("*a `*`*\n", gfm()), gfm_html()), "<p><em>a <code>*</code></em></p>\n")
+
+@test("example 479 with the GitHub extensions")
+gfm_commonmark_479()
+    assert_eq(to_html_with(parse_with("_a `_`_\n", gfm()), gfm_html()), "<p><em>a <code>_</code></em></p>\n")
+
+@test("example 480 with the GitHub extensions")
+gfm_commonmark_480()
+    assert_eq(to_html_with(parse_with("**a<https://foo.bar/?q=**>\n", gfm()), gfm_html()), "<p>**a<a href=\"https://foo.bar/?q=**\">https://foo.bar/?q=**</a></p>\n")
+
+@test("example 481 with the GitHub extensions")
+gfm_commonmark_481()
+    assert_eq(to_html_with(parse_with("__a<https://foo.bar/?q=__>\n", gfm()), gfm_html()), "<p>__a<a href=\"https://foo.bar/?q=__\">https://foo.bar/?q=__</a></p>\n")
+
+@test("example 482 with the GitHub extensions")
+gfm_commonmark_482()
+    assert_eq(to_html_with(parse_with("[link](/uri \"title\")\n", gfm()), gfm_html()), "<p><a href=\"/uri\" title=\"title\">link</a></p>\n")
+
+@test("example 483 with the GitHub extensions")
+gfm_commonmark_483()
+    assert_eq(to_html_with(parse_with("[link](/uri)\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link</a></p>\n")
+
+@test("example 484 with the GitHub extensions")
+gfm_commonmark_484()
+    assert_eq(to_html_with(parse_with("[](./target.md)\n", gfm()), gfm_html()), "<p><a href=\"./target.md\"></a></p>\n")
+
+@test("example 485 with the GitHub extensions")
+gfm_commonmark_485()
+    assert_eq(to_html_with(parse_with("[link]()\n", gfm()), gfm_html()), "<p><a href=\"\">link</a></p>\n")
+
+@test("example 486 with the GitHub extensions")
+gfm_commonmark_486()
+    assert_eq(to_html_with(parse_with("[link](<>)\n", gfm()), gfm_html()), "<p><a href=\"\">link</a></p>\n")
+
+@test("example 487 with the GitHub extensions")
+gfm_commonmark_487()
+    assert_eq(to_html_with(parse_with("[]()\n", gfm()), gfm_html()), "<p><a href=\"\"></a></p>\n")
+
+@test("example 488 with the GitHub extensions")
+gfm_commonmark_488()
+    assert_eq(to_html_with(parse_with("[link](/my uri)\n", gfm()), gfm_html()), "<p>[link](/my uri)</p>\n")
+
+@test("example 489 with the GitHub extensions")
+gfm_commonmark_489()
+    assert_eq(to_html_with(parse_with("[link](</my uri>)\n", gfm()), gfm_html()), "<p><a href=\"/my%20uri\">link</a></p>\n")
+
+@test("example 490 with the GitHub extensions")
+gfm_commonmark_490()
+    assert_eq(to_html_with(parse_with("[link](foo\nbar)\n", gfm()), gfm_html()), "<p>[link](foo\nbar)</p>\n")
+
+@test("example 491 with the GitHub extensions")
+gfm_commonmark_491()
+    assert_eq(to_html_with(parse_with("[link](<foo\nbar>)\n", gfm()), gfm_html()), "<p>[link](<foo\nbar>)</p>\n")
+
+@test("example 492 with the GitHub extensions")
+gfm_commonmark_492()
+    assert_eq(to_html_with(parse_with("[a](<b)c>)\n", gfm()), gfm_html()), "<p><a href=\"b)c\">a</a></p>\n")
+
+@test("example 493 with the GitHub extensions")
+gfm_commonmark_493()
+    assert_eq(to_html_with(parse_with("[link](<foo\\>)\n", gfm()), gfm_html()), "<p>[link](&lt;foo&gt;)</p>\n")
+
+@test("example 494 with the GitHub extensions")
+gfm_commonmark_494()
+    assert_eq(to_html_with(parse_with("[a](<b)c\n[a](<b)c>\n[a](<b>c)\n", gfm()), gfm_html()), "<p>[a](&lt;b)c\n[a](&lt;b)c&gt;\n[a](<b>c)</p>\n")
+
+@test("example 495 with the GitHub extensions")
+gfm_commonmark_495()
+    assert_eq(to_html_with(parse_with("[link](\\(foo\\))\n", gfm()), gfm_html()), "<p><a href=\"(foo)\">link</a></p>\n")
+
+@test("example 496 with the GitHub extensions")
+gfm_commonmark_496()
+    assert_eq(to_html_with(parse_with("[link](foo(and(bar)))\n", gfm()), gfm_html()), "<p><a href=\"foo(and(bar))\">link</a></p>\n")
+
+@test("example 497 with the GitHub extensions")
+gfm_commonmark_497()
+    assert_eq(to_html_with(parse_with("[link](foo(and(bar))\n", gfm()), gfm_html()), "<p>[link](foo(and(bar))</p>\n")
+
+@test("example 498 with the GitHub extensions")
+gfm_commonmark_498()
+    assert_eq(to_html_with(parse_with("[link](foo\\(and\\(bar\\))\n", gfm()), gfm_html()), "<p><a href=\"foo(and(bar)\">link</a></p>\n")
+
+@test("example 499 with the GitHub extensions")
+gfm_commonmark_499()
+    assert_eq(to_html_with(parse_with("[link](<foo(and(bar)>)\n", gfm()), gfm_html()), "<p><a href=\"foo(and(bar)\">link</a></p>\n")
+
+@test("example 500 with the GitHub extensions")
+gfm_commonmark_500()
+    assert_eq(to_html_with(parse_with("[link](foo\\)\\:)\n", gfm()), gfm_html()), "<p><a href=\"foo):\">link</a></p>\n")
+
+@test("example 501 with the GitHub extensions")
+gfm_commonmark_501()
+    assert_eq(to_html_with(parse_with("[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n", gfm()), gfm_html()), "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"https://example.com#fragment\">link</a></p>\n<p><a href=\"https://example.com?foo=3#frag\">link</a></p>\n")
+
+@test("example 502 with the GitHub extensions")
+gfm_commonmark_502()
+    assert_eq(to_html_with(parse_with("[link](foo\\bar)\n", gfm()), gfm_html()), "<p><a href=\"foo%5Cbar\">link</a></p>\n")
+
+@test("example 503 with the GitHub extensions")
+gfm_commonmark_503()
+    assert_eq(to_html_with(parse_with("[link](foo%20b&auml;)\n", gfm()), gfm_html()), "<p><a href=\"foo%20b%C3%A4\">link</a></p>\n")
+
+@test("example 504 with the GitHub extensions")
+gfm_commonmark_504()
+    assert_eq(to_html_with(parse_with("[link](\"title\")\n", gfm()), gfm_html()), "<p><a href=\"%22title%22\">link</a></p>\n")
+
+@test("example 505 with the GitHub extensions")
+gfm_commonmark_505()
+    assert_eq(to_html_with(parse_with("[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n")
+
+@test("example 506 with the GitHub extensions")
+gfm_commonmark_506()
+    assert_eq(to_html_with(parse_with("[link](/url \"title \\\"&quot;\")\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n")
+
+@test("example 507 with the GitHub extensions")
+gfm_commonmark_507()
+    assert_eq(to_html_with(parse_with("[link](/url\u{a0}\"title\")\n", gfm()), gfm_html()), "<p><a href=\"/url%C2%A0%22title%22\">link</a></p>\n")
+
+@test("example 508 with the GitHub extensions")
+gfm_commonmark_508()
+    assert_eq(to_html_with(parse_with("[link](/url \"title \"and\" title\")\n", gfm()), gfm_html()), "<p>[link](/url &quot;title &quot;and&quot; title&quot;)</p>\n")
+
+@test("example 509 with the GitHub extensions")
+gfm_commonmark_509()
+    assert_eq(to_html_with(parse_with("[link](/url 'title \"and\" title')\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n")
+
+@test("example 510 with the GitHub extensions")
+gfm_commonmark_510()
+    assert_eq(to_html_with(parse_with("[link](   /uri\n  \"title\"  )\n", gfm()), gfm_html()), "<p><a href=\"/uri\" title=\"title\">link</a></p>\n")
+
+@test("example 511 with the GitHub extensions")
+gfm_commonmark_511()
+    assert_eq(to_html_with(parse_with("[link] (/uri)\n", gfm()), gfm_html()), "<p>[link] (/uri)</p>\n")
+
+@test("example 512 with the GitHub extensions")
+gfm_commonmark_512()
+    assert_eq(to_html_with(parse_with("[link [foo [bar]]](/uri)\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link [foo [bar]]</a></p>\n")
+
+@test("example 513 with the GitHub extensions")
+gfm_commonmark_513()
+    assert_eq(to_html_with(parse_with("[link] bar](/uri)\n", gfm()), gfm_html()), "<p>[link] bar](/uri)</p>\n")
+
+@test("example 514 with the GitHub extensions")
+gfm_commonmark_514()
+    assert_eq(to_html_with(parse_with("[link [bar](/uri)\n", gfm()), gfm_html()), "<p>[link <a href=\"/uri\">bar</a></p>\n")
+
+@test("example 515 with the GitHub extensions")
+gfm_commonmark_515()
+    assert_eq(to_html_with(parse_with("[link \\[bar](/uri)\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link [bar</a></p>\n")
+
+@test("example 516 with the GitHub extensions")
+gfm_commonmark_516()
+    assert_eq(to_html_with(parse_with("[link *foo **bar** `#`*](/uri)\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n")
+
+@test("example 517 with the GitHub extensions")
+gfm_commonmark_517()
+    assert_eq(to_html_with(parse_with("[![moon](moon.jpg)](/uri)\n", gfm()), gfm_html()), "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n")
+
+@test("example 518 with the GitHub extensions")
+gfm_commonmark_518()
+    assert_eq(to_html_with(parse_with("[foo [bar](/uri)](/uri)\n", gfm()), gfm_html()), "<p>[foo <a href=\"/uri\">bar</a>](/uri)</p>\n")
+
+@test("example 519 with the GitHub extensions")
+gfm_commonmark_519()
+    assert_eq(to_html_with(parse_with("[foo *[bar [baz](/uri)](/uri)*](/uri)\n", gfm()), gfm_html()), "<p>[foo <em>[bar <a href=\"/uri\">baz</a>](/uri)</em>](/uri)</p>\n")
+
+@test("example 520 with the GitHub extensions")
+gfm_commonmark_520()
+    assert_eq(to_html_with(parse_with("![[[foo](uri1)](uri2)](uri3)\n", gfm()), gfm_html()), "<p><img src=\"uri3\" alt=\"[foo](uri2)\" /></p>\n")
+
+@test("example 521 with the GitHub extensions")
+gfm_commonmark_521()
+    assert_eq(to_html_with(parse_with("*[foo*](/uri)\n", gfm()), gfm_html()), "<p>*<a href=\"/uri\">foo*</a></p>\n")
+
+@test("example 522 with the GitHub extensions")
+gfm_commonmark_522()
+    assert_eq(to_html_with(parse_with("[foo *bar](baz*)\n", gfm()), gfm_html()), "<p><a href=\"baz*\">foo *bar</a></p>\n")
+
+@test("example 523 with the GitHub extensions")
+gfm_commonmark_523()
+    assert_eq(to_html_with(parse_with("*foo [bar* baz]\n", gfm()), gfm_html()), "<p><em>foo [bar</em> baz]</p>\n")
+
+@test("example 524 with the GitHub extensions")
+gfm_commonmark_524()
+    assert_eq(to_html_with(parse_with("[foo <bar attr=\"](baz)\">\n", gfm()), gfm_html()), "<p>[foo <bar attr=\"](baz)\"></p>\n")
+
+@test("example 525 with the GitHub extensions")
+gfm_commonmark_525()
+    assert_eq(to_html_with(parse_with("[foo`](/uri)`\n", gfm()), gfm_html()), "<p>[foo<code>](/uri)</code></p>\n")
+
+@test("example 526 with the GitHub extensions")
+gfm_commonmark_526()
+    assert_eq(to_html_with(parse_with("[foo<https://example.com/?search=](uri)>\n", gfm()), gfm_html()), "<p>[foo<a href=\"https://example.com/?search=%5D(uri)\">https://example.com/?search=](uri)</a></p>\n")
+
+@test("example 527 with the GitHub extensions")
+gfm_commonmark_527()
+    assert_eq(to_html_with(parse_with("[foo][bar]\n\n[bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 528 with the GitHub extensions")
+gfm_commonmark_528()
+    assert_eq(to_html_with(parse_with("[link [foo [bar]]][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link [foo [bar]]</a></p>\n")
+
+@test("example 529 with the GitHub extensions")
+gfm_commonmark_529()
+    assert_eq(to_html_with(parse_with("[link \\[bar][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link [bar</a></p>\n")
+
+@test("example 530 with the GitHub extensions")
+gfm_commonmark_530()
+    assert_eq(to_html_with(parse_with("[link *foo **bar** `#`*][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n")
+
+@test("example 531 with the GitHub extensions")
+gfm_commonmark_531()
+    assert_eq(to_html_with(parse_with("[![moon](moon.jpg)][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n")
+
+@test("example 532 with the GitHub extensions")
+gfm_commonmark_532()
+    assert_eq(to_html_with(parse_with("[foo [bar](/uri)][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>[foo <a href=\"/uri\">bar</a>]<a href=\"/uri\">ref</a></p>\n")
+
+@test("example 533 with the GitHub extensions")
+gfm_commonmark_533()
+    assert_eq(to_html_with(parse_with("[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>[foo <em>bar <a href=\"/uri\">baz</a></em>]<a href=\"/uri\">ref</a></p>\n")
+
+@test("example 534 with the GitHub extensions")
+gfm_commonmark_534()
+    assert_eq(to_html_with(parse_with("*[foo*][ref]\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>*<a href=\"/uri\">foo*</a></p>\n")
+
+@test("example 535 with the GitHub extensions")
+gfm_commonmark_535()
+    assert_eq(to_html_with(parse_with("[foo *bar][ref]*\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\">foo *bar</a>*</p>\n")
+
+@test("example 536 with the GitHub extensions")
+gfm_commonmark_536()
+    assert_eq(to_html_with(parse_with("[foo <bar attr=\"][ref]\">\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>[foo <bar attr=\"][ref]\"></p>\n")
+
+@test("example 537 with the GitHub extensions")
+gfm_commonmark_537()
+    assert_eq(to_html_with(parse_with("[foo`][ref]`\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>[foo<code>][ref]</code></p>\n")
+
+@test("example 538 with the GitHub extensions")
+gfm_commonmark_538()
+    assert_eq(to_html_with(parse_with("[foo<https://example.com/?search=][ref]>\n\n[ref]: /uri\n", gfm()), gfm_html()), "<p>[foo<a href=\"https://example.com/?search=%5D%5Bref%5D\">https://example.com/?search=][ref]</a></p>\n")
+
+@test("example 539 with the GitHub extensions")
+gfm_commonmark_539()
+    assert_eq(to_html_with(parse_with("[foo][BaR]\n\n[bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 540 with the GitHub extensions")
+gfm_commonmark_540()
+    assert_eq(to_html_with(parse_with("[\u{1e9e}]\n\n[SS]: /url\n", gfm()), gfm_html()), "<p><a href=\"/url\">\u{1e9e}</a></p>\n")
+
+@test("example 541 with the GitHub extensions")
+gfm_commonmark_541()
+    assert_eq(to_html_with(parse_with("[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n", gfm()), gfm_html()), "<p><a href=\"/url\">Baz</a></p>\n")
+
+@test("example 542 with the GitHub extensions")
+gfm_commonmark_542()
+    assert_eq(to_html_with(parse_with("[foo] [bar]\n\n[bar]: /url \"title\"\n", gfm()), gfm_html()), "<p>[foo] <a href=\"/url\" title=\"title\">bar</a></p>\n")
+
+@test("example 543 with the GitHub extensions")
+gfm_commonmark_543()
+    assert_eq(to_html_with(parse_with("[foo]\n[bar]\n\n[bar]: /url \"title\"\n", gfm()), gfm_html()), "<p>[foo]\n<a href=\"/url\" title=\"title\">bar</a></p>\n")
+
+@test("example 544 with the GitHub extensions")
+gfm_commonmark_544()
+    assert_eq(to_html_with(parse_with("[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]\n", gfm()), gfm_html()), "<p><a href=\"/url1\">bar</a></p>\n")
+
+@test("example 545 with the GitHub extensions")
+gfm_commonmark_545()
+    assert_eq(to_html_with(parse_with("[bar][foo\\!]\n\n[foo!]: /url\n", gfm()), gfm_html()), "<p>[bar][foo!]</p>\n")
+
+@test("example 546 with the GitHub extensions")
+gfm_commonmark_546()
+    assert_eq(to_html_with(parse_with("[foo][ref[]\n\n[ref[]: /uri\n", gfm()), gfm_html()), "<p>[foo][ref[]</p>\n<p>[ref[]: /uri</p>\n")
+
+@test("example 547 with the GitHub extensions")
+gfm_commonmark_547()
+    assert_eq(to_html_with(parse_with("[foo][ref[bar]]\n\n[ref[bar]]: /uri\n", gfm()), gfm_html()), "<p>[foo][ref[bar]]</p>\n<p>[ref[bar]]: /uri</p>\n")
+
+@test("example 548 with the GitHub extensions")
+gfm_commonmark_548()
+    assert_eq(to_html_with(parse_with("[[[foo]]]\n\n[[[foo]]]: /url\n", gfm()), gfm_html()), "<p>[[[foo]]]</p>\n<p>[[[foo]]]: /url</p>\n")
+
+@test("example 549 with the GitHub extensions")
+gfm_commonmark_549()
+    assert_eq(to_html_with(parse_with("[foo][ref\\[]\n\n[ref\\[]: /uri\n", gfm()), gfm_html()), "<p><a href=\"/uri\">foo</a></p>\n")
+
+@test("example 550 with the GitHub extensions")
+gfm_commonmark_550()
+    assert_eq(to_html_with(parse_with("[bar\\\\]: /uri\n\n[bar\\\\]\n", gfm()), gfm_html()), "<p><a href=\"/uri\">bar\\</a></p>\n")
+
+@test("example 551 with the GitHub extensions")
+gfm_commonmark_551()
+    assert_eq(to_html_with(parse_with("[]\n\n[]: /uri\n", gfm()), gfm_html()), "<p>[]</p>\n<p>[]: /uri</p>\n")
+
+@test("example 552 with the GitHub extensions")
+gfm_commonmark_552()
+    assert_eq(to_html_with(parse_with("[\n ]\n\n[\n ]: /uri\n", gfm()), gfm_html()), "<p>[\n]</p>\n<p>[\n]: /uri</p>\n")
+
+@test("example 553 with the GitHub extensions")
+gfm_commonmark_553()
+    assert_eq(to_html_with(parse_with("[foo][]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 554 with the GitHub extensions")
+gfm_commonmark_554()
+    assert_eq(to_html_with(parse_with("[*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\"><em>foo</em> bar</a></p>\n")
+
+@test("example 555 with the GitHub extensions")
+gfm_commonmark_555()
+    assert_eq(to_html_with(parse_with("[Foo][]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n")
+
+@test("example 556 with the GitHub extensions")
+gfm_commonmark_556()
+    assert_eq(to_html_with(parse_with("[foo] \n[]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a>\n[]</p>\n")
+
+@test("example 557 with the GitHub extensions")
+gfm_commonmark_557()
+    assert_eq(to_html_with(parse_with("[foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 558 with the GitHub extensions")
+gfm_commonmark_558()
+    assert_eq(to_html_with(parse_with("[*foo* bar]\n\n[*foo* bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\"><em>foo</em> bar</a></p>\n")
+
+@test("example 559 with the GitHub extensions")
+gfm_commonmark_559()
+    assert_eq(to_html_with(parse_with("[[*foo* bar]]\n\n[*foo* bar]: /url \"title\"\n", gfm()), gfm_html()), "<p>[<a href=\"/url\" title=\"title\"><em>foo</em> bar</a>]</p>\n")
+
+@test("example 560 with the GitHub extensions")
+gfm_commonmark_560()
+    assert_eq(to_html_with(parse_with("[[bar [foo]\n\n[foo]: /url\n", gfm()), gfm_html()), "<p>[[bar <a href=\"/url\">foo</a></p>\n")
+
+@test("example 561 with the GitHub extensions")
+gfm_commonmark_561()
+    assert_eq(to_html_with(parse_with("[Foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n")
+
+@test("example 562 with the GitHub extensions")
+gfm_commonmark_562()
+    assert_eq(to_html_with(parse_with("[foo] bar\n\n[foo]: /url\n", gfm()), gfm_html()), "<p><a href=\"/url\">foo</a> bar</p>\n")
+
+@test("example 563 with the GitHub extensions")
+gfm_commonmark_563()
+    assert_eq(to_html_with(parse_with("\\[foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p>[foo]</p>\n")
+
+@test("example 564 with the GitHub extensions")
+gfm_commonmark_564()
+    assert_eq(to_html_with(parse_with("[foo*]: /url\n\n*[foo*]\n", gfm()), gfm_html()), "<p>*<a href=\"/url\">foo*</a></p>\n")
+
+@test("example 565 with the GitHub extensions")
+gfm_commonmark_565()
+    assert_eq(to_html_with(parse_with("[foo][bar]\n\n[foo]: /url1\n[bar]: /url2\n", gfm()), gfm_html()), "<p><a href=\"/url2\">foo</a></p>\n")
+
+@test("example 566 with the GitHub extensions")
+gfm_commonmark_566()
+    assert_eq(to_html_with(parse_with("[foo][]\n\n[foo]: /url1\n", gfm()), gfm_html()), "<p><a href=\"/url1\">foo</a></p>\n")
+
+@test("example 567 with the GitHub extensions")
+gfm_commonmark_567()
+    assert_eq(to_html_with(parse_with("[foo]()\n\n[foo]: /url1\n", gfm()), gfm_html()), "<p><a href=\"\">foo</a></p>\n")
+
+@test("example 568 with the GitHub extensions")
+gfm_commonmark_568()
+    assert_eq(to_html_with(parse_with("[foo](not a link)\n\n[foo]: /url1\n", gfm()), gfm_html()), "<p><a href=\"/url1\">foo</a>(not a link)</p>\n")
+
+@test("example 569 with the GitHub extensions")
+gfm_commonmark_569()
+    assert_eq(to_html_with(parse_with("[foo][bar][baz]\n\n[baz]: /url\n", gfm()), gfm_html()), "<p>[foo]<a href=\"/url\">bar</a></p>\n")
+
+@test("example 570 with the GitHub extensions")
+gfm_commonmark_570()
+    assert_eq(to_html_with(parse_with("[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2\n", gfm()), gfm_html()), "<p><a href=\"/url2\">foo</a><a href=\"/url1\">baz</a></p>\n")
+
+@test("example 571 with the GitHub extensions")
+gfm_commonmark_571()
+    assert_eq(to_html_with(parse_with("[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2\n", gfm()), gfm_html()), "<p>[foo]<a href=\"/url1\">bar</a></p>\n")
+
+@test("example 572 with the GitHub extensions")
+gfm_commonmark_572()
+    assert_eq(to_html_with(parse_with("![foo](/url \"title\")\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
+
+@test("example 573 with the GitHub extensions")
+gfm_commonmark_573()
+    assert_eq(to_html_with(parse_with("![foo *bar*]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n", gfm()), gfm_html()), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
+
+@test("example 574 with the GitHub extensions")
+gfm_commonmark_574()
+    assert_eq(to_html_with(parse_with("![foo ![bar](/url)](/url2)\n", gfm()), gfm_html()), "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n")
+
+@test("example 575 with the GitHub extensions")
+gfm_commonmark_575()
+    assert_eq(to_html_with(parse_with("![foo [bar](/url)](/url2)\n", gfm()), gfm_html()), "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n")
+
+@test("example 576 with the GitHub extensions")
+gfm_commonmark_576()
+    assert_eq(to_html_with(parse_with("![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n", gfm()), gfm_html()), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
+
+@test("example 577 with the GitHub extensions")
+gfm_commonmark_577()
+    assert_eq(to_html_with(parse_with("![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"\n", gfm()), gfm_html()), "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n")
+
+@test("example 578 with the GitHub extensions")
+gfm_commonmark_578()
+    assert_eq(to_html_with(parse_with("![foo](train.jpg)\n", gfm()), gfm_html()), "<p><img src=\"train.jpg\" alt=\"foo\" /></p>\n")
+
+@test("example 579 with the GitHub extensions")
+gfm_commonmark_579()
+    assert_eq(to_html_with(parse_with("My ![foo bar](/path/to/train.jpg  \"title\"   )\n", gfm()), gfm_html()), "<p>My <img src=\"/path/to/train.jpg\" alt=\"foo bar\" title=\"title\" /></p>\n")
+
+@test("example 580 with the GitHub extensions")
+gfm_commonmark_580()
+    assert_eq(to_html_with(parse_with("![foo](<url>)\n", gfm()), gfm_html()), "<p><img src=\"url\" alt=\"foo\" /></p>\n")
+
+@test("example 581 with the GitHub extensions")
+gfm_commonmark_581()
+    assert_eq(to_html_with(parse_with("![](/url)\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"\" /></p>\n")
+
+@test("example 582 with the GitHub extensions")
+gfm_commonmark_582()
+    assert_eq(to_html_with(parse_with("![foo][bar]\n\n[bar]: /url\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" /></p>\n")
+
+@test("example 583 with the GitHub extensions")
+gfm_commonmark_583()
+    assert_eq(to_html_with(parse_with("![foo][bar]\n\n[BAR]: /url\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" /></p>\n")
+
+@test("example 584 with the GitHub extensions")
+gfm_commonmark_584()
+    assert_eq(to_html_with(parse_with("![foo][]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
+
+@test("example 585 with the GitHub extensions")
+gfm_commonmark_585()
+    assert_eq(to_html_with(parse_with("![*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n")
+
+@test("example 586 with the GitHub extensions")
+gfm_commonmark_586()
+    assert_eq(to_html_with(parse_with("![Foo][]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n")
+
+@test("example 587 with the GitHub extensions")
+gfm_commonmark_587()
+    assert_eq(to_html_with(parse_with("![foo] \n[]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" />\n[]</p>\n")
+
+@test("example 588 with the GitHub extensions")
+gfm_commonmark_588()
+    assert_eq(to_html_with(parse_with("![foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n")
+
+@test("example 589 with the GitHub extensions")
+gfm_commonmark_589()
+    assert_eq(to_html_with(parse_with("![*foo* bar]\n\n[*foo* bar]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n")
+
+@test("example 590 with the GitHub extensions")
+gfm_commonmark_590()
+    assert_eq(to_html_with(parse_with("![[foo]]\n\n[[foo]]: /url \"title\"\n", gfm()), gfm_html()), "<p>![[foo]]</p>\n<p>[[foo]]: /url &quot;title&quot;</p>\n")
+
+@test("example 591 with the GitHub extensions")
+gfm_commonmark_591()
+    assert_eq(to_html_with(parse_with("![Foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n")
+
+@test("example 592 with the GitHub extensions")
+gfm_commonmark_592()
+    assert_eq(to_html_with(parse_with("!\\[foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p>![foo]</p>\n")
+
+@test("example 593 with the GitHub extensions")
+gfm_commonmark_593()
+    assert_eq(to_html_with(parse_with("\\![foo]\n\n[foo]: /url \"title\"\n", gfm()), gfm_html()), "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n")
+
+@test("example 594 with the GitHub extensions")
+gfm_commonmark_594()
+    assert_eq(to_html_with(parse_with("<http://foo.bar.baz>\n", gfm()), gfm_html()), "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n")
+
+@test("example 595 with the GitHub extensions")
+gfm_commonmark_595()
+    assert_eq(to_html_with(parse_with("<https://foo.bar.baz/test?q=hello&id=22&boolean>\n", gfm()), gfm_html()), "<p><a href=\"https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n")
+
+@test("example 596 with the GitHub extensions")
+gfm_commonmark_596()
+    assert_eq(to_html_with(parse_with("<irc://foo.bar:2233/baz>\n", gfm()), gfm_html()), "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n")
+
+@test("example 597 with the GitHub extensions")
+gfm_commonmark_597()
+    assert_eq(to_html_with(parse_with("<MAILTO:FOO@BAR.BAZ>\n", gfm()), gfm_html()), "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>\n")
+
+@test("example 598 with the GitHub extensions")
+gfm_commonmark_598()
+    assert_eq(to_html_with(parse_with("<a+b+c:d>\n", gfm()), gfm_html()), "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n")
+
+@test("example 599 with the GitHub extensions")
+gfm_commonmark_599()
+    assert_eq(to_html_with(parse_with("<made-up-scheme://foo,bar>\n", gfm()), gfm_html()), "<p><a href=\"made-up-scheme://foo,bar\">made-up-scheme://foo,bar</a></p>\n")
+
+@test("example 600 with the GitHub extensions")
+gfm_commonmark_600()
+    assert_eq(to_html_with(parse_with("<https://../>\n", gfm()), gfm_html()), "<p><a href=\"https://../\">https://../</a></p>\n")
+
+@test("example 601 with the GitHub extensions")
+gfm_commonmark_601()
+    assert_eq(to_html_with(parse_with("<localhost:5001/foo>\n", gfm()), gfm_html()), "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n")
+
+// an extended autolink
+@test("example 602 with the GitHub extensions")
+gfm_commonmark_602()
+    assert_eq(to_html_with(parse_with("<https://foo.bar/baz bim>\n", gfm()), gfm_html()), "<p>&lt;<a href=\"https://foo.bar/baz\">https://foo.bar/baz</a> bim&gt;</p>\n")
+
+@test("example 603 with the GitHub extensions")
+gfm_commonmark_603()
+    assert_eq(to_html_with(parse_with("<https://example.com/\\[\\>\n", gfm()), gfm_html()), "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>\n")
+
+@test("example 604 with the GitHub extensions")
+gfm_commonmark_604()
+    assert_eq(to_html_with(parse_with("<foo@bar.example.com>\n", gfm()), gfm_html()), "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n")
+
+@test("example 605 with the GitHub extensions")
+gfm_commonmark_605()
+    assert_eq(to_html_with(parse_with("<foo+special@Bar.baz-bar0.com>\n", gfm()), gfm_html()), "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n")
+
+// an extended autolink
+@test("example 606 with the GitHub extensions")
+gfm_commonmark_606()
+    assert_eq(to_html_with(parse_with("<foo\\+@bar.example.com>\n", gfm()), gfm_html()), "<p>&lt;<a href=\"mailto:foo+@bar.example.com\">foo+@bar.example.com</a>&gt;</p>\n")
+
+@test("example 607 with the GitHub extensions")
+gfm_commonmark_607()
+    assert_eq(to_html_with(parse_with("<>\n", gfm()), gfm_html()), "<p>&lt;&gt;</p>\n")
+
+// an extended autolink
+@test("example 608 with the GitHub extensions")
+gfm_commonmark_608()
+    assert_eq(to_html_with(parse_with("< https://foo.bar >\n", gfm()), gfm_html()), "<p>&lt; <a href=\"https://foo.bar\">https://foo.bar</a> &gt;</p>\n")
+
+@test("example 609 with the GitHub extensions")
+gfm_commonmark_609()
+    assert_eq(to_html_with(parse_with("<m:abc>\n", gfm()), gfm_html()), "<p>&lt;m:abc&gt;</p>\n")
+
+@test("example 610 with the GitHub extensions")
+gfm_commonmark_610()
+    assert_eq(to_html_with(parse_with("<foo.bar.baz>\n", gfm()), gfm_html()), "<p>&lt;foo.bar.baz&gt;</p>\n")
+
+// an extended autolink
+@test("example 611 with the GitHub extensions")
+gfm_commonmark_611()
+    assert_eq(to_html_with(parse_with("https://example.com\n", gfm()), gfm_html()), "<p><a href=\"https://example.com\">https://example.com</a></p>\n")
+
+// an extended autolink
+@test("example 612 with the GitHub extensions")
+gfm_commonmark_612()
+    assert_eq(to_html_with(parse_with("foo@bar.example.com\n", gfm()), gfm_html()), "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n")
+
+@test("example 613 with the GitHub extensions")
+gfm_commonmark_613()
+    assert_eq(to_html_with(parse_with("<a><bab><c2c>\n", gfm()), gfm_html()), "<p><a><bab><c2c></p>\n")
+
+@test("example 614 with the GitHub extensions")
+gfm_commonmark_614()
+    assert_eq(to_html_with(parse_with("<a/><b2/>\n", gfm()), gfm_html()), "<p><a/><b2/></p>\n")
+
+@test("example 615 with the GitHub extensions")
+gfm_commonmark_615()
+    assert_eq(to_html_with(parse_with("<a  /><b2\ndata=\"foo\" >\n", gfm()), gfm_html()), "<p><a  /><b2\ndata=\"foo\" ></p>\n")
+
+@test("example 616 with the GitHub extensions")
+gfm_commonmark_616()
+    assert_eq(to_html_with(parse_with("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", gfm()), gfm_html()), "<p><a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 /></p>\n")
+
+@test("example 617 with the GitHub extensions")
+gfm_commonmark_617()
+    assert_eq(to_html_with(parse_with("Foo <responsive-image src=\"foo.jpg\" />\n", gfm()), gfm_html()), "<p>Foo <responsive-image src=\"foo.jpg\" /></p>\n")
+
+@test("example 618 with the GitHub extensions")
+gfm_commonmark_618()
+    assert_eq(to_html_with(parse_with("<33> <__>\n", gfm()), gfm_html()), "<p>&lt;33&gt; &lt;__&gt;</p>\n")
+
+@test("example 619 with the GitHub extensions")
+gfm_commonmark_619()
+    assert_eq(to_html_with(parse_with("<a h*#ref=\"hi\">\n", gfm()), gfm_html()), "<p>&lt;a h*#ref=&quot;hi&quot;&gt;</p>\n")
+
+@test("example 620 with the GitHub extensions")
+gfm_commonmark_620()
+    assert_eq(to_html_with(parse_with("<a href=\"hi'> <a href=hi'>\n", gfm()), gfm_html()), "<p>&lt;a href=&quot;hi'&gt; &lt;a href=hi'&gt;</p>\n")
+
+@test("example 621 with the GitHub extensions")
+gfm_commonmark_621()
+    assert_eq(to_html_with(parse_with("< a><\nfoo><bar/ >\n<foo bar=baz\nbim!bop />\n", gfm()), gfm_html()), "<p>&lt; a&gt;&lt;\nfoo&gt;&lt;bar/ &gt;\n&lt;foo bar=baz\nbim!bop /&gt;</p>\n")
+
+@test("example 622 with the GitHub extensions")
+gfm_commonmark_622()
+    assert_eq(to_html_with(parse_with("<a href='bar'title=title>\n", gfm()), gfm_html()), "<p>&lt;a href='bar'title=title&gt;</p>\n")
+
+@test("example 623 with the GitHub extensions")
+gfm_commonmark_623()
+    assert_eq(to_html_with(parse_with("</a></foo >\n", gfm()), gfm_html()), "<p></a></foo ></p>\n")
+
+@test("example 624 with the GitHub extensions")
+gfm_commonmark_624()
+    assert_eq(to_html_with(parse_with("</a href=\"foo\">\n", gfm()), gfm_html()), "<p>&lt;/a href=&quot;foo&quot;&gt;</p>\n")
+
+@test("example 625 with the GitHub extensions")
+gfm_commonmark_625()
+    assert_eq(to_html_with(parse_with("foo <!-- this is a --\ncomment - with hyphens -->\n", gfm()), gfm_html()), "<p>foo <!-- this is a --\ncomment - with hyphens --></p>\n")
+
+@test("example 626 with the GitHub extensions")
+gfm_commonmark_626()
+    assert_eq(to_html_with(parse_with("foo <!--> foo -->\n\nfoo <!---> foo -->\n", gfm()), gfm_html()), "<p>foo <!--> foo --&gt;</p>\n<p>foo <!---> foo --&gt;</p>\n")
+
+@test("example 627 with the GitHub extensions")
+gfm_commonmark_627()
+    assert_eq(to_html_with(parse_with("foo <?php echo $a; ?>\n", gfm()), gfm_html()), "<p>foo <?php echo $a; ?></p>\n")
+
+@test("example 628 with the GitHub extensions")
+gfm_commonmark_628()
+    assert_eq(to_html_with(parse_with("foo <!ELEMENT br EMPTY>\n", gfm()), gfm_html()), "<p>foo <!ELEMENT br EMPTY></p>\n")
+
+@test("example 629 with the GitHub extensions")
+gfm_commonmark_629()
+    assert_eq(to_html_with(parse_with("foo <![CDATA[>&<]]>\n", gfm()), gfm_html()), "<p>foo <![CDATA[>&<]]></p>\n")
+
+@test("example 630 with the GitHub extensions")
+gfm_commonmark_630()
+    assert_eq(to_html_with(parse_with("foo <a href=\"&ouml;\">\n", gfm()), gfm_html()), "<p>foo <a href=\"&ouml;\"></p>\n")
+
+@test("example 631 with the GitHub extensions")
+gfm_commonmark_631()
+    assert_eq(to_html_with(parse_with("foo <a href=\"\\*\">\n", gfm()), gfm_html()), "<p>foo <a href=\"\\*\"></p>\n")
+
+@test("example 632 with the GitHub extensions")
+gfm_commonmark_632()
+    assert_eq(to_html_with(parse_with("<a href=\"\\\"\">\n", gfm()), gfm_html()), "<p>&lt;a href=&quot;&quot;&quot;&gt;</p>\n")
+
+@test("example 633 with the GitHub extensions")
+gfm_commonmark_633()
+    assert_eq(to_html_with(parse_with("foo  \nbaz\n", gfm()), gfm_html()), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 634 with the GitHub extensions")
+gfm_commonmark_634()
+    assert_eq(to_html_with(parse_with("foo\\\nbaz\n", gfm()), gfm_html()), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 635 with the GitHub extensions")
+gfm_commonmark_635()
+    assert_eq(to_html_with(parse_with("foo       \nbaz\n", gfm()), gfm_html()), "<p>foo<br />\nbaz</p>\n")
+
+@test("example 636 with the GitHub extensions")
+gfm_commonmark_636()
+    assert_eq(to_html_with(parse_with("foo  \n     bar\n", gfm()), gfm_html()), "<p>foo<br />\nbar</p>\n")
+
+@test("example 637 with the GitHub extensions")
+gfm_commonmark_637()
+    assert_eq(to_html_with(parse_with("foo\\\n     bar\n", gfm()), gfm_html()), "<p>foo<br />\nbar</p>\n")
+
+@test("example 638 with the GitHub extensions")
+gfm_commonmark_638()
+    assert_eq(to_html_with(parse_with("*foo  \nbar*\n", gfm()), gfm_html()), "<p><em>foo<br />\nbar</em></p>\n")
+
+@test("example 639 with the GitHub extensions")
+gfm_commonmark_639()
+    assert_eq(to_html_with(parse_with("*foo\\\nbar*\n", gfm()), gfm_html()), "<p><em>foo<br />\nbar</em></p>\n")
+
+@test("example 640 with the GitHub extensions")
+gfm_commonmark_640()
+    assert_eq(to_html_with(parse_with("`code  \nspan`\n", gfm()), gfm_html()), "<p><code>code   span</code></p>\n")
+
+@test("example 641 with the GitHub extensions")
+gfm_commonmark_641()
+    assert_eq(to_html_with(parse_with("`code\\\nspan`\n", gfm()), gfm_html()), "<p><code>code\\ span</code></p>\n")
+
+@test("example 642 with the GitHub extensions")
+gfm_commonmark_642()
+    assert_eq(to_html_with(parse_with("<a href=\"foo  \nbar\">\n", gfm()), gfm_html()), "<p><a href=\"foo  \nbar\"></p>\n")
+
+@test("example 643 with the GitHub extensions")
+gfm_commonmark_643()
+    assert_eq(to_html_with(parse_with("<a href=\"foo\\\nbar\">\n", gfm()), gfm_html()), "<p><a href=\"foo\\\nbar\"></p>\n")
+
+@test("example 644 with the GitHub extensions")
+gfm_commonmark_644()
+    assert_eq(to_html_with(parse_with("foo\\\n", gfm()), gfm_html()), "<p>foo\\</p>\n")
+
+@test("example 645 with the GitHub extensions")
+gfm_commonmark_645()
+    assert_eq(to_html_with(parse_with("foo  \n", gfm()), gfm_html()), "<p>foo</p>\n")
+
+@test("example 646 with the GitHub extensions")
+gfm_commonmark_646()
+    assert_eq(to_html_with(parse_with("### foo\\\n", gfm()), gfm_html()), "<h3>foo\\</h3>\n")
+
+@test("example 647 with the GitHub extensions")
+gfm_commonmark_647()
+    assert_eq(to_html_with(parse_with("### foo  \n", gfm()), gfm_html()), "<h3>foo</h3>\n")
+
+@test("example 648 with the GitHub extensions")
+gfm_commonmark_648()
+    assert_eq(to_html_with(parse_with("foo\nbaz\n", gfm()), gfm_html()), "<p>foo\nbaz</p>\n")
+
+@test("example 649 with the GitHub extensions")
+gfm_commonmark_649()
+    assert_eq(to_html_with(parse_with("foo \n baz\n", gfm()), gfm_html()), "<p>foo\nbaz</p>\n")
+
+@test("example 650 with the GitHub extensions")
+gfm_commonmark_650()
+    assert_eq(to_html_with(parse_with("hello $.;'there\n", gfm()), gfm_html()), "<p>hello $.;'there</p>\n")
+
+@test("example 651 with the GitHub extensions")
+gfm_commonmark_651()
+    assert_eq(to_html_with(parse_with("Foo \u{3c7}\u{3c1}\u{1fc6}\u{3bd}\n", gfm()), gfm_html()), "<p>Foo \u{3c7}\u{3c1}\u{1fc6}\u{3bd}</p>\n")
+
+@test("example 652 with the GitHub extensions")
+gfm_commonmark_652()
+    assert_eq(to_html_with(parse_with("Multiple     spaces\n", gfm()), gfm_html()), "<p>Multiple     spaces</p>\n")

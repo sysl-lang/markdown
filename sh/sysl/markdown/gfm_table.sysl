@@ -1,0 +1,355 @@
+module sh.sysl.markdown
+
+import sysl.buf.{Buf, buf}
+import sysl.text.Ascii
+
+// GitHub's tables: a header row, a delimiter row of dashes under it saying how each column is
+// aligned, and rows of cells until a blank line or the start of another block.
+//
+// ```
+// | a | b |
+// |:--|--:|
+// | 1 | 2 |
+// ```
+//
+// **The rules are cmark-gfm's, which GitHub runs**:
+//
+// - **A table begins where a paragraph's next line is a delimiter row** -- cells of `-`, each with an
+//   optional `:` at either end, between pipes -- **and the paragraph's last line has as many cells**.
+//   That last line becomes the header and the paragraph keeps any lines before it. A paragraph that
+//   once met a delimiter row of the wrong width never becomes a table.
+// - **A row is split at each `|` not escaped as `\|`**, a leading and a trailing pipe being optional;
+//   each cell is trimmed, its `\|` becomes `|` before its inlines are read -- inside a code span too
+//   -- and a row's cells past the header's width are dropped while a short row is filled out with
+//   empty cells.
+// - **Any line that is not blank continues the table**, unless a block starts on it, as one would
+//   end a paragraph. A line holding nothing but `|` has no cells and ends it.
+// - **Filled-out cells are capped**: once a table has filled out more than 524,288 cells it takes no
+//   more rows, so a wide header over many one-cell rows cannot make the output quadratic.
+
+/** The table extension, for a `Registry`. */
+tables() -> &Extension = Tables()
+
+/** The `tag` of a table's own `ExtNode`; its children are rows. */
+const TABLE_NODE: u32 = 0
+
+/** The `tag` of a table's header row; its children are cells. */
+const TABLE_HEAD_NODE: u32 = 1
+
+/** The `tag` of a table's body row; its children are cells. */
+const TABLE_ROW_NODE: u32 = 2
+
+/** The `tag` of a table cell, whose `data` is its column's alignment -- `left`, `center`, `right`,
+ * or empty for none -- and whose children are its inlines.
+ */
+const TABLE_CELL_NODE: u32 = 3
+
+private const MAX_COLUMNS: usize = 65535
+private const MAX_FILLED: u64 = 0x80000
+
+private struct Tables
+end Tables
+
+impl Extension for Tables
+    name(self) -> string = "table"
+
+    // A table starts on a line under a paragraph, so it has to be let interrupt one.
+    override interrupts_paragraph(self) -> bool = true
+
+    override block_start(self, line: Line) -> BlockStart
+        val para = line.para
+
+        if para.len == 0 || line.indent >= 4 || line.para_word != 0 then return Declined
+
+        val b = line.text.bytes
+        val s = first_nonspace(b, line.pos, b.len)
+
+        if !is_delimiter_row(b, s, b.len) then return Declined
+
+        val columns = row_cells(b, s, b.len).len()
+
+        if columns == 0 then return Declined
+
+        val e = para.len - 1
+        val head = line_start(para, e)
+
+        if row_cells(para, first_nonspace(para, head, e), e).len() != columns then return Mark(1)
+
+        Lines(table_node(TABLE_NODE, ""), 0, u64(columns) << 32, 1)
+    end block_start
+
+    // The low half of the state counts the cells filled out so far, the high half the columns.
+    override block_continue(self, line: Line, kind: Kind, state: *u64) -> BlockContinue
+        if line.blank then return Ends
+
+        val b = line.text.bytes
+        val cells = row_cells(b, first_nonspace(b, line.pos, b.len), b.len).len()
+        val columns = *state >> 32
+        val filled = *state & 0xFFFFFFFF
+
+        if cells == 0 || cells > MAX_COLUMNS || filled > MAX_FILLED then return Ends
+
+        if u64(cells) < columns then *state = (columns << 32) | (filled + columns - u64(cells))
+
+        Takes(0)
+    end block_continue
+
+    // The gathered lines are the header, the delimiter row and the body rows, in that order.
+    override block_close(self, c: Closing, state: u64) -> Kind
+        val b = c.text.bytes
+        val columns = usize(state >> 32)
+        var aligns: Buf[string] = buf()
+        val second = line_end(b, 0) + 1
+        val delimiters = line_end(b, second)
+
+        for (from, to) in row_cells(b, first_nonspace(b, second, delimiters), delimiters).view() do aligns.push(alignment(b, from, to))
+
+        var at: usize = 0
+        var row: usize = 0
+
+        while at < b.len
+            val e = line_end(b, at)
+            val s = first_nonspace(b, at, e)
+            val cells = row_cells(b, s, e)
+
+            if row != 1 then
+                val tag = if row == 0 then TABLE_HEAD_NODE else TABLE_ROW_NODE
+                val r = c.child(c.node, table_node(tag, ""), s, e)
+
+                for k in 0..<columns
+                    if k < cells.len() then
+                        val (from, to) = cells[k]
+                        val cell = c.child(r, table_node(TABLE_CELL_NODE, aligns_at(aligns, k)), from, to)
+
+                        c.inlines(cell, without_escaped_pipes(b, from, to).view())
+                    else
+                        c.child(r, table_node(TABLE_CELL_NODE, aligns_at(aligns, k)), e, e)
+
+            row += 1
+            at = e + 1
+        end while
+
+        c.kind
+    end block_close
+
+    // cmark-gfm's HTML: `<thead>` around the header row, `<tbody>` around the body rows where there
+    // are any, and each cell's alignment as an `align` attribute.
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val entering = ev == Enter
+        val t = tag_of(d, n)
+
+        if t == TABLE_NODE then
+            if entering then
+                w.cr()
+                w.tag("<table>")
+                return
+
+            val body = d.last_child(n) match
+                Some(last) -> tag_of(d, last) == TABLE_ROW_NODE
+                None -> false
+
+            if body then
+                w.cr()
+                w.tag("</tbody>")
+                w.cr()
+
+            w.cr()
+            w.tag("</table>")
+            w.cr()
+        else if t == TABLE_HEAD_NODE then
+            w.cr()
+
+            if entering then
+                w.tag("<thead>")
+                w.cr()
+                w.tag("<tr>")
+            else
+                w.tag("</tr>")
+                w.cr()
+                w.tag("</thead>")
+        else if t == TABLE_ROW_NODE then
+            w.cr()
+
+            if !entering then
+                w.tag("</tr>")
+                return
+
+            val first_body = d.prev_sibling(n) match
+                Some(p) -> tag_of(d, p) != TABLE_ROW_NODE
+                None -> true
+
+            if first_body then
+                w.tag("<tbody>")
+                w.cr()
+
+            w.tag("<tr>")
+        else if t == TABLE_CELL_NODE then
+            val head = d.parent(n) match
+                Some(p) -> tag_of(d, p) == TABLE_HEAD_NODE
+                None -> false
+            val name = if head then "th" else "td"
+
+            if !entering then
+                w.tag(s"</$name>")
+                return
+
+            w.cr()
+            w.tag(s"<$name")
+
+            d.kind(n) match
+                Ext(x) -> if x.data.len > 0 then w.tag(s" align=\"${x.data}\"")
+                _ -> ()
+
+            w.tag(">")
+    end render
+
+private table_node(tag: u32, data: string) -> Kind = Ext(ExtNode("table", tag, data, true))
+
+// The tag of one of the table's own nodes, or `NOT_TABLE` for any other node.
+private const NOT_TABLE: u32 = 0xFFFFFFFF
+
+private tag_of(d: Doc, n: NodeId) -> u32
+    d.kind(n) match
+        Ext(x) -> if x.ext == "table" then x.tag else NOT_TABLE
+        _ -> NOT_TABLE
+
+private aligns_at(aligns: Buf[string], k: usize) -> string = if k < aligns.len() then aligns[k] else ""
+
+// A delimiter cell's alignment: a `:` at its start is left, at its end right, at both center.
+private alignment(b: []const u8, from: usize, to: usize) -> string
+    if to <= from then return ""
+
+    val left = b[from] == u8(':')
+    val right = b[to - 1] == u8(':')
+
+    if left && right then "center" else if left then "left" else if right then "right" else ""
+
+// Whether `b[s..<e]` is a delimiter row: an optional pipe, cells of an optional `:`, dashes and an
+// optional `:` with spaces around them, separated by pipes, an optional last pipe, then only spaces.
+private is_delimiter_row(b: []const u8, s: usize, e: usize) -> bool
+    var i = s
+
+    if i < e && b[i] == u8('|') then i += 1
+
+    marker_end(b, i, e) match
+        Some(j) -> i = j
+        None -> return false
+
+    loop
+        if i >= e || b[i] != u8('|') then break
+
+        marker_end(b, i + 1, e) match
+            Some(j) -> i = j
+            None ->
+                i += 1
+                break
+
+    while i < e && is_cell_space(b[i]) do i += 1
+
+    i == e
+end is_delimiter_row
+
+// Where one delimiter cell starting at `i` ends, or `None` where none starts there.
+private marker_end(b: []const u8, i0: usize, e: usize) -> Option[usize]
+    var i = i0
+
+    while i < e && is_cell_space(b[i]) do i += 1
+    if i < e && b[i] == u8(':') then i += 1
+
+    val dashes = i
+
+    while i < e && b[i] == u8('-') do i += 1
+    if i == dashes then return None
+    if i < e && b[i] == u8(':') then i += 1
+    while i < e && is_cell_space(b[i]) do i += 1
+
+    Some(i)
+
+/** The cells of the row `b[s..<e]`, each as the byte range it holds once trimmed.
+ *
+ * A leading pipe is skipped; a cell runs to the next `|` with no backslash directly before it --
+ * cmark-gfm's longest match, under which `\\|` does not end a cell either -- and the pipe after it
+ * with the spaces after that is its end. A row with no cells at all -- an empty line, or a lone `|`
+ * -- answers none.
+ */
+private[markdown] row_cells(b: []const u8, s: usize, e: usize) -> Buf[(usize, usize)]
+    var cells: Buf[(usize, usize)] = buf()
+    var i = s
+
+    if i < e && b[i] == u8('|') then i = past_spaces(b, i + 1, e)
+
+    while i < e
+        var j = i
+
+        while j < e && (b[j] != u8('|') || (j > i && b[j - 1] == u8('\\'))) do j += 1
+
+        var from = i
+        var to = j
+
+        while from < to && is_trim_space(b[from]) do from += 1
+        while to > from && is_trim_space(b[to - 1]) do to -= 1
+
+        cells.push((from, to))
+
+        if j >= e then break
+
+        i = past_spaces(b, j + 1, e)
+    end while
+
+    if cells.len() > MAX_COLUMNS then cells.clear()
+
+    cells
+end row_cells
+
+// The pieces of the cell `b[from..<to]` its inlines are read from: everything but the backslash of
+// each `\|`, as cmark-gfm takes it away before the inline parser sees the cell.
+private without_escaped_pipes(b: []const u8, from: usize, to: usize) -> Buf[(usize, usize)]
+    var pieces: Buf[(usize, usize)] = buf()
+    var start = from
+    var r = from
+
+    while r < to
+        if b[r] == u8('\\') && r + 1 < to && b[r + 1] == u8('|') then
+            pieces.push((start, r))
+            start = r + 1
+            r += 2
+        else
+            r += 1
+
+    pieces.push((start, to))
+    pieces
+
+// The end of the line starting at `s`: its newline, or the end of `b`.
+private line_end(b: []const u8, s: usize) -> usize
+    var e = s
+
+    while e < b.len && b[e] != u8('\n') do e += 1
+
+    e
+
+// The start of the line ending at the newline (or end) `e`.
+private line_start(b: []const u8, e: usize) -> usize
+    var s = e
+
+    while s > 0 && b[s - 1] != u8('\n') do s -= 1
+
+    s
+
+private first_nonspace(b: []const u8, from: usize, e: usize) -> usize
+    var i = from
+
+    while i < e && (b[i] == u8(' ') || b[i] == u8('\t')) do i += 1
+
+    i
+
+private past_spaces(b: []const u8, from: usize, e: usize) -> usize
+    var i = from
+
+    while i < e && is_cell_space(b[i]) do i += 1
+
+    i
+
+// cmark-gfm's `spacechar`: a space, a tab, a vertical tab or a form feed.
+private is_cell_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == 11 || c == 12
+
+private is_trim_space(c: u8) -> bool = is_cell_space(c) || c == u8('\n') || c == u8('\r')

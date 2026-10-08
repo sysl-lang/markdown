@@ -1,0 +1,758 @@
+module sh.sysl.markdown
+@tests
+
+// Hostile and corner-case inputs for the GitHub extensions, each read with gfm() and rendered with
+// gfm_html(). The expected HTML is cmark-gfm 0.29.0.gfm.13's for the same input, run as
+// `cmark-gfm --unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter` -- the second
+// oracle, which reads what nobody wrote a spec example for. Where the two disagree, the case is in
+// tests_gfm_deviations.sysl instead.
+
+private gfm_of(src: string) -> string = to_html_with(parse_with(src, gfm()), gfm_html())
+
+@test("tables as cmark-gfm reads them, 1")
+tables_1()
+    assert_eq(gfm_of("| a |\n| - | - |\n| b |\n| - |\n"), "<p>| a |\n| - | - |\n| b |\n| - |</p>\n")
+
+@test("tables as cmark-gfm reads them, 2")
+tables_2()
+    assert_eq(gfm_of("a\n-|-\n"), "<p>a\n-|-</p>\n")
+
+@test("tables as cmark-gfm reads them, 3")
+tables_3()
+    assert_eq(gfm_of("a|b\n-|-\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 4")
+tables_4()
+    assert_eq(gfm_of("p1\np2 \\| q\n| a | b |\n|---|---|\n| c | d |\n"), "<p>p1\np2 | q</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 5")
+tables_5()
+    assert_eq(gfm_of("| a | b |\n|---|---|\n| c |\n| d | e | f |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td></td>\n</tr>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 6")
+tables_6()
+    assert_eq(gfm_of("| a |\n|---|\n|\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<p>|</p>\n")
+
+@test("tables as cmark-gfm reads them, 7")
+tables_7()
+    assert_eq(gfm_of("| a |\n|---|\n> q\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<blockquote>\n<p>q</p>\n</blockquote>\n")
+
+@test("tables as cmark-gfm reads them, 8")
+tables_8()
+    assert_eq(gfm_of("| a |\n|---|\n- item\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<ul>\n<li>item</li>\n</ul>\n")
+
+@test("tables as cmark-gfm reads them, 9")
+tables_9()
+    assert_eq(gfm_of("| a |\n|---|\n    code\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<pre><code>code\n</code></pre>\n")
+
+@test("tables as cmark-gfm reads them, 10")
+tables_10()
+    assert_eq(gfm_of("| a |\n|---|\n# h\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<h1>h</h1>\n")
+
+@test("tables as cmark-gfm reads them, 11")
+tables_11()
+    assert_eq(gfm_of("| a |\n|---|\n---\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<hr />\n")
+
+@test("tables as cmark-gfm reads them, 12")
+tables_12()
+    assert_eq(gfm_of("| a |\n|---|\n<div>\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<div>\n")
+
+@test("tables as cmark-gfm reads them, 13")
+tables_13()
+    assert_eq(gfm_of("| a |\n|---|\nplain\n\nafter\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>plain</td>\n</tr>\n</tbody>\n</table>\n<p>after</p>\n")
+
+@test("tables as cmark-gfm reads them, 14")
+tables_14()
+    assert_eq(gfm_of("> | a |\n> |---|\n> | b |\nlazy\n"), "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n<p>lazy</p>\n")
+
+@test("tables as cmark-gfm reads them, 15")
+tables_15()
+    assert_eq(gfm_of("- | a |\n  |---|\n  | b |\n- next\n"), "<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n</li>\n<li>next</li>\n</ul>\n")
+
+@test("tables as cmark-gfm reads them, 16")
+tables_16()
+    assert_eq(gfm_of("    | a |\n    |---|\n"), "<pre><code>| a |\n|---|\n</code></pre>\n")
+
+@test("tables as cmark-gfm reads them, 17")
+tables_17()
+    assert_eq(gfm_of("| a |\n    |---|\n"), "<p>| a |\n|---|</p>\n")
+
+@test("tables as cmark-gfm reads them, 18")
+tables_18()
+    assert_eq(gfm_of("| a |\n   |---|\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 19")
+tables_19()
+    assert_eq(gfm_of("|a|b|\n|:-|-:|\n|*x*|**y**|\n"), "<table>\n<thead>\n<tr>\n<th align=\"left\">a</th>\n<th align=\"right\">b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"left\"><em>x</em></td>\n<td align=\"right\"><strong>y</strong></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 20")
+tables_20()
+    assert_eq(gfm_of("| a |\n| :-: |\n| `|` |\n"), "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">`</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 21")
+tables_21()
+    assert_eq(gfm_of("| \\\\ | b |\n|---|---|\n"), "<table>\n<thead>\n<tr>\n<th>\\</th>\n<th>b</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 22")
+tables_22()
+    assert_eq(gfm_of("| a\\\\|b |\n|---|---|\n"), "<p>| a\\|b |\n|---|---|</p>\n")
+
+@test("tables as cmark-gfm reads them, 23")
+tables_23()
+    assert_eq(gfm_of("| a |\n|-|\n| b |\n\n| c |\n|-|\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n<table>\n<thead>\n<tr>\n<th>c</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 24")
+tables_24()
+    assert_eq(gfm_of("a | b\n--- | ---\nc | d\ne\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n<tr>\n<td>e</td>\n<td></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 25")
+tables_25()
+    assert_eq(gfm_of("| a | b |\n| --- | --- |\n| [x](y) | <http://a> |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"y\">x</a></td>\n<td><a href=\"http://a\">http://a</a></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 26")
+tables_26()
+    assert_eq(gfm_of("|   a   |\n|---|\n|   b   |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 27")
+tables_27()
+    assert_eq(gfm_of("| a |\n|---|\n|  |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 28")
+tables_28()
+    assert_eq(gfm_of("foo\n| a |\n|---|\n"), "<p>foo</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 29")
+tables_29()
+    assert_eq(gfm_of("* foo\n| a |\n|---|\n"), "<ul>\n<li>foo\n| a |\n|---|</li>\n</ul>\n")
+
+@test("tables as cmark-gfm reads them, 30")
+tables_30()
+    assert_eq(gfm_of("| a |\n|---|\n| b\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 31")
+tables_31()
+    assert_eq(gfm_of("|a|\n|-:|\n|b|\n|c|\n"), "<table>\n<thead>\n<tr>\n<th align=\"right\">a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"right\">b</td>\n</tr>\n<tr>\n<td align=\"right\">c</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 32")
+tables_32()
+    assert_eq(gfm_of("| a |\n|---|\n| ![i](j) |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"j\" alt=\"i\" /></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 33")
+tables_33()
+    assert_eq(gfm_of("| a |\n|---|\n\t| b |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n<pre><code>| b |\n</code></pre>\n")
+
+@test("tables as cmark-gfm reads them, 34")
+tables_34()
+    assert_eq(gfm_of("| a | b |\n|---|---|\n| c \\| d | e |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c | d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 35")
+tables_35()
+    assert_eq(gfm_of("| a |\n|----|\n| b ~~c~~ www.x.com |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b <del>c</del> <a href=\"http://www.x.com\">www.x.com</a></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 36")
+tables_36()
+    assert_eq(gfm_of("| a |\n| -- |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 37")
+tables_37()
+    assert_eq(gfm_of("|a|\n|-|-|\n|a|\n|-|\n"), "<p>|a|\n|-|-|\n|a|\n|-|</p>\n")
+
+@test("tables as cmark-gfm reads them, 38")
+tables_38()
+    assert_eq(gfm_of("x\n\n| a |\n| --- |\n"), "<p>x</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 39")
+tables_39()
+    assert_eq(gfm_of("| a |\u{d}\n|---|\u{d}\n| b |\u{d}\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 40")
+tables_40()
+    assert_eq(gfm_of("| a \\| b |\n|---|\n"), "<table>\n<thead>\n<tr>\n<th>a | b</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 41")
+tables_41()
+    assert_eq(gfm_of("| a |\n|\\|-|\n"), "<p>| a |\n||-|</p>\n")
+
+@test("tables as cmark-gfm reads them, 42")
+tables_42()
+    assert_eq(gfm_of("\\| a |\n|---|\n"), "<table>\n<thead>\n<tr>\n<th>| a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 43")
+tables_43()
+    assert_eq(gfm_of("| a |\n|---|\n\\| b |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>| b</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 44")
+tables_44()
+    assert_eq(gfm_of("a\\\\\n|-|\n"), "<table>\n<thead>\n<tr>\n<th>a\\</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 45")
+tables_45()
+    assert_eq(gfm_of("| `a|b` |\n|---|---|\n"), "<table>\n<thead>\n<tr>\n<th>`a</th>\n<th>b`</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 46")
+tables_46()
+    assert_eq(gfm_of("| a |\n|---|\n| b |\n> c\nd\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n<blockquote>\n<p>c\nd</p>\n</blockquote>\n")
+
+@test("tables as cmark-gfm reads them, 47")
+tables_47()
+    assert_eq(gfm_of("> a\n| - |\n"), "<blockquote>\n<p>a\n| - |</p>\n</blockquote>\n")
+
+@test("tables as cmark-gfm reads them, 48")
+tables_48()
+    assert_eq(gfm_of("> a\n> | - |\n"), "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n</blockquote>\n")
+
+@test("tables as cmark-gfm reads them, 49")
+tables_49()
+    assert_eq(gfm_of("- a\n  | - |\n"), "<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n</li>\n</ul>\n")
+
+@test("tables as cmark-gfm reads them, 50")
+tables_50()
+    assert_eq(gfm_of("1. | h |\n   | - |\n   | c |\n2. x\n"), "<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>h</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n</li>\n<li>x</li>\n</ol>\n")
+
+@test("tables as cmark-gfm reads them, 51")
+tables_51()
+    assert_eq(gfm_of("| a |\n|---|\n| b |\n\n\n| c |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n<p>| c |</p>\n")
+
+@test("tables as cmark-gfm reads them, 52")
+tables_52()
+    assert_eq(gfm_of("|a|\n|---|\n|b|\n- c\n|d|\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n<ul>\n<li>c\n|d|</li>\n</ul>\n")
+
+@test("tables as cmark-gfm reads them, 53")
+tables_53()
+    assert_eq(gfm_of("| a |  \n|---|  \n| b |  \n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 54")
+tables_54()
+    assert_eq(gfm_of("| *a* | **b** |\n|---|---|\n| <span>x</span> | &amp; |\n"), "<table>\n<thead>\n<tr>\n<th><em>a</em></th>\n<th><strong>b</strong></th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><span>x</span></td>\n<td>&amp;</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 55")
+tables_55()
+    assert_eq(gfm_of("| a |\n|:---:|\n| b |\n| c | d |\n| e | f | g |\n"), "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">b</td>\n</tr>\n<tr>\n<td align=\"center\">c</td>\n</tr>\n<tr>\n<td align=\"center\">e</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 56")
+tables_56()
+    assert_eq(gfm_of("|||\n|-|-|\n|||\n"), "<table>\n<thead>\n<tr>\n<th></th>\n<th></th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td></td>\n<td></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 57")
+tables_57()
+    assert_eq(gfm_of("| |\n|-|\n"), "<table>\n<thead>\n<tr>\n<th></th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 58")
+tables_58()
+    assert_eq(gfm_of("| a |\n|-|\n| b\\|c\\\\|d |\n"), "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b|c|d</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 59")
+tables_59()
+    assert_eq(gfm_of("aaa\nbbb\n| a |\n|-|\n"), "<p>aaa\nbbb</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 60")
+tables_60()
+    assert_eq(gfm_of("aaa\n|-|\n| a |\n|-|\n"), "<table>\n<thead>\n<tr>\n<th>aaa</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n<tr>\n<td>-</td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 61")
+tables_61()
+    assert_eq(gfm_of("| a |\n|-|-|\n| c |\n|-|\n"), "<p>| a |\n|-|-|\n| c |\n|-|</p>\n")
+
+@test("tables as cmark-gfm reads them, 62")
+tables_62()
+    assert_eq(gfm_of("a\n    |-|\n| b |\n|-|\n"), "<p>a\n|-|</p>\n<table>\n<thead>\n<tr>\n<th>b</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("tables as cmark-gfm reads them, 63")
+tables_63()
+    assert_eq(gfm_of("~~a~~\n| ~~b~~ |\n|-|\n| ~c~ |\n"), "<p><del>a</del></p>\n<table>\n<thead>\n<tr>\n<th><del>b</del></th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><del>c</del></td>\n</tr>\n</tbody>\n</table>\n")
+
+@test("strikethrough as cmark-gfm reads them, 1")
+strikethrough_1()
+    assert_eq(gfm_of("~~a~~ ~b~ ~~~c~~~\n"), "<p><del>a</del> <del>b</del> ~~~c~~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 2")
+strikethrough_2()
+    assert_eq(gfm_of("~a~~ ~~b~\n"), "<p>~a~~ ~~b~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 3")
+strikethrough_3()
+    assert_eq(gfm_of("~~a~b~~\n"), "<p><del>a~b</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 4")
+strikethrough_4()
+    assert_eq(gfm_of("a~~b~~c\n"), "<p>a<del>b</del>c</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 5")
+strikethrough_5()
+    assert_eq(gfm_of("~~ a ~~\n"), "<p>~~ a ~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 6")
+strikethrough_6()
+    assert_eq(gfm_of("~~*a*~~ *~~b~~*\n"), "<p><del><em>a</em></del> <em><del>b</del></em></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 7")
+strikethrough_7()
+    assert_eq(gfm_of("~~a\nb~~\n"), "<p><del>a\nb</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 8")
+strikethrough_8()
+    assert_eq(gfm_of("~~~~a~~~~\n"), "<pre><code class=\"language-a~~~~\"></code></pre>\n")
+
+@test("strikethrough as cmark-gfm reads them, 9")
+strikethrough_9()
+    assert_eq(gfm_of("~a ~b~ c~\n"), "<p><del>a <del>b</del> c</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 10")
+strikethrough_10()
+    assert_eq(gfm_of("~~a ~~b~~ c~~\n"), "<p><del>a <del>b</del> c</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 11")
+strikethrough_11()
+    assert_eq(gfm_of("**~~a**~~\n"), "<p><strong>~~a</strong>~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 12")
+strikethrough_12()
+    assert_eq(gfm_of("~~[a](b)~~ [~~c~~](d)\n"), "<p><del><a href=\"b\">a</a></del> <a href=\"d\"><del>c</del></a></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 13")
+strikethrough_13()
+    assert_eq(gfm_of("~~a~~~\n"), "<p>~~a~~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 14")
+strikethrough_14()
+    assert_eq(gfm_of("\\~~a~~\n"), "<p>~~a~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 15")
+strikethrough_15()
+    assert_eq(gfm_of("`~~a~~` ~~`b`~~\n"), "<p><code>~~a~~</code> <del><code>b</code></del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 16")
+strikethrough_16()
+    assert_eq(gfm_of("foo~~bar~~baz ~~foo~~bar\n"), "<p>foo<del>bar</del>baz <del>foo</del>bar</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 17")
+strikethrough_17()
+    assert_eq(gfm_of("~foo~~bar~\n"), "<p><del>foo~~bar</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 18")
+strikethrough_18()
+    assert_eq(gfm_of("~~foo~bar~~\n"), "<p><del>foo~bar</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 19")
+strikethrough_19()
+    assert_eq(gfm_of("*www.a.com* _www.b.com_ ~www.c.com~ (www.d.com) xwww.e.com\n"), "<p><em><a href=\"http://www.a.com\">www.a.com</a></em> <em>www.b.com</em> <del><a href=\"http://www.c.com\">www.c.com</a></del> (<a href=\"http://www.d.com\">www.d.com</a>) xwww.e.com</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 20")
+strikethrough_20()
+    assert_eq(gfm_of("a ~~b\n\nc~~ d\n"), "<p>a ~~b</p>\n<p>c~~ d</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 21")
+strikethrough_21()
+    assert_eq(gfm_of("~~~a\n"), "<pre><code class=\"language-a\"></code></pre>\n")
+
+@test("strikethrough as cmark-gfm reads them, 22")
+strikethrough_22()
+    assert_eq(gfm_of("~~~\ncode\n~~~\n"), "<pre><code>code\n</code></pre>\n")
+
+@test("strikethrough as cmark-gfm reads them, 23")
+strikethrough_23()
+    assert_eq(gfm_of("~~a\\~~\n"), "<p>~~a~~</p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 24")
+strikethrough_24()
+    assert_eq(gfm_of("~a~~b~~c~\n"), "<p><del>a<del>b</del>c</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 25")
+strikethrough_25()
+    assert_eq(gfm_of("*~a~* ~*a*~\n"), "<p><em><del>a</del></em> <del><em>a</em></del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 26")
+strikethrough_26()
+    assert_eq(gfm_of("~~a~~~~b~~\n"), "<p><del>a~~~~b</del></p>\n")
+
+@test("strikethrough as cmark-gfm reads them, 27")
+strikethrough_27()
+    assert_eq(gfm_of("~~a~~ ~~~~b~~~~\n"), "<p><del>a</del> ~~~~b~~~~</p>\n")
+
+@test("task lists as cmark-gfm reads them, 1")
+task_lists_1()
+    assert_eq(gfm_of("- [ ] a\n- [x] b\n- [X] c\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> b</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> c</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 2")
+task_lists_2()
+    assert_eq(gfm_of("- [ ]\n- [x]\n"), "<ul>\n<li>[ ]</li>\n<li>[x]</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 3")
+task_lists_3()
+    assert_eq(gfm_of("- [ ] \n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> </li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 4")
+task_lists_4()
+    assert_eq(gfm_of("1. [x] a\n2) [ ] b\n"), "<ol>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> a</li>\n</ol>\n<ol start=\"2\">\n<li><input type=\"checkbox\" disabled=\"\" /> b</li>\n</ol>\n")
+
+@test("task lists as cmark-gfm reads them, 5")
+task_lists_5()
+    assert_eq(gfm_of("- [x] a\n\n  b\n"), "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> \n<p>a</p>\n<p>b</p>\n</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 6")
+task_lists_6()
+    assert_eq(gfm_of("- a\n  - [ ] b\n"), "<ul>\n<li>a\n<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> b</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 7")
+task_lists_7()
+    assert_eq(gfm_of("* [ ]  a\n+ [x]\tb\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n</ul>\n<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> b</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 8")
+task_lists_8()
+    assert_eq(gfm_of("- [ ]a\n"), "<ul>\n<li>[ ]a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 9")
+task_lists_9()
+    assert_eq(gfm_of("- [y] a\n"), "<ul>\n<li>[y] a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 10")
+task_lists_10()
+    assert_eq(gfm_of("-  [ ] a\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 11")
+task_lists_11()
+    assert_eq(gfm_of("- [ ] # h\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> # h</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 12")
+task_lists_12()
+    assert_eq(gfm_of("- [ ] > q\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> &gt; q</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 13")
+task_lists_13()
+    assert_eq(gfm_of("- [ ] [x] a\n"), "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> [x] a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 14")
+task_lists_14()
+    assert_eq(gfm_of("10. [ ] a\n"), "<ol start=\"10\">\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n</ol>\n")
+
+@test("task lists as cmark-gfm reads them, 15")
+task_lists_15()
+    assert_eq(gfm_of("- \t[ ] a\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 16")
+task_lists_16()
+    assert_eq(gfm_of("  - [x] a\n"), "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 17")
+task_lists_17()
+    assert_eq(gfm_of("- [ ] a\n\n- [ ] b\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> \n<p>a</p>\n</li>\n<li><input type=\"checkbox\" disabled=\"\" /> \n<p>b</p>\n</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 18")
+task_lists_18()
+    assert_eq(gfm_of("- [ ] ```\n  code\n  ```\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> ```\ncode\n<pre><code></code></pre>\n</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 19")
+task_lists_19()
+    assert_eq(gfm_of("- [ ] a\n- [ ]  b\n- [ ]\tc\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n<li><input type=\"checkbox\" disabled=\"\" /> b</li>\n<li><input type=\"checkbox\" disabled=\"\" /> c</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 20")
+task_lists_20()
+    assert_eq(gfm_of("-\t[ ] a\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 21")
+task_lists_21()
+    assert_eq(gfm_of("1.  [x] a\n"), "<ol>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> a</li>\n</ol>\n")
+
+@test("task lists as cmark-gfm reads them, 22")
+task_lists_22()
+    assert_eq(gfm_of("- [ ]\n  a\n"), "<ul>\n<li>[ ]\na</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 23")
+task_lists_23()
+    assert_eq(gfm_of("- \n  [ ] a\n"), "<ul>\n<li>[ ] a</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 24")
+task_lists_24()
+    assert_eq(gfm_of("* [ ] a\n  * [x] b\n    * [ ] c\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a\n<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> b\n<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> c</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 25")
+task_lists_25()
+    assert_eq(gfm_of("- [ ] <div>\n"), "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> <div></li>\n</ul>\n")
+
+@test("task lists as cmark-gfm reads them, 26")
+task_lists_26()
+    assert_eq(gfm_of("- [x] ~~done~~ www.a.com\n"), "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> <del>done</del> <a href=\"http://www.a.com\">www.a.com</a></li>\n</ul>\n")
+
+@test("autolinks as cmark-gfm reads them, 1")
+autolinks_1()
+    assert_eq(gfm_of("Header\n:-:\n"), "<table>\n<thead>\n<tr>\n<th align=\"center\">Header</th>\n</tr>\n</thead>\n</table>\n")
+
+@test("autolinks as cmark-gfm reads them, 2")
+autolinks_2()
+    assert_eq(gfm_of("> - [ ] a\n"), "<blockquote>\n<ul>\n<li>[ ] a</li>\n</ul>\n</blockquote>\n")
+
+@test("autolinks as cmark-gfm reads them, 3")
+autolinks_3()
+    assert_eq(gfm_of("www.commonmark.org\n"), "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 4")
+autolinks_4()
+    assert_eq(gfm_of("Visit www.commonmark.org/help for more information.\n"), "<p>Visit <a href=\"http://www.commonmark.org/help\">www.commonmark.org/help</a> for more information.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 5")
+autolinks_5()
+    assert_eq(gfm_of("Visit www.commonmark.org.\n\nVisit www.commonmark.org/a.b.\n"), "<p>Visit <a href=\"http://www.commonmark.org\">www.commonmark.org</a>.</p>\n<p>Visit <a href=\"http://www.commonmark.org/a.b\">www.commonmark.org/a.b</a>.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 6")
+autolinks_6()
+    assert_eq(gfm_of("www.google.com/search?q=Markup+(business)\n\nwww.google.com/search?q=Markup+(business)))\n\n(www.google.com/search?q=Markup+(business))\n\n(www.google.com/search?q=Markup+(business)\n"), "<p><a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a></p>\n<p><a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a>))</p>\n<p>(<a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a>)</p>\n<p>(<a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 7")
+autolinks_7()
+    assert_eq(gfm_of("www.google.com/search?q=(business))+ok\n"), "<p><a href=\"http://www.google.com/search?q=(business))+ok\">www.google.com/search?q=(business))+ok</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 8")
+autolinks_8()
+    assert_eq(gfm_of("www.google.com/search?q=commonmark&hl=en\n\nwww.google.com/search?q=commonmark&hl;\n"), "<p><a href=\"http://www.google.com/search?q=commonmark&amp;hl=en\">www.google.com/search?q=commonmark&amp;hl=en</a></p>\n<p><a href=\"http://www.google.com/search?q=commonmark\">www.google.com/search?q=commonmark</a>&amp;hl;</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 9")
+autolinks_9()
+    assert_eq(gfm_of("www.commonmark.org/he<lp\n"), "<p><a href=\"http://www.commonmark.org/he\">www.commonmark.org/he</a>&lt;lp</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 10")
+autolinks_10()
+    assert_eq(gfm_of("http://commonmark.org\n\n(Visit https://encrypted.google.com/search?q=Markup+(business))\n\nAnonymous FTP is available at ftp://foo.bar.baz.\n"), "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n<p>(Visit <a href=\"https://encrypted.google.com/search?q=Markup+(business)\">https://encrypted.google.com/search?q=Markup+(business)</a>)</p>\n<p>Anonymous FTP is available at <a href=\"ftp://foo.bar.baz\">ftp://foo.bar.baz</a>.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 11")
+autolinks_11()
+    assert_eq(gfm_of("foo@bar.baz\n"), "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 12")
+autolinks_12()
+    assert_eq(gfm_of("hello@mail+xyz.example isn't valid, but hello+xyz@mail.example is.\n"), "<p>hello@mail+xyz.example isn't valid, but <a href=\"mailto:hello+xyz@mail.example\">hello+xyz@mail.example</a> is.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 13")
+autolinks_13()
+    assert_eq(gfm_of("a.b-c_d@a.b\n\na.b-c_d@a.b.\n\na.b-c_d@a.b-\n\na.b-c_d@a.b_\n"), "<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a></p>\n<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a>.</p>\n<p>a.b-c_d@a.b-</p>\n<p>a.b-c_d@a.b_</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 14")
+autolinks_14()
+    assert_eq(gfm_of("mailto:foo@bar.baz\n\nmailto:a.b-c_d@a.b\n\nmailto:a.b-c_d@a.b.\n\nmailto:a.b-c_d@a.b/\n\nmailto:a.b-c_d@a.b-\n\nmailto:a.b-c_d@a.b_\n\nxmpp:foo@bar.baz\n\nxmpp:foo@bar.baz.\n"), "<p><a href=\"mailto:foo@bar.baz\">mailto:foo@bar.baz</a></p>\n<p><a href=\"mailto:a.b-c_d@a.b\">mailto:a.b-c_d@a.b</a></p>\n<p><a href=\"mailto:a.b-c_d@a.b\">mailto:a.b-c_d@a.b</a>.</p>\n<p><a href=\"mailto:a.b-c_d@a.b\">mailto:a.b-c_d@a.b</a>/</p>\n<p>mailto:a.b-c_d@a.b-</p>\n<p>mailto:a.b-c_d@a.b_</p>\n<p><a href=\"xmpp:foo@bar.baz\">xmpp:foo@bar.baz</a></p>\n<p><a href=\"xmpp:foo@bar.baz\">xmpp:foo@bar.baz</a>.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 15")
+autolinks_15()
+    assert_eq(gfm_of("xmpp:foo@bar.baz/txt\n\nxmpp:foo@bar.baz/txt@bin\n\nxmpp:foo@bar.baz/txt@bin.com\n"), "<p><a href=\"xmpp:foo@bar.baz/txt\">xmpp:foo@bar.baz/txt</a></p>\n<p>xmpp:foo@bar.baz/<a href=\"txt@bin\">txt@bin</a></p>\n<p>xmpp:foo@bar.baz/<a href=\"txt@bin.com\">txt@bin.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 16")
+autolinks_16()
+    assert_eq(gfm_of("Https://X.com HTTP://y.org fTp://z.net\n"), "<p><a href=\"Https://X.com\">Https://X.com</a> <a href=\"HTTP://y.org\">HTTP://y.org</a> <a href=\"fTp://z.net\">fTp://z.net</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 17")
+autolinks_17()
+    assert_eq(gfm_of("xhttp://a.com http://a_b.com http://a.b_c.d http://a._b.c\n"), "<p>xhttp://a.com http://a_b.com http://a.b_c.d http://a._b.c</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 18")
+autolinks_18()
+    assert_eq(gfm_of("www.a_b.c www.a.b_c www._a.b.c www.a.b.c_\n"), "<p>www.a_b.c www.a.b_c <a href=\"http://www._a.b.c\">www._a.b.c</a> <a href=\"http://www.a.b.c\">www.a.b.c</a>_</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 19")
+autolinks_19()
+    assert_eq(gfm_of("[www.a.com](x) [http://b.com] ![www.c.com](d)\n"), "<p><a href=\"x\">www.a.com</a> [http://b.com] <img src=\"d\" alt=\"www.c.com\" /></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 20")
+autolinks_20()
+    assert_eq(gfm_of("<http://a.com> http://a.com/&amp; http://a.com/&amp;x\n"), "<p><a href=\"http://a.com\">http://a.com</a> <a href=\"http://a.com/\">http://a.com/</a>&amp; <a href=\"http://a.com/&amp;amp;x\">http://a.com/&amp;amp;x</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 21")
+autolinks_21()
+    assert_eq(gfm_of("http://a.com/x?y=1&z=2; http://a.com/;\n"), "<p><a href=\"http://a.com/x?y=1&amp;z=2\">http://a.com/x?y=1&amp;z=2</a>; <a href=\"http://a.com/\">http://a.com/</a>;</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 22")
+autolinks_22()
+    assert_eq(gfm_of("http://\u{fc}.com http://ex.\u{e4}mple.com www.\u{fc}n\u{ef}.com\n"), "<p><a href=\"http://%C3%BC.com\">http://\u{fc}.com</a> <a href=\"http://ex.%C3%A4mple.com\">http://ex.\u{e4}mple.com</a> <a href=\"http://www.%C3%BCn%C3%AF.com\">www.\u{fc}n\u{ef}.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 23")
+autolinks_23()
+    assert_eq(gfm_of("http://a.com:8080/x http://a.com, http://a.com: http://a.com!\n"), "<p><a href=\"http://a.com:8080/x\">http://a.com:8080/x</a> <a href=\"http://a.com\">http://a.com</a>, <a href=\"http://a.com\">http://a.com</a>: <a href=\"http://a.com\">http://a.com</a>!</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 24")
+autolinks_24()
+    assert_eq(gfm_of("foo_bar@baz.com foo*bar@baz.com *foo@bar.com*\n"), "<p><a href=\"mailto:foo_bar@baz.com\">foo_bar@baz.com</a> foo*<a href=\"mailto:bar@baz.com\">bar@baz.com</a> <em><a href=\"mailto:foo@bar.com\">foo@bar.com</a></em></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 25")
+autolinks_25()
+    assert_eq(gfm_of("a@b@c.com a@b.c@d.com @a.com a@ a@b a@b.c\n"), "<p>a@<a href=\"mailto:b@c.com\">b@c.com</a> a@<a href=\"mailto:b.c@d.com\">b.c@d.com</a> @a.com a@ a@b <a href=\"mailto:a@b.c\">a@b.c</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 26")
+autolinks_26()
+    assert_eq(gfm_of("user@example.com.\n\nuser@example.com,\n\nuser@example.c\n"), "<p><a href=\"mailto:user@example.com\">user@example.com</a>.</p>\n<p><a href=\"mailto:user@example.com\">user@example.com</a>,</p>\n<p><a href=\"mailto:user@example.c\">user@example.c</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 27")
+autolinks_27()
+    assert_eq(gfm_of("`www.a.com` http://a.com/`x`\n"), "<p><code>www.a.com</code> <a href=\"http://a.com/%60x%60\">http://a.com/`x`</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 28")
+autolinks_28()
+    assert_eq(gfm_of("visit http://\n\nhttp://.\n\nhttp://a\n"), "<p>visit http://</p>\n<p>http://.</p>\n<p><a href=\"http://a\">http://a</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 29")
+autolinks_29()
+    assert_eq(gfm_of("www.\n\nwww.a\n\nwww.a.\n"), "<p>www.</p>\n<p><a href=\"http://www.a\">www.a</a></p>\n<p><a href=\"http://www.a\">www.a</a>.</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 30")
+autolinks_30()
+    assert_eq(gfm_of("contact: foo.bar+baz@example-site.co.uk!\n"), "<p>contact: <a href=\"mailto:foo.bar+baz@example-site.co.uk\">foo.bar+baz@example-site.co.uk</a>!</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 31")
+autolinks_31()
+    assert_eq(gfm_of("email\\_me@x.com\n"), "<p><a href=\"mailto:email_me@x.com\">email_me@x.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 32")
+autolinks_32()
+    assert_eq(gfm_of("http://a.com/\\_x\n"), "<p><a href=\"http://a.com/%5C_x\">http://a.com/\\_x</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 33")
+autolinks_33()
+    assert_eq(gfm_of("http://a.b.c.d.e.f.g.h.i.j.k.l_m\n"), "<p><a href=\"http://a.b.c.d.e.f.g.h.i.j.k.l_m\">http://a.b.c.d.e.f.g.h.i.j.k.l_m</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 34")
+autolinks_34()
+    assert_eq(gfm_of("**http://a.com**\n"), "<p><strong><a href=\"http://a.com\">http://a.com</a></strong></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 35")
+autolinks_35()
+    assert_eq(gfm_of("http://www.a.com\n"), "<p><a href=\"http://www.a.com\">http://www.a.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 36")
+autolinks_36()
+    assert_eq(gfm_of("wwww.a.com\n"), "<p>wwww.a.com</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 37")
+autolinks_37()
+    assert_eq(gfm_of("&#119;ww.a.com\n"), "<p>www.a.com</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 38")
+autolinks_38()
+    assert_eq(gfm_of("ftp://a\n"), "<p><a href=\"ftp://a\">ftp://a</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 39")
+autolinks_39()
+    assert_eq(gfm_of("x mailto:a@b.com xmailto:a@b.com 1mailto:a@b.com\n"), "<p>x <a href=\"mailto:a@b.com\">mailto:a@b.com</a> xmailto:<a href=\"mailto:a@b.com\">a@b.com</a> 1mailto:<a href=\"mailto:a@b.com\">a@b.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 40")
+autolinks_40()
+    assert_eq(gfm_of("# www.h.com\n\n> http://q.com\n"), "<h1><a href=\"http://www.h.com\">www.h.com</a></h1>\n<blockquote>\n<p><a href=\"http://q.com\">http://q.com</a></p>\n</blockquote>\n")
+
+@test("autolinks as cmark-gfm reads them, 41")
+autolinks_41()
+    assert_eq(gfm_of("x@y.com.au foo.bar@x.y.z, (a@b.cd) <a@b.cd> [a@b.cd](x)\n"), "<p><a href=\"mailto:x@y.com.au\">x@y.com.au</a> <a href=\"mailto:foo.bar@x.y.z\">foo.bar@x.y.z</a>, (<a href=\"mailto:a@b.cd\">a@b.cd</a>) <a href=\"mailto:a@b.cd\">a@b.cd</a> <a href=\"x\">a@b.cd</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 42")
+autolinks_42()
+    assert_eq(gfm_of("test@test.test@test.com test.@test.com\n"), "<p>test@<a href=\"mailto:test.test@test.com\">test.test@test.com</a> <a href=\"mailto:test.@test.com\">test.@test.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 43")
+autolinks_43()
+    assert_eq(gfm_of("mailto:@x.com mailto:a@b mailto:x@y.z\n"), "<p><a href=\"mailto:@x.com\">mailto:@x.com</a> mailto:a@b <a href=\"mailto:x@y.z\">mailto:x@y.z</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 44")
+autolinks_44()
+    assert_eq(gfm_of("xmpp:a@b.c/d/e xmpp:a@b.c/ xmpp:a@b.c/@d\n"), "<p><a href=\"xmpp:a@b.c/d/e\">xmpp:a@b.c/d/e</a> xmpp:a@b.c/ xmpp:a@b.c/@d</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 45")
+autolinks_45()
+    assert_eq(gfm_of("www.example.com/a(b)c www.example.com/a(b(c)d www.example.com/a)b\n"), "<p><a href=\"http://www.example.com/a(b)c\">www.example.com/a(b)c</a> <a href=\"http://www.example.com/a(b(c)d\">www.example.com/a(b(c)d</a> <a href=\"http://www.example.com/a)b\">www.example.com/a)b</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 46")
+autolinks_46()
+    assert_eq(gfm_of("http://a.com/a?b=c&amp; http://a.com/a&#123; http://a.com/&b;\n"), "<p><a href=\"http://a.com/a?b=c\">http://a.com/a?b=c</a>&amp; <a href=\"http://a.com/a&amp;#123\">http://a.com/a&amp;#123</a>; <a href=\"http://a.com/\">http://a.com/</a>&amp;b;</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 47")
+autolinks_47()
+    assert_eq(gfm_of("a(www.x.com) a*www.y.com* a_www.z.com_\n"), "<p>a(<a href=\"http://www.x.com\">www.x.com</a>) a<em><a href=\"http://www.y.com\">www.y.com</a></em> a_<a href=\"http://www.z.com\">www.z.com</a>_</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 48")
+autolinks_48()
+    assert_eq(gfm_of("https://a.com/path/to/file.txt. https://a.com/\"quoted\"\n"), "<p><a href=\"https://a.com/path/to/file.txt\">https://a.com/path/to/file.txt</a>. <a href=\"https://a.com/%22quoted\">https://a.com/&quot;quoted</a>&quot;</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 49")
+autolinks_49()
+    assert_eq(gfm_of("http://localhost http://localhost:3000/x\n"), "<p><a href=\"http://localhost\">http://localhost</a> <a href=\"http://localhost:3000/x\">http://localhost:3000/x</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 50")
+autolinks_50()
+    assert_eq(gfm_of("www.a-b.com www.-a.com www.a.-com www.a..com\n"), "<p><a href=\"http://www.a-b.com\">www.a-b.com</a> <a href=\"http://www.-a.com\">www.-a.com</a> <a href=\"http://www.a.-com\">www.a.-com</a> <a href=\"http://www.a..com\">www.a..com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 51")
+autolinks_51()
+    assert_eq(gfm_of("Something http://example.com/foo<bar\n"), "<p>Something <a href=\"http://example.com/foo\">http://example.com/foo</a>&lt;bar</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 52")
+autolinks_52()
+    assert_eq(gfm_of("**www.a.com** __http://b.com__\n"), "<p><strong><a href=\"http://www.a.com\">www.a.com</a></strong> <strong>http://b.com</strong></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 53")
+autolinks_53()
+    assert_eq(gfm_of("www.a.com\\_b www.a.com\\\\b\n"), "<p>www.a.com_b <a href=\"http://www.a.com%5C%5Cb\">www.a.com\\\\b</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 54")
+autolinks_54()
+    assert_eq(gfm_of("[http://a.com](b) [x](http://y.com) ![www.a.com]\n"), "<p><a href=\"b\">http://a.com</a> <a href=\"http://y.com\">x</a> ![www.a.com]</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 55")
+autolinks_55()
+    assert_eq(gfm_of("[link http://a.com]\n"), "<p>[link http://a.com]</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 56")
+autolinks_56()
+    assert_eq(gfm_of("[a] www.b.com [c]\n"), "<p>[a] <a href=\"http://www.b.com\">www.b.com</a> [c]</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 57")
+autolinks_57()
+    assert_eq(gfm_of("hello www.example.com/foo, world\n"), "<p>hello <a href=\"http://www.example.com/foo\">www.example.com/foo</a>, world</p>\n")
+
+@test("autolinks as cmark-gfm reads them, 58")
+autolinks_58()
+    assert_eq(gfm_of("https://\u{e9}.com https://a.\u{e9} www.\u{e9}.com\n"), "<p><a href=\"https://%C3%A9.com\">https://\u{e9}.com</a> <a href=\"https://a.%C3%A9\">https://a.\u{e9}</a> <a href=\"http://www.%C3%A9.com\">www.\u{e9}.com</a></p>\n")
+
+@test("autolinks as cmark-gfm reads them, 59")
+autolinks_59()
+    assert_eq(gfm_of("https://a.com/\u{e9}?x=\u{e9} www.a.com/\u{e9}\n"), "<p><a href=\"https://a.com/%C3%A9?x=%C3%A9\">https://a.com/\u{e9}?x=\u{e9}</a> <a href=\"http://www.a.com/%C3%A9\">www.a.com/\u{e9}</a></p>\n")
+
+@test("the tag filter as cmark-gfm reads them, 1")
+the_tag_filter_1()
+    assert_eq(gfm_of("<title>x</title>\n"), "&lt;title>x&lt;/title>\n")
+
+@test("the tag filter as cmark-gfm reads them, 2")
+the_tag_filter_2()
+    assert_eq(gfm_of("<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n"), "<p><strong> &lt;title> &lt;style> <em></p>\n<blockquote>\n  &lt;xmp> is disallowed.  &lt;XMP> is also disallowed.\n</blockquote>\n")
+
+@test("the tag filter as cmark-gfm reads them, 3")
+the_tag_filter_3()
+    assert_eq(gfm_of("a <script>x</script> b <iframe/> <iframe/x> <noembed >\n"), "<p>a &lt;script>x&lt;/script> b &lt;iframe/> &lt;iframe/x&gt; &lt;noembed ></p>\n")
+
+@test("the tag filter as cmark-gfm reads them, 4")
+the_tag_filter_4()
+    assert_eq(gfm_of("<textarea>\n\n</textarea>\n"), "&lt;textarea>\n\n&lt;/textarea>\n")
+
+@test("the tag filter as cmark-gfm reads them, 5")
+the_tag_filter_5()
+    assert_eq(gfm_of("<plaintext\n"), "<p>&lt;plaintext</p>\n")
+
+@test("the tag filter as cmark-gfm reads them, 6")
+the_tag_filter_6()
+    assert_eq(gfm_of("<div>\n<SCRIPT>\n</div>\n"), "<div>\n&lt;SCRIPT>\n</div>\n")
+
+@test("the tag filter as cmark-gfm reads them, 7")
+the_tag_filter_7()
+    assert_eq(gfm_of("a <titles> <title\n"), "<p>a <titles> &lt;title</p>\n")
+
+@test("the tag filter as cmark-gfm reads them, 8")
+the_tag_filter_8()
+    assert_eq(gfm_of("<style>p{}</style>\n\n<iframe src=x></iframe>\n"), "&lt;style>p{}&lt;/style>\n&lt;iframe src=x>&lt;/iframe>\n")
+
+@test("the tag filter as cmark-gfm reads them, 9")
+the_tag_filter_9()
+    assert_eq(gfm_of("text <style>a</style> and <ScRiPt>\n"), "<p>text &lt;style>a&lt;/style> and &lt;ScRiPt></p>\n")
+
+@test("the tag filter as cmark-gfm reads them, 10")
+the_tag_filter_10()
+    assert_eq(gfm_of("<!-- <script> -->\n\n<?x <title> ?>\n"), "<!-- &lt;script> -->\n<?x &lt;title> ?>\n")
+
+@test("the tag filter as cmark-gfm reads them, 11")
+the_tag_filter_11()
+    assert_eq(gfm_of("`<title>` <title/> </title > <title\n>\n"), "<p><code>&lt;title&gt;</code> &lt;title/> &lt;/title > &lt;title</p>\n<blockquote>\n</blockquote>\n")
+
+@test("the tag filter as cmark-gfm reads them, 12")
+the_tag_filter_12()
+    assert_eq(gfm_of("<noframes>\n<noembed>\n"), "&lt;noframes>\n&lt;noembed>\n")

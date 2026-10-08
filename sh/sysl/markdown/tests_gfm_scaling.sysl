@@ -1,0 +1,132 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{Search, repeat}
+import sysl.time.{monotonic, whole_micros}
+
+// The GitHub extensions' own hostile inputs -- wide and long tables, runs of `~`, text an autolink
+// almost starts in -- each read with gfm() at two sizes ten times apart, as tests_scaling.sysl reads
+// CommonMark's: a linear reading takes about ten times as long for the larger, a quadratic one about
+// a hundred. The output is checked at the larger size too.
+
+private const small: usize = 5000
+
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = to_html_with(parse_with(src, gfm()), gfm_html())
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+private ratio(input: usize -> string, output: usize -> string) -> long
+    val a = timed(input(small), output(small))
+    val b = timed(input(10 * small), output(10 * small))
+
+    b / (if a < 1000 then 1000 else a)
+
+private para(body: string) -> string = "<p>" + body + "</p>\n"
+
+private head(n: usize) -> string = "<table>\n<thead>\n<tr>\n" + repeat("<th>a</th>\n", n) + "</tr>\n</thead>\n"
+
+private wide(n: usize) -> string = repeat("|a", n) + "|\n" + repeat("|-", n) + "|\n" + repeat("|b", n) + "|\n"
+
+private wide_out(n: usize) -> string = head(n) + "<tbody>\n<tr>\n" + repeat("<td>b</td>\n", n) + "</tr>\n</tbody>\n</table>\n"
+
+private long_table(n: usize) -> string = "|a|\n|-|\n" + repeat("|b|\n", n)
+
+private long_table_out(n: usize) -> string = head(1) + "<tbody>\n" + repeat("<tr>\n<td>b</td>\n</tr>\n", n) + "</tbody>\n</table>\n"
+
+private escaped_pipes(n: usize) -> string = "|a|\n|-|\n|" + repeat("x\\|", n) + "|\n"
+
+private escaped_pipes_out(n: usize) -> string = head(1) + "<tbody>\n<tr>\n<td>" + repeat("x|", n) + "</td>\n</tr>\n</tbody>\n</table>\n"
+
+private delimiter_rows(n: usize) -> string = "a\n" + repeat("|-|-|\n", n)
+
+private delimiter_rows_out(n: usize) -> string = para("a\n" + repeat("|-|-|\n", n - 1) + "|-|-|")
+
+private tilde_openers(n: usize) -> string = repeat("~a ", n) + "\n"
+
+private tilde_openers_out(n: usize) -> string = para(repeat("~a ", n - 1) + "~a")
+
+private tilde_mismatched(n: usize) -> string = repeat("~~a~ ", n) + "\n"
+
+private tilde_mismatched_out(n: usize) -> string = para(repeat("~~a~ ", n - 1) + "~~a~")
+
+private tilde_run(n: usize) -> string = "a" + repeat("~", n) + "b\n"
+
+private tilde_run_out(n: usize) -> string = para("a" + repeat("~", n) + "b")
+
+private www_run(n: usize) -> string = repeat("www.", n) + "\n"
+
+private www_run_out(n: usize) -> string
+    val text = repeat("www.", n - 1) + "www"
+
+    para("<a href=\"http://" + text + "\">" + text + "</a>.")
+
+private scheme_run(n: usize) -> string = repeat("http://", n) + "\n"
+
+private scheme_run_out(n: usize) -> string
+    val text = repeat("http://", n)
+
+    para("<a href=\"" + text + "\">" + text + "</a>")
+
+private w_run(n: usize) -> string = repeat("w", n) + "\n"
+
+private w_run_out(n: usize) -> string = para(repeat("w", n))
+
+private ats(n: usize) -> string = repeat("a@", n) + "\n"
+
+private ats_out(n: usize) -> string = para(repeat("a@", n))
+
+private emails(n: usize) -> string = repeat("a.b@c.d ", n) + "\n"
+
+private emails_out(n: usize) -> string = para(repeat("<a href=\"mailto:a.b@c.d\">a.b@c.d</a> ", n - 1) + "<a href=\"mailto:a.b@c.d\">a.b@c.d</a>")
+
+private urls(n: usize) -> string = repeat("http://a.com ", n) + "\n"
+
+private urls_out(n: usize) -> string = para(repeat("<a href=\"http://a.com\">http://a.com</a> ", n - 1) + "<a href=\"http://a.com\">http://a.com</a>")
+
+@test("a table of many columns is read in linear time")
+many_columns()
+    assert(ratio(wide, wide_out) < 20)
+
+@test("a table of many rows is read in linear time")
+many_rows()
+    assert(ratio(long_table, long_table_out) < 20)
+
+@test("a cell of many escaped pipes is read in linear time")
+many_escaped_pipes()
+    assert(ratio(escaped_pipes, escaped_pipes_out) < 20)
+
+@test("a paragraph of many delimiter rows of the wrong width is read in linear time")
+many_delimiter_rows()
+    assert(ratio(delimiter_rows, delimiter_rows_out) < 20)
+
+@test("runs of '~' that never pair, pair badly, or are too long are read in linear time")
+tildes()
+    assert(ratio(tilde_openers, tilde_openers_out) < 20)
+    assert(ratio(tilde_mismatched, tilde_mismatched_out) < 20)
+    assert(ratio(tilde_run, tilde_run_out) < 20)
+
+@test("text an autolink almost starts in at every byte is read in linear time")
+autolink_runs()
+    assert(ratio(www_run, www_run_out) < 20)
+    assert(ratio(scheme_run, scheme_run_out) < 20)
+    assert(ratio(w_run, w_run_out) < 20)
+    assert(ratio(ats, ats_out) < 20)
+
+@test("many email addresses and URLs in one paragraph are read in linear time")
+many_autolinks()
+    assert(ratio(emails, emails_out) < 20)
+    assert(ratio(urls, urls_out) < 20)
+
+@test("a wide header over many one-cell rows stops taking rows once it has filled out 524,288 cells")
+filled_cells_are_capped()
+    val n: usize = 1000
+    val src = repeat("|a", n) + "|\n" + repeat("|-", n) + "|\n" + repeat("b\n", 2000)
+    val got = to_html_with(parse_with(src, gfm()), gfm_html())
+    val rows = 1 + 524288 / (n - 1)
+
+    assert(got.contains(repeat("<td></td>\n", n - 1) + "</tr>\n</tbody>\n</table>\n<p>b\nb\n"))
+    assert_eq(got.count_of("<tr>"), 1 + rows)
