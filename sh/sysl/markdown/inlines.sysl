@@ -1,0 +1,109 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.Buf
+import sysl.text.str_builder
+
+// Phase 2: a leaf's text read into inline nodes.
+//
+// The text is taken without the spaces, tabs and line endings at its two ends, and each line ending
+// inside it becomes a break: a hard one where the line ended with two or more spaces or with a
+// backslash, a soft one otherwise. The spaces before a break and the spaces and tabs at the start of
+// the next line are not part of any node. Everything else is literal text.
+
+/** The inline nodes of `leaf`, appended to its node in `d`. */
+private[markdown] inlines(d: Doc, leaf: Leaf)
+    val b = leaf.text.bytes
+    var m = SrcMap(leaf.segs, 0)
+    var s: usize = 0
+    var e = b.len
+
+    while s < e && is_line_space(b[s]) do s += 1
+    while e > s && is_line_space(b[e - 1]) do e -= 1
+
+    var run = s
+    var i = s
+
+    while i < e
+        if b[i] != u8('\n') then
+            i += 1
+        else
+            var t = i
+
+            while t > run && b[t - 1] == u8(' ') do t -= 1
+
+            var hard = i - t >= 2
+
+            if t == i && odd_backslashes(b, run, i) then
+                hard = true
+                t = i - 1
+
+            text_node(d, leaf, &m, run, t)
+
+            val brk = if hard then HardBreak else SoftBreak
+            val from = m.src(t)
+
+            i += 1
+            while i < e && is_space_or_tab(b[i]) do i += 1
+
+            d.append_child(leaf.node, brk, Span(from, m.src(i)))
+            run = i
+
+    text_node(d, leaf, &m, run, e)
+end inlines
+
+private is_line_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == u8('\n')
+
+// Whether the run of backslashes ending at `end`, and not reaching back past `from`, has an odd
+// length -- so that its last backslash is not itself escaped.
+private odd_backslashes(b: []const u8, from: usize, end: usize) -> bool
+    var i = end
+
+    while i > from && b[i - 1] == u8('\\') do i -= 1
+
+    (end - i) % 2 == 1
+
+// A `Text` node over the leaf's bytes `from..<to`, if there are any.
+private text_node(d: Doc, leaf: Leaf, m: *SrcMap, from: usize, to: usize)
+    if to <= from then return
+
+    val start = m.src(from)
+
+    d.append_child(leaf.node, Text(without_nul(leaf.text[from..<to])), Span(start, m.src(to)))
+
+// `s` with every U+0000 replaced by U+FFFD, as the spec requires of the input; a fresh string only
+// where there is one.
+private without_nul(s: string) -> string
+    val b = s.bytes
+    var has = false
+
+    for c in b
+        if c == 0 then has = true
+
+    if !has then return s
+
+    var out = str_builder()
+    var from: usize = 0
+
+    for i in 0..<b.len
+        if b[i] == 0 then
+            out.push(s[from..<i])
+            out.push("\u{fffd}")
+            from = i + 1
+
+    out.push(s[from..<b.len])
+    out.finish()
+end without_nul
+
+// Offsets in a leaf's text mapped to the source, for queries that never go backwards -- so that a
+// whole leaf costs one pass over its segments.
+private struct SrcMap
+    segs: Buf[Seg]
+    i: usize
+
+    src(*self, at: usize) -> usize
+        while self.i + 1 < self.segs.len() && self.segs[self.i + 1].at <= at do self.i += 1
+
+        val g = self.segs[self.i]
+
+        if at < g.at then g.src else g.src + (at - g.at)

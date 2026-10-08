@@ -1,0 +1,118 @@
+module sh.sysl.markdown
+
+// The line reader: the source cut into lines, and a cursor over one line that counts columns the
+// way CommonMark does.
+//
+// **A line ends at `\n`, at `\r\n` or at a lone `\r`**, and the ending is not part of the line. The
+// last line needs no ending, and a source that ends with one has no empty line after it.
+//
+// **A tab advances to the next multiple of four columns, and may be consumed in part.** A block
+// quote's `>` takes one space after it and a list item a number of columns; where that space is a
+// tab, only some of its columns are taken and the rest still count as indentation for what follows
+// (the spec's section on tabs). `partial` records that the cursor stands inside a tab: `offset` still
+// names the tab's byte, and `column` says how far into it the reading has got.
+//
+// **U+0000 is not replaced here.** It is never part of a block's syntax, so the cursor reads it as
+// any other byte and a line stays a view of the source with exact offsets; it becomes U+FFFD where a
+// leaf's text is made into nodes.
+
+/** Where a line's text stops, and where the line after it starts. */
+private[markdown] struct LineEnd
+    end: usize
+    next: usize
+
+/** The end of the line starting at `from` in `b`. */
+private[markdown] line_end(b: []const u8, from: usize) -> LineEnd
+    var i = from
+
+    while i < b.len
+        val c = b[i]
+
+        if c == u8('\n') then return LineEnd(i, i + 1)
+        if c == u8('\r') then return LineEnd(i, if i + 1 < b.len && b[i + 1] == u8('\n') then i + 2 else i + 1)
+
+        i += 1
+
+    LineEnd(b.len, b.len)
+end line_end
+
+private[markdown] is_space_or_tab(c: u8) -> bool = c == u8(' ') || c == u8('\t')
+
+/** A position in one line, in bytes and in columns. */
+private[markdown] struct Cursor
+    text: string                    // the line, without its ending
+    start: usize                    // where `text` begins in the source
+    offset: usize                   // the first byte not yet consumed
+    column: usize                   // the column `offset` is at
+    partial: bool                   // `offset` names a tab of which some columns are consumed
+    next_nonspace: usize            // the first byte at or after `offset` that is not a space or tab
+    next_nonspace_column: usize
+    indent: usize                   // columns from `column` to `next_nonspace_column`
+    blank: bool                     // nothing but spaces and tabs from `offset` on
+
+    /** The byte at `i`, or 0 past the end. */
+    at(self, i: usize) -> u8 = if i < self.text.len then self.text.bytes[i] else 0
+
+    /** Find the next byte that is not a space or a tab, and how far it is indented. */
+    find_next_nonspace(*self)
+        val b = self.text.bytes
+        var i = self.offset
+        var cols = self.column
+
+        while i < b.len
+            val c = b[i]
+
+            if c == u8(' ') then
+                cols += 1
+            else if c == u8('\t') then
+                cols += 4 - cols % 4
+            else
+                break
+
+            i += 1
+
+        self.next_nonspace = i
+        self.next_nonspace_column = cols
+        self.indent = cols - self.column
+        self.blank = i == b.len
+    end find_next_nonspace
+
+    /** Consume `count` bytes, or with `columns` that many columns, which may end inside a tab. */
+    advance(*self, count: usize, columns: bool)
+        val b = self.text.bytes
+        var left = count
+
+        while left > 0 && self.offset < b.len
+            if b[self.offset] == u8('\t') then
+                val to_tab = 4 - self.column % 4
+
+                if columns then
+                    self.partial = to_tab > left
+                    val step = if to_tab > left then left else to_tab
+                    self.column += step
+                    if !self.partial then self.offset += 1
+                    left -= step
+                else
+                    self.partial = false
+                    self.column += to_tab
+                    self.offset += 1
+                    left -= 1
+            else
+                self.partial = false
+                self.offset += 1
+                self.column += 1
+                left -= 1
+    end advance
+
+    /** Move to the byte `find_next_nonspace` found. */
+    advance_next_nonspace(*self)
+        self.offset = self.next_nonspace
+        self.column = self.next_nonspace_column
+        self.partial = false
+
+    /** The line as an extension's block hook is shown it. `find_next_nonspace` comes first. */
+    line(self) -> Line = Line(self.text, self.start, self.offset, self.column, self.indent, self.blank)
+end Cursor
+
+/** A cursor at the start of the line `text`, which begins at `start` in the source. */
+private[markdown] cursor(text: string, start: usize) -> Cursor = Cursor(text, start, 0, 0, false, 0, 0, 0, false)

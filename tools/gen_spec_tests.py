@@ -18,7 +18,47 @@ import re
 import sys
 
 # The spec sections the parser reads, by their name in spec.json. Their examples run.
-ENABLED = set()
+ENABLED = {
+    "Thematic breaks",
+    "ATX headings",
+    "Paragraphs",
+    "Blank lines",
+    "Precedence",
+    "Soft line breaks",
+    "Hard line breaks",
+    "Textual content",
+}
+
+# Examples in an ENABLED section that need a construct of a section not yet read, by number, with
+# the reason written into their `ignore:`. Each comes off this table when that construct lands.
+LISTS = "needs list items"
+INDENTED = "needs indented code blocks"
+SETEXT = "needs setext headings"
+EMPHASIS = "needs emphasis"
+ESCAPES = "needs backslash escapes"
+CODE_SPANS = "needs code spans"
+RAW_HTML = "needs raw HTML"
+
+IGNORED = {
+    42: LISTS + " and code spans",
+    48: INDENTED,
+    56: EMPHASIS,
+    57: LISTS,
+    59: SETEXT,
+    60: LISTS,
+    61: LISTS,
+    65: ESCAPES,
+    66: EMPHASIS + " and backslash escapes",
+    69: INDENTED,
+    76: ESCAPES,
+    225: INDENTED,
+    638: EMPHASIS,
+    639: EMPHASIS,
+    640: CODE_SPANS,
+    641: CODE_SPANS,
+    642: RAW_HTML,
+    643: RAW_HTML,
+}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC = os.path.join(ROOT, "spec", "spec.json")
@@ -60,6 +100,10 @@ def main():
     if unknown:
         sys.exit("ENABLED names sections the spec does not have: %s" % sorted(unknown))
 
+    stray = [n for n in IGNORED if not any(e["example"] == n and e["section"] in ENABLED for e in examples)]
+    if stray:
+        sys.exit("IGNORED names examples outside the ENABLED sections: %s" % sorted(stray))
+
     for name in os.listdir(OUT):
         if name.startswith(PREFIX) and name.endswith(".sysl"):
             os.remove(os.path.join(OUT, name))
@@ -78,6 +122,8 @@ def main():
             attr = '@test("example %d")' % n
             if not on:
                 attr = '@test("example %d", ignore: "the parser does not read %s")' % (n, section)
+            elif n in IGNORED:
+                attr = '@test("example %d", ignore: "%s")' % (n, IGNORED[n])
             body += [
                 "",
                 attr,
@@ -88,7 +134,7 @@ def main():
             f.write("\n".join(body) + "\n")
 
     total = len(examples)
-    live = sum(len(sections[s]) for s in ENABLED)
+    live = sum(len(sections[s]) for s in ENABLED) - len(IGNORED)
     print("%d sections, %d examples: %d run, %d ignored" % (len(sections), total, live, total - live))
 
 

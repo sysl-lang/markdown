@@ -4,34 +4,34 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Paragraphs', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 219", ignore: "the parser does not read Paragraphs")
+@test("example 219")
 example_219()
     assert_eq(to_html(parse("aaa\n\nbbb\n")), "<p>aaa</p>\n<p>bbb</p>\n")
 
-@test("example 220", ignore: "the parser does not read Paragraphs")
+@test("example 220")
 example_220()
     assert_eq(to_html(parse("aaa\nbbb\n\nccc\nddd\n")), "<p>aaa\nbbb</p>\n<p>ccc\nddd</p>\n")
 
-@test("example 221", ignore: "the parser does not read Paragraphs")
+@test("example 221")
 example_221()
     assert_eq(to_html(parse("aaa\n\n\nbbb\n")), "<p>aaa</p>\n<p>bbb</p>\n")
 
-@test("example 222", ignore: "the parser does not read Paragraphs")
+@test("example 222")
 example_222()
     assert_eq(to_html(parse("  aaa\n bbb\n")), "<p>aaa\nbbb</p>\n")
 
-@test("example 223", ignore: "the parser does not read Paragraphs")
+@test("example 223")
 example_223()
     assert_eq(to_html(parse("aaa\n             bbb\n                                       ccc\n")), "<p>aaa\nbbb\nccc</p>\n")
 
-@test("example 224", ignore: "the parser does not read Paragraphs")
+@test("example 224")
 example_224()
     assert_eq(to_html(parse("   aaa\nbbb\n")), "<p>aaa\nbbb</p>\n")
 
-@test("example 225", ignore: "the parser does not read Paragraphs")
+@test("example 225", ignore: "needs indented code blocks")
 example_225()
     assert_eq(to_html(parse("    aaa\nbbb\n")), "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n")
 
-@test("example 226", ignore: "the parser does not read Paragraphs")
+@test("example 226")
 example_226()
     assert_eq(to_html(parse("aaa     \nbbb     \n")), "<p>aaa<br />\nbbb</p>\n")

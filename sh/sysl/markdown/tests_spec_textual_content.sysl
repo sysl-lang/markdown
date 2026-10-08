@@ -4,14 +4,14 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Textual content', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 650", ignore: "the parser does not read Textual content")
+@test("example 650")
 example_650()
     assert_eq(to_html(parse("hello $.;'there\n")), "<p>hello $.;'there</p>\n")
 
-@test("example 651", ignore: "the parser does not read Textual content")
+@test("example 651")
 example_651()
     assert_eq(to_html(parse("Foo \u{3c7}\u{3c1}\u{1fc6}\u{3bd}\n")), "<p>Foo \u{3c7}\u{3c1}\u{1fc6}\u{3bd}</p>\n")
 
-@test("example 652", ignore: "the parser does not read Textual content")
+@test("example 652")
 example_652()
     assert_eq(to_html(parse("Multiple     spaces\n")), "<p>Multiple     spaces</p>\n")

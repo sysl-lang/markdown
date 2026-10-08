@@ -101,6 +101,10 @@ struct Doc
     set_kind(self, n: NodeId, k: Kind)
         self.nodes.view()[usize(n.i)].kind = k
 
+    /** Replace the bytes a node is said to come from: the parser widens a block's as lines join it. */
+    set_span(self, n: NodeId, s: Span)
+        self.nodes.view()[usize(n.i)].span = s
+
     parent(self, n: NodeId) -> Option[NodeId] = if n.i == 0 then None else Some(NodeId(self.nodes.at(usize(n.i)).parent))
 
     first_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).first)

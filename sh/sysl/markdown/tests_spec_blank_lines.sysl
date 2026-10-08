@@ -4,6 +4,6 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Blank lines', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 227", ignore: "the parser does not read Blank lines")
+@test("example 227")
 example_227()
     assert_eq(to_html(parse("  \n\naaa\n  \n\n# aaa\n\n  \n")), "<p>aaa</p>\n<h1>aaa</h1>\n")

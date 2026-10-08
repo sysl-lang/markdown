@@ -1,0 +1,217 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.str_builder
+
+// The line reader, and the spans the block parser and its inline stub give each node -- what the
+// spec's examples cannot see, since they compare only HTML.
+
+// A node's span written as `start..end`, so that a mismatch prints both ends.
+private sp(d: Doc, n: NodeId) -> string
+    val s = d.span(n)
+    var b = str_builder()
+
+    b.push_uint(ulong(s.start))
+    b.push("..")
+    b.push_uint(ulong(s.end))
+    b.finish()
+
+private first(d: Doc, n: NodeId) -> NodeId = d.first_child(n).unwrap()
+
+private next(d: Doc, n: NodeId) -> NodeId = d.next_sibling(n).unwrap()
+
+// ----- line endings -----
+
+@test("a line ends at LF, at CRLF and at a lone CR, and the last needs no ending")
+line_endings()
+    val b = "a\nb\r\nc\rd".bytes
+
+    val one = line_end(b, 0)
+    assert_eq(one.end, 1)
+    assert_eq(one.next, 2)
+
+    val two = line_end(b, 2)
+    assert_eq(two.end, 3)
+    assert_eq(two.next, 5)
+
+    val three = line_end(b, 5)
+    assert_eq(three.end, 6)
+    assert_eq(three.next, 7)
+
+    val four = line_end(b, 7)
+    assert_eq(four.end, 8)
+    assert_eq(four.next, 8)
+end line_endings
+
+@test("CRLF and CR end lines as LF does, and a blank CRLF line ends a paragraph")
+crlf_and_cr()
+    assert_eq(to_html(parse("a\r\nb\r\n\r\nc\r\n")), "<p>a\nb</p>\n<p>c</p>\n")
+    assert_eq(to_html(parse("# a\rb\r\rc")), "<h1>a</h1>\n<p>b</p>\n<p>c</p>\n")
+
+@test("a source with no final line ending reads its last line all the same")
+no_final_newline()
+    assert_eq(to_html(parse("# x")), "<h1>x</h1>\n")
+    assert_eq(to_html(parse("foo  \nbar")), "<p>foo<br />\nbar</p>\n")
+    assert_eq(to_html(parse("***")), "<hr />\n")
+
+@test("an empty source, and one of blank lines, hold nothing but the document")
+empty_and_blank()
+    val d = parse("")
+
+    assert_eq(d.len(), 1)
+    assert_eq(to_html(d), "")
+    assert_eq(to_html(parse("\n  \n\t\n")), "")
+    assert_eq(parse("\n\n").len(), 1)
+
+// ----- columns and tabs -----
+
+@test("a tab advances to the next multiple of four columns")
+tab_columns()
+    var c = cursor("\tfoo", 0)
+
+    c.find_next_nonspace()
+    assert_eq(c.next_nonspace, 1)
+    assert_eq(c.indent, 4)
+    assert(!c.blank)
+
+    var d = cursor("  \tx", 0)
+
+    d.find_next_nonspace()
+    assert_eq(d.next_nonspace, 3)
+    assert_eq(d.indent, 4)
+
+@test("advancing by columns may stop inside a tab, which then still counts as indentation")
+partial_tab()
+    var c = cursor(" \tx", 0)
+
+    c.advance(2, true)
+    assert(c.partial)
+    assert_eq(c.offset, 1)
+    assert_eq(c.column, 2)
+
+    c.find_next_nonspace()
+    assert_eq(c.next_nonspace, 2)
+    assert_eq(c.indent, 2)
+
+    c.advance(2, true)
+    assert(!c.partial)
+    assert_eq(c.offset, 2)
+    assert_eq(c.column, 4)
+
+@test("advancing by bytes takes a tab whole, whatever column it starts at")
+tab_by_bytes()
+    var c = cursor("ab\tc", 0)
+
+    c.advance(3, false)
+    assert(!c.partial)
+    assert_eq(c.offset, 3)
+    assert_eq(c.column, 4)
+
+@test("a line of spaces and tabs is blank")
+blank_line()
+    var c = cursor("  \t", 0)
+
+    c.find_next_nonspace()
+    assert(c.blank)
+    assert_eq(c.indent, 4)
+
+@test("a tab may follow an ATX heading's opening and separate a thematic break's marks")
+tabs_in_blocks()
+    assert_eq(to_html(parse("#\tFoo\n")), "<h1>Foo</h1>\n")
+    assert_eq(to_html(parse("*\t*\t*\t\n")), "<hr />\n")
+    assert_eq(to_html(parse("a\n\tb\n")), "<p>a\nb</p>\n")
+
+// ----- U+0000 -----
+
+@test("U+0000 becomes U+FFFD in a paragraph and in a heading")
+nul_replaced()
+    assert_eq(to_html(parse("a\u{0}b\n")), "<p>a\u{fffd}b</p>\n")
+    assert_eq(to_html(parse("# \u{0}\n")), "<h1>\u{fffd}</h1>\n")
+
+@test("U+0000 after the hashes is not the end of the line, so it opens no heading")
+nul_after_hashes()
+    assert_eq(to_html(parse("#\u{0}\n")), "<p>#\u{fffd}</p>\n")
+
+// ----- breaks -----
+
+@test("a backslash before a line ending is a hard break, and two of them are not")
+backslash_breaks()
+    assert_eq(to_html(parse("a\\\nb\n")), "<p>a<br />\nb</p>\n")
+    assert_eq(to_html(parse("a\\\\\nb\n")), "<p>a\\\\\nb</p>\n")
+
+@test("one trailing space is a soft break, and is not kept before it")
+one_space_is_soft()
+    assert_eq(to_html(parse("a \nb\n")), "<p>a\nb</p>\n")
+
+// ----- spans -----
+
+@test("the document spans the whole source")
+document_span()
+    val d = parse("a\n\nb\n")
+
+    assert_eq(sp(d, d.root()), "0..5")
+
+@test("a heading spans its line from the first hash, and its text only the text")
+heading_span()
+    val d = parse("  ## hi ##  \n")
+    val h = first(d, d.root())
+
+    assert_eq(sp(d, h), "2..12")
+    assert_eq(sp(d, first(d, h)), "5..7")
+
+@test("a paragraph spans its first text to its last line's end, and blank lines are not in it")
+paragraph_span()
+    val d = parse("# hi\n\npara one\nline two  \n\nnext\n")
+    val h = first(d, d.root())
+    val p = next(d, h)
+    val q = next(d, p)
+
+    assert_eq(sp(d, h), "0..4")
+    assert_eq(sp(d, p), "6..25")
+    assert_eq(sp(d, q), "27..31")
+
+    val one = first(d, p)
+    val soft = next(d, one)
+    val two = next(d, soft)
+
+    assert_eq(sp(d, one), "6..14")
+    assert_eq(sp(d, soft), "14..15")
+    assert_eq(sp(d, two), "15..23")
+    assert(d.next_sibling(two).is_none())
+end paragraph_span
+
+@test("a hard break spans the spaces or backslash before the line ending to the next line's text")
+hard_break_span()
+    val d = parse("a  \n  b\n")
+    val p = first(d, d.root())
+    val a = first(d, p)
+    val br = next(d, a)
+
+    assert_eq(sp(d, a), "0..1")
+    assert_eq(sp(d, br), "1..6")
+    assert_eq(sp(d, next(d, br)), "6..7")
+
+    val e = parse("a\\\nb")
+    val q = first(e, e.root())
+    val back = next(e, first(e, q))
+
+    assert_eq(sp(e, back), "1..3")
+    assert_eq(sp(e, next(e, back)), "3..4")
+end hard_break_span
+
+@test("a thematic break spans its line from the first mark")
+thematic_break_span()
+    val d = parse("x\n\n  ***  \n")
+    val hr = next(d, first(d, d.root()))
+
+    assert_eq(sp(d, hr), "5..10")
+
+@test("text after a line ending CRLF is placed by its own offset")
+crlf_span()
+    val d = parse("a\r\nb")
+    val p = first(d, d.root())
+    val soft = next(d, first(d, p))
+
+    assert_eq(sp(d, soft), "1..3")
+    assert_eq(sp(d, next(d, soft)), "3..4")
+    assert_eq(sp(d, p), "0..4")

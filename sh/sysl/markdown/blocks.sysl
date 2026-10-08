@@ -1,0 +1,336 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+import sysl.text.{StrBuilder, str_builder}
+
+// Phase 1: the block structure, read in one pass over the lines -- the spec appendix's "A parsing
+// strategy", as cmark and commonmark.js implement it.
+//
+// The parser keeps a stack of open blocks, the document at the bottom and the tip on top. For each
+// line it does three things:
+//
+// 1. **Continuation.** Each open block below the document, from the bottom up, takes its prefix from
+//    the line or does not. The first that does not stops the walk; the blocks above it are
+//    *unmatched*, but are not closed yet, because the line may still be a lazy continuation.
+// 2. **Block starts.** Unless the last matched block is a leaf that reads its lines verbatim, the
+//    starters are tried in order -- ATX heading, thematic break, then each extension's
+//    `block_start`. A start closes the unmatched blocks and opens under the last block that may hold
+//    it; a container that opens is tried again for starts inside it.
+// 3. **The rest of the line.** If nothing started, a paragraph is the tip, and the line is not
+//    blank, the line is a lazy continuation of that paragraph and the unmatched blocks stay open.
+//    Otherwise they close, and the rest goes to the tip if it takes lines, or opens a paragraph.
+//
+// **A leaf's lines are gathered into one string as they arrive**, with a map from offsets in it back
+// to the source; phase 2 reads it once every block is closed.
+
+/** What an open block is, as far as the parser's own steps need to know. */
+private enum Block
+    Root
+    Para
+    Ext(ix: usize, state: u64, leaf: bool)      // an extension's, by its place in the registry
+
+private struct Open
+    node: NodeId
+    block: Block
+    end: usize          // where the last line this block took ends in the source
+
+/** A run of a leaf's text that is contiguous in the source: its offset in the text, and in the source. */
+private[markdown] struct Seg
+    at: usize
+    src: usize
+
+/** A leaf waiting for phase 2: its node, its raw text, and where that text came from. */
+private[markdown] struct Leaf
+    node: NodeId
+    text: string
+    segs: Buf[Seg]
+
+/** What a block starter did with the line. */
+private enum Started
+    Nothing
+    Opened(leaf: bool)      // a block opened and is now the tip
+    Done                    // a block took the rest of the line and is already closed
+
+/** What an open block made of the line's prefix. */
+private enum Step
+    Match
+    Fail
+    Finished            // the block took the whole line and closes with it
+
+private[markdown] struct Parser
+    private doc: Doc
+    private exts: Registry
+    private stack: Buf[Open]
+    private leaves: Buf[Leaf]
+    private content: StrBuilder         // the tip leaf's text so far
+    private segs: Buf[Seg]              // and its map back to the source
+    private cur: Cursor
+
+    /** Read one line: `text`, beginning at `start` in the source. */
+    process(*self, text: string, start: usize)
+        self.cur = cursor(text, start)
+
+        val line_end = start + text.len
+        var last: usize = 0
+        var going = true
+
+        while going && last + 1 < self.stack.len()
+            self.cur.find_next_nonspace()
+
+            self.step(last + 1) match
+                Match -> last += 1
+                Fail -> going = false
+                Finished ->
+                    self.reach(last + 2, line_end)
+                    self.close_to(last + 1)
+                    return
+
+        self.reach(last + 1, line_end)
+
+        var closed = last + 1 == self.stack.len()
+        var container = last
+
+        while !self.reads_verbatim(container)
+            self.cur.find_next_nonspace()
+
+            self.start(container) match
+                Done -> return
+                Nothing ->
+                    self.cur.advance_next_nonspace()
+                    break
+                Opened(leaf) ->
+                    container = self.stack.len() - 1
+                    closed = true
+                    if leaf then break
+
+        if !closed && !self.cur.blank && self.is_para(self.stack.len() - 1) then
+            self.reach(self.stack.len(), line_end)
+            self.add_line()
+        else
+            self.close_to(container + 1)
+
+            if self.takes_lines(container) then
+                self.add_line()
+            else if !self.cur.blank then
+                val at = start + self.cur.offset
+                val para = self.doc.append_child(self.stack[container].node, Paragraph, Span(at, line_end))
+
+                self.stack.push(Open(para, Para, line_end))
+                self.add_line()
+    end process
+
+    /** Close every open block, then read each leaf's text into inlines. */
+    finish(*self) -> Doc
+        self.close_to(1)
+
+        for leaf in self.leaves.view() do inlines(self.doc, leaf)
+
+        for i in 0..<self.exts.len() do self.exts.at(i).post_pass(self.doc)
+
+        self.doc
+
+    // Whether the open block at `i` takes the current line's prefix.
+    private step(*self, i: usize) -> Step
+        val o = self.stack[i]
+
+        o.block match
+            Root -> Match
+            Para -> if self.cur.blank then Fail else Match
+            Ext(ix, state, _) ->
+                self.exts.at(ix).block_continue(self.cur.line(), self.doc.kind(o.node), state) match
+                    Takes(n) ->
+                        self.cur.advance(n, false)
+                        Match
+                    Ends -> Fail
+                    Finishes -> Finished
+    end step
+
+    // The block starters, in the spec's order, and then the extensions'.
+    private start(*self, container: usize) -> Started
+        val c = self.cur
+        val p = c.next_nonspace
+
+        if c.indent < 4 then
+            val level = atx_level(c, p)
+
+            if level > 0 then
+                self.atx(container, p, level)
+                return Done
+
+            if is_thematic_break(c, p) then
+                val parent = self.parent_for(container)
+
+                self.doc.append_child(self.stack[parent].node, ThematicBreak, Span(c.start + p, c.start + c.text.len))
+                return Done
+
+        val in_para = self.is_para(self.stack.len() - 1)
+
+        for ix in 0..<self.exts.len()
+            val e = self.exts.at(ix)
+
+            if !in_para || e.interrupts_paragraph() then
+                e.block_start(c.line()) match
+                    Declined -> ()
+                    Leaf(k, n, state) -> return self.open_ext(container, ix, k, n, state, true)
+                    Container(k, n, state) -> return self.open_ext(container, ix, k, n, state, false)
+
+        Nothing
+    end start
+
+    // An ATX heading of `level` whose `#`s begin at `p`: its text is what lies between the opening
+    // sequence and an optional closing one, without the spaces and tabs around it.
+    private atx(*self, container: usize, p: usize, level: usize)
+        val c = self.cur
+        val b = c.text.bytes
+        var s = p + level
+        var e = b.len
+
+        while s < e && is_space_or_tab(b[s]) do s += 1
+        while e > s && is_space_or_tab(b[e - 1]) do e -= 1
+
+        var h = e
+
+        while h > s && b[h - 1] == u8('#') do h -= 1
+
+        if h == s then
+            e = s
+        else if h < e && is_space_or_tab(b[h - 1]) then
+            e = h
+            while e > s && is_space_or_tab(b[e - 1]) do e -= 1
+
+        val parent = self.parent_for(container)
+        val node = self.doc.append_child(self.stack[parent].node, Heading(u8(level), None), Span(c.start + p, c.start + b.len))
+        var segs: Buf[Seg] = buf()
+
+        segs.push(Seg(0, c.start + s))
+        self.leaves.push(Leaf(node, c.text[s..<e], segs))
+    end atx
+
+    private open_ext(*self, container: usize, ix: usize, k: Kind, n: usize, state: u64, leaf: bool) -> Started
+        val parent = self.parent_for(container)
+        val node = self.doc.append_child(self.stack[parent].node, k, Span(self.cur.start + self.cur.offset, self.cur.start + self.cur.text.len))
+
+        self.cur.advance(n, false)
+        self.stack.push(Open(node, Ext(ix, state, leaf), self.cur.start + self.cur.text.len))
+        Opened(leaf)
+
+    // The nearest open block at or below `container` that may hold a new block, with everything
+    // above it closed: a paragraph is closed by any block that starts while it is open.
+    private parent_for(*self, container: usize) -> usize
+        var p = container
+
+        while !self.holds_blocks(p) do p -= 1
+
+        self.close_to(p + 1)
+        p
+
+    // The rest of the line, appended to the tip leaf's text. The columns left of a tab only partly
+    // consumed by a container's prefix become spaces.
+    private add_line(*self)
+        if self.cur.partial then
+            val n = 4 - self.cur.column % 4
+
+            self.cur.offset += 1
+            for _ in 0..<n do self.content.push(" ")
+
+        val c = self.cur
+
+        self.segs.push(Seg(self.content.len, c.start + c.offset))
+        self.content.push(c.text[c.offset..<c.text.len])
+        self.content.push("\n")
+    end add_line
+
+    // Record that the blocks below `n` on the stack reach to `end`.
+    private reach(*self, n: usize, end: usize)
+        val v = self.stack.view()
+
+        for i in 0..<n do v[i].end = end
+
+    // Close open blocks until `n` are left.
+    private close_to(*self, n: usize)
+        while self.stack.len() > n do self.close_top()
+
+    private close_top(*self)
+        val o = self.stack[self.stack.len() - 1]
+
+        self.stack.truncate(self.stack.len() - 1)
+        self.doc.set_span(o.node, Span(self.doc.span(o.node).start, o.end))
+
+        o.block match
+            Root -> ()
+            Para -> self.leaves.push(self.take_leaf(o.node))
+            Ext(ix, state, leaf) ->
+                val text = if leaf then self.take_leaf(o.node).text else ""
+
+                self.doc.set_kind(o.node, self.exts.at(ix).block_close(self.doc.kind(o.node), text, state))
+    end close_top
+
+    // The tip leaf's gathered text, leaving the parser ready to gather the next one's.
+    private take_leaf(*self, node: NodeId) -> Leaf
+        val leaf = Leaf(node, self.content.finish(), self.segs)
+
+        self.content.clear()
+        self.segs = buf()
+        leaf
+
+    private is_para(self, i: usize) -> bool
+        self.stack[i].block match
+            Para -> true
+            _ -> false
+
+    private holds_blocks(self, i: usize) -> bool
+        self.stack[i].block match
+            Root -> true
+            Para -> false
+            Ext(_, _, leaf) -> !leaf
+
+    private takes_lines(self, i: usize) -> bool
+        self.stack[i].block match
+            Root -> false
+            Para -> true
+            Ext(_, _, leaf) -> leaf
+
+    // A leaf that takes its lines as they are, so that no block may start inside it.
+    private reads_verbatim(self, i: usize) -> bool = self.takes_lines(i) && !self.is_para(i)
+end Parser
+
+private[markdown] parser(src: string, exts: Registry) -> Parser
+    var stack: Buf[Open] = buf()
+
+    stack.push(Open(NodeId(0), Root, 0))
+    Parser(new_doc(src), exts, stack, buf(), str_builder(), buf(), cursor("", 0))
+
+// The level of an ATX heading opening at `p`: one to six `#`, then a space, a tab or the end of the
+// line. Zero where there is none.
+private atx_level(c: Cursor, p: usize) -> usize
+    var n: usize = 0
+
+    while c.at(p + n) == u8('#') do n += 1
+
+    if n == 0 || n > 6 then return 0
+
+    val after = c.at(p + n)
+
+    if after == 0 && p + n < c.text.len then return 0
+    if after == 0 || is_space_or_tab(after) then n else 0
+end atx_level
+
+// Three or more of one of `*`, `-` and `_` from `p` to the end of the line, with nothing between
+// them but spaces and tabs.
+private is_thematic_break(c: Cursor, p: usize) -> bool
+    val b = c.text.bytes
+    val mark = c.at(p)
+
+    if mark != u8('*') && mark != u8('-') && mark != u8('_') then return false
+
+    var n: usize = 0
+
+    for i in p..<b.len
+        if b[i] == mark then
+            n += 1
+        else if !is_space_or_tab(b[i]) then
+            return false
+
+    n >= 3
+end is_thematic_break

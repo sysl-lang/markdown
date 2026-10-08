@@ -8,4 +8,14 @@ module sh.sysl.markdown
 parse(src: string) -> Doc = parse_with(src, registry())
 
 /** `src` read as CommonMark, with the syntax the extensions in `exts` add. */
-parse_with(src: string, exts: Registry) -> Doc = new_doc(src)
+parse_with(src: string, exts: Registry) -> Doc
+    var p = parser(src, exts)
+    var at: usize = 0
+
+    while at < src.len
+        val le = line_end(src.bytes, at)
+
+        p.process(src[at..<le.end], at)
+        at = le.next
+
+    p.finish()

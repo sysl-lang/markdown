@@ -4,10 +4,10 @@ module sh.sysl.markdown
 // The CommonMark 0.31.2 spec's examples from 'Soft line breaks', each rendered and compared exactly.
 // Written by tools/gen_spec_tests.py from spec/spec.json; edit that, not this.
 
-@test("example 648", ignore: "the parser does not read Soft line breaks")
+@test("example 648")
 example_648()
     assert_eq(to_html(parse("foo\nbaz\n")), "<p>foo\nbaz</p>\n")
 
-@test("example 649", ignore: "the parser does not read Soft line breaks")
+@test("example 649")
 example_649()
     assert_eq(to_html(parse("foo \n baz\n")), "<p>foo\nbaz</p>\n")
