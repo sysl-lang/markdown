@@ -49,12 +49,22 @@ private[markdown] struct Cursor
     next_nonspace_column: usize
     indent: usize                   // columns from `column` to `next_nonspace_column`
     blank: bool                     // nothing but spaces and tabs from `offset` on
+    no_break_before: usize          // a thematic break cannot begin before this byte: a scan failed there
 
     /** The byte at `i`, or 0 past the end. */
     at(self, i: usize) -> u8 = if i < self.text.len then self.text.bytes[i] else 0
 
-    /** Find the next byte that is not a space or a tab, and how far it is indented. */
+    /** Find the next byte that is not a space or a tab, and how far it is indented.
+     *
+     * Where the byte found last time is still ahead, only spaces and tabs were consumed since, so it
+     * is still the one: a line indented for ten thousand nested containers is scanned once, not once
+     * per container.
+     */
     find_next_nonspace(*self)
+        if self.next_nonspace > self.offset then
+            self.indent = self.next_nonspace_column - self.column
+            return
+
         val b = self.text.bytes
         var i = self.offset
         var cols = self.column
@@ -115,4 +125,4 @@ private[markdown] struct Cursor
 end Cursor
 
 /** A cursor at the start of the line `text`, which begins at `start` in the source. */
-private[markdown] cursor(text: string, start: usize) -> Cursor = Cursor(text, start, 0, 0, false, 0, 0, 0, false)
+private[markdown] cursor(text: string, start: usize) -> Cursor = Cursor(text, start, 0, 0, false, 0, 0, 0, false, 0)

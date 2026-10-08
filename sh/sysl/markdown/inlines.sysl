@@ -31,9 +31,10 @@ import sysl.text.{Ascii, StrBuilder, str_builder}
 // is read, its delimiters are paired into emphasis.
 
 /** The inline nodes of `leaf`, appended to its node in `d`; `triggers` is every byte an extension in
- * `exts` asks to be shown.
+ * `exts` asks to be shown. `refs_left` is how many bytes of destination and title the references
+ * may still expand to across the document; what is left of it is the answer.
  */
-private[markdown] inlines(d: Doc, leaf: Leaf, exts: Registry, triggers: ByteSet)
+private[markdown] inlines(d: Doc, leaf: Leaf, exts: Registry, triggers: ByteSet, refs_left: usize) -> usize
     val b = leaf.text.bytes
     var s: usize = 0
     var e = b.len
@@ -41,9 +42,16 @@ private[markdown] inlines(d: Doc, leaf: Leaf, exts: Registry, triggers: ByteSet)
     while s < e && is_line_space(b[s]) do s += 1
     while e > s && is_line_space(b[e - 1]) do e -= 1
 
-    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false], delims(), buf(), exts, triggers)
+    var sc = Scan(d, leaf, b[0..<e], SrcMap(leaf.segs, 0), s, s, None, map(), false, [false, false, false, false], delims(), buf(), 0, exts, triggers, refs_left)
 
     sc.run(s)
+    sc.refs_left
+
+/** How many bytes of destination and title the references in a document of `n` bytes may expand to:
+ * the size of the document, and never less than 100,000, so that an ordinary document is not held
+ * to its own length.
+ */
+private[markdown] ref_budget(n: usize) -> usize = if n > 100000 then n else 100000
 
 private is_line_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == u8('\n')
 
@@ -61,8 +69,10 @@ private struct Scan
     unclosed: [4]bool           // raw HTML end markers already looked for to the end
     ds: Delims
     brackets: Buf[Bracket]      // the `[` and `![` not yet closed, innermost last
+    no_links_below: usize       // a `[` lower on `brackets` than this is inactive: a link formed after it
     exts: Registry
     triggers: ByteSet
+    refs_left: usize            // the bytes references may still expand to: see `link_after`
 
     run(*self, from: usize)
         var i = from
@@ -139,7 +149,7 @@ private struct Scan
 
         if n > 0 then self.brackets.view()[n - 1].bracket_after = true
 
-        self.brackets.push(Bracket(node, image, true, false, self.ds.top(), j))
+        self.brackets.push(Bracket(node, image, false, self.ds.top(), j))
         self.restart(j)
         j
 
@@ -156,7 +166,11 @@ private struct Scan
 
         self.brackets.truncate(n - 1)
 
-        if !o.active then return i + 1
+        val active = o.image || n - 1 >= self.no_links_below
+
+        if self.no_links_below > n - 1 then self.no_links_below = n - 1
+
+        if !active then return i + 1
 
         val (dest, title, end) = self.link_after(o, i) match
             Some(found) -> found
@@ -178,17 +192,7 @@ private struct Scan
         self.d.unlink(o.node)
         process_emphasis(self.d, self.ds, self.exts, o.delims)
 
-        if !o.image then
-            val v = self.brackets.view()
-            var b = v.len
-
-            while b > 0
-                b -= 1
-
-                if !v[b].image then
-                    if !v[b].active then break
-
-                    v[b].active = false
+        if !o.image then self.no_links_below = n - 1
 
         self.restart(end)
         end
@@ -197,7 +201,11 @@ private struct Scan
     // What the `]` at `i` closing `o` links to, and where the link ends: an inline destination in
     // parentheses, then a reference -- full where a label follows, collapsed or shortcut where
     // the text between the brackets is the label.
-    link_after(self, o: Bracket, i: usize) -> Option[(string, string, usize)]
+    //
+    // A reference spends its destination's and title's length from `refs_left`, and one the budget
+    // cannot cover is not a link: a long definition used many times would otherwise make the output
+    // as many times larger than the input.
+    link_after(*self, o: Bracket, i: usize) -> Option[(string, string, usize)]
         if byte_at(self.b, i + 1) == u8('(') then
             val inline = inline_link(self.leaf.text[0..<self.b.len], i + 1)
 
@@ -209,7 +217,16 @@ private struct Scan
 
         if !full && o.bracket_after then return None
 
-        lookup(self.d.refs, raw).map((r) -> (r.dest, r.title, if le > 0 then le else i + 1))
+        val r = lookup(self.d.refs, raw) match
+            Some(r) -> r
+            None -> return None
+
+        val cost = r.dest.len + r.title.len
+
+        if cost > self.refs_left then return None
+
+        self.refs_left -= cost
+        Some((r.dest, r.title, if le > 0 then le else i + 1))
     end link_after
 
     // The first extension that triggers on the byte at `i` and reads something there: a node of its
@@ -416,7 +433,6 @@ end Scan
 private struct Bracket
     node: NodeId            // the `Text` node holding it
     image: bool
-    active: bool            // false once a link has formed after it: links do not nest
     bracket_after: bool     // another opener came after it, so the text it closes is not a label
     delims: u32             // the delimiter list's top when it was read: the bottom of its emphasis
     after: usize            // where the text inside it begins

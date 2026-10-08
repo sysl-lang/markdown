@@ -1,0 +1,296 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.{repeat, str_builder}
+import sysl.time.{monotonic, whole_micros}
+
+// cmark's pathological inputs (`test/pathological_tests.py` at cmark 0.31.2), each read at the size
+// cmark reads it and at a size about a tenth of that. The output is checked exactly at both sizes, and
+// the time is checked against the input's growth: a linear reading of an input ten times larger takes
+// about ten times as long, a quadratic one about a hundred, and the ratio does not depend on how fast
+// the machine is.
+
+// How long `src` takes to parse and write, in microseconds, with the result checked against `want`.
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = to_html(parse(src))
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+// How the time grew from size `n` to size `big`, scaled to the input's growth so that a linear reading
+// answers about 10 whatever the two sizes are. The smaller time is taken as at least 1 ms, so that a
+// run too quick to measure cannot make the ratio large.
+private growth(input: usize -> string, output: usize -> string, n: usize, big: usize) -> long
+    val a_src = input(n)
+    val b_src = input(big)
+    val a = timed(a_src, output(n))
+    val b = timed(b_src, output(big))
+
+    10 * b * long(a_src.len) / ((if a < 1000 then 1000 else a) * long(b_src.len))
+
+// Read at a tenth of cmark's size and at cmark's size.
+private linear(input: usize -> string, output: usize -> string, n: usize) -> bool = growth(input, output, n / 10, n) < 20
+
+private para(body: string) -> string = "<p>" + body + "</p>\n"
+
+// `unit` `n` times, in a paragraph, with the space the paragraph's end strips taken off.
+private spaced(unit: string, n: usize) -> string = para(repeat(unit, n - 1) + unit[0..<unit.len - 1])
+
+private strong_in_emph(n: usize) -> string = repeat("*a **a ", n) + "b" + repeat(" a** a*", n)
+
+private strong_in_emph_out(n: usize) -> string = para(repeat("<em>a <strong>a ", n) + "b" + repeat(" a</strong> a</em>", n))
+
+@test("nested strong emphasis")
+nested_strong_emph()
+    assert(linear(strong_in_emph, strong_in_emph_out, 32500))
+
+@test("many emphasis closers with no openers")
+many_emph_closers()
+    assert(linear((n) -> repeat("a_ ", n), (n) -> spaced("a_ ", n), 32500))
+
+@test("many emphasis openers with no closers")
+many_emph_openers()
+    assert(linear((n) -> repeat("_a ", n), (n) -> spaced("_a ", n), 32500))
+
+@test("many link closers with no openers")
+many_link_closers()
+    assert(linear((n) -> repeat("a]", n), (n) -> para(repeat("a]", n)), 32500))
+
+@test("many link openers with no closers")
+many_link_openers()
+    assert(linear((n) -> repeat("[a", n), (n) -> para(repeat("[a", n)), 32500))
+
+@test("mismatched openers and closers")
+mismatched_openers_and_closers()
+    assert(linear((n) -> repeat("*a_ ", n), (n) -> spaced("*a_ ", n), 25000))
+
+private issue_389(n: usize) -> string = repeat("*a ", n) + repeat("_a*_ ", n)
+
+private issue_389_out(n: usize) -> string = para(repeat("<em>a ", n) + repeat("_a</em>_ ", n - 1) + "_a</em>_")
+
+@test("cmark issue 389: openers one kind of delimiter, closers among the other")
+cmark_issue_389()
+    assert(linear(issue_389, issue_389_out, 20000))
+
+@test("openers and closers in multiples of 3")
+multiples_of_3()
+    assert(linear((n) -> "a**b" + repeat("c* ", n), (n) -> para("a**b" + repeat("c* ", n - 1) + "c*"), 25000))
+
+@test("link openers and emphasis closers")
+link_openers_and_emph_closers()
+    assert(linear((n) -> repeat("[ a_", n), (n) -> para(repeat("[ a_", n)), 25000))
+
+@test("the pattern '[ (](' repeated")
+bracket_paren_repeated()
+    assert(linear((n) -> repeat("[ (](", n), (n) -> para(repeat("[ (](", n)), 40000))
+
+@test("the pattern '![[]()' repeated")
+image_link_repeated()
+    assert(linear((n) -> repeat("![[]()", n), (n) -> para(repeat("![<a href=\"\"></a>", n)), 160000))
+
+@test("the hard case of a link inside strong emphasis that cannot close")
+hard_link_emph()
+    assert_eq(to_html(parse("**x [a*b**c*](d)")), para("**x <a href=\"d\">a<em>b**c</em></a>"))
+
+@test("nested brackets")
+nested_brackets_cmark()
+    assert(linear((n) -> repeat("[", n) + "a" + repeat("]", n), (n) -> para(repeat("[", n) + "a" + repeat("]", n)), 25000))
+
+private quotes_out(n: usize) -> string = repeat("<blockquote>\n", n) + para("a") + repeat("</blockquote>\n", n)
+
+@test("nested block quotes")
+nested_block_quotes()
+    assert(linear((n) -> repeat("> ", n) + "a", quotes_out, 25000))
+
+private lists(n: usize) -> string
+    var out = str_builder()
+
+    for x in 0..<n
+        out.push(repeat("  ", x))
+        out.push("* a\n")
+
+    out.finish()
+
+private lists_out(n: usize) -> string = "<ul>\n" + repeat("<li>a\n<ul>\n", n - 1) + "<li>a</li>\n</ul>\n" + repeat("</li>\n</ul>\n", n - 1)
+
+// The input grows as the square of the depth, so the smaller depth is the larger over the square
+// root of ten.
+@test("deeply nested lists")
+deeply_nested_lists()
+    assert(growth(lists, lists_out, 158, 500) < 20)
+
+@test("U+0000 in the input is read as U+FFFD")
+nul_in_input()
+    assert_eq(to_html(parse("abc\u{0}de\u{0}")), para("abc\u{fffd}de\u{fffd}"))
+
+// `e` and a run of backticks, for every run length below `n`: no two runs match, so no code span
+// forms, and every opener looks for its closer to the end.
+private backticks(n: usize) -> string
+    var out = str_builder()
+
+    for x in 1..<n
+        out.push("e")
+        out.push(repeat("`", x))
+
+    out.finish()
+
+@test("backticks")
+many_backtick_runs()
+    assert(growth(backticks, (n) -> para(backticks(n)), 791, 2500) < 20)
+
+@test("unclosed inline links with a pointy destination")
+unclosed_links_a()
+    assert(linear((n) -> repeat("[a](<b", n), (n) -> para(repeat("[a](&lt;b", n)), 30000))
+
+@test("unclosed inline links with a bare destination")
+unclosed_links_b()
+    assert(linear((n) -> repeat("[a](b", n), (n) -> para(repeat("[a](b", n)), 30000))
+
+@test("unclosed '<!--'")
+unclosed_comments()
+    assert(linear((n) -> "</" + repeat("<!--", n), (n) -> para("&lt;/" + repeat("&lt;!--", n)), 300000))
+
+private nested_items_out(n: usize) -> string = repeat("<ul>\n<li>\n", n - 1) + "<ul>\n<li>x</li>\n</ul>\n" + repeat("</li>\n</ul>\n", n - 1)
+
+@test("empty lines in deeply nested lists")
+empty_lines_in_nested_lists()
+    assert(linear((n) -> repeat("- ", n) + "x" + repeat("\n", n), nested_items_out, 30000))
+
+private quoted_items(n: usize) -> string = "> " + repeat("- ", n) + "x\n" + repeat(">\n", n)
+
+private quoted_items_out(n: usize) -> string = "<blockquote>\n" + nested_items_out(n) + "</blockquote>\n"
+
+@test("empty lines in deeply nested lists in a block quote")
+empty_lines_in_quoted_lists()
+    assert(linear(quoted_items, quoted_items_out, 30000))
+
+private deep_emph_out(n: usize) -> string = repeat("<blockquote>\n", n) + para(repeat("a<em>a</em>", n / 2)) + repeat("</blockquote>\n", n)
+
+@test("emphasis in a deep block quote")
+emph_in_deep_quote()
+    assert(linear((n) -> repeat(">", n) + repeat("a*", n), deep_emph_out, 100000))
+
+// cmark's hash, which these labels all collide in: kept so that the input is cmark's own, though a
+// map hashes them differently here.
+private bad_hash(key: string) -> bool
+    var h: u64 = 0
+
+    for c in key.bytes
+        val a = (h << 6) & 0xffffffff
+        val b = (h << 16) & 0xffffffff
+
+        h = (u64(c) + a + b + 0x100000000 - h) & 0xffffffff
+
+    h % 16 == 0
+
+// `count` labels cmark's hash sends to one bucket: the first is used, every later one defined.
+private colliding(count: usize) -> string
+    var keys = str_builder()
+    var first = ""
+    var found: usize = 0
+    var i: usize = 0
+
+    while found < count
+        val k = "x" + str(i)
+
+        i += 1
+
+        if bad_hash(k) then
+            if found == 0 then
+                first = k
+            else
+                keys.push("[" + k + "]: /url\n\n[" + first + "]\n\n")
+
+            found += 1
+
+    keys.finish()
+end colliding
+
+@test("reference definitions that collide in cmark's hash")
+reference_collisions()
+    assert(linear(colliding, (n) -> repeat(para("[" + first_key() + "]"), n - 1), 25000))
+
+// The first label `colliding` picks.
+private first_key() -> string
+    var i: usize = 0
+
+    loop
+        val k = "x" + str(i)
+
+        if bad_hash(k) then return k
+
+        i += 1
+
+private many_refs(n: usize) -> string
+    var out = str_builder()
+
+    for i in 1..<16 * n
+        out.push("[" + str(i) + "]: u\n")
+
+    out.push(repeat("[0] ", n))
+    out.finish()
+
+@test("many references, none of them the one used")
+many_references_cmark()
+    assert(linear(many_refs, (n) -> spaced("[0] ", n), 5000))
+
+private nested_inlines_out(n: usize) -> string = para(repeat("<strong>", n / 2) + "a" + repeat("</strong>", n / 2))
+
+@test("emphasis nested as deep as its delimiter runs are long")
+nested_inlines()
+    assert(linear((n) -> repeat("*", n) + "a" + repeat("*", n), nested_inlines_out, 20000))
+
+// One long definition used `n` times. Each use spends the definition's destination from a budget
+// the size of the document, or 100,000 bytes where the document is smaller, so the output stays a
+// constant times the input: the uses past the budget are text.
+private expansion(n: usize) -> string = "[a]: /" + repeat("x", 999) + "\n\n" + repeat("[a] ", n)
+
+private expansion_out(n: usize) -> string
+    val src = expansion(n)
+    val budget = if src.len > 100000 then src.len else 100000
+    val links = budget / 1000
+    val shown = if links < n then links else n
+    val link = "<a href=\"/" + repeat("x", 999) + "\">a</a> "
+    val body = repeat(link, shown) + repeat("[a] ", n - shown)
+
+    para(body[0..<body.len - 1])
+
+@test("a long definition used many times expands to no more than about the input's size")
+reference_expansion()
+    assert(linear(expansion, expansion_out, 20000))
+
+    val src = expansion(20000)
+
+    assert(to_html(parse(src)).len < 3 * src.len)
+
+// Inputs beyond cmark's file, each quadratic in a reading that was once written here.
+
+private lazy_lines(n: usize) -> string = repeat("> ", n) + "a\n" + repeat("b\n", n)
+
+private lazy_lines_out(n: usize) -> string = repeat("<blockquote>\n", n) + para("a\n" + repeat("b\n", n - 1) + "b") + repeat("</blockquote>\n", n)
+
+@test("lazy continuation lines under block quotes nested thousands deep")
+lazy_lines_in_deep_quotes()
+    assert(linear(lazy_lines, lazy_lines_out, 20000))
+
+private stars(n: usize) -> string = repeat("* ", n) + "x\n"
+
+private stars_out(n: usize) -> string = repeat("<ul>\n<li>\n", n - 1) + "<ul>\n<li>x</li>\n</ul>\n" + repeat("</li>\n</ul>\n", n - 1)
+
+@test("a line of list markers, each of which might begin a thematic break")
+markers_like_a_break()
+    assert(linear(stars, stars_out, 30000))
+
+private blank_code(n: usize) -> string = repeat("- ", n) + "```\n" + repeat("\n", n) + "a"
+
+private blank_code_out(n: usize) -> string = repeat("<ul>\n<li>\n", n) + "<pre><code>" + repeat("\n", n) + "</code></pre>\n" + repeat("</li>\n</ul>\n", n) + para("a")
+
+@test("blank lines in a fenced code block in deeply nested lists are kept")
+blank_lines_in_nested_code()
+    assert(linear(blank_code, blank_code_out, 10000))
+
+@test("a definition used within the budget always links")
+reference_expansion_small()
+    assert_eq(to_html(parse("[a]: /u \"t\"\n\n[a] [a]")), para("<a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">a</a>"))

@@ -139,3 +139,15 @@ paragraph_of_definitions()
 
     assert(d.first_child(d.root()).is_none())
     assert_eq(d.refs.len(), 2)
+
+// cmark 0.31.2 makes the first of these a link holding a link: a `[` opened after the inner link
+// re-enables every `[` below it. The spec's example 518 says a link never contains another.
+@test("a '[' after a link does not let an earlier '[' make a link around it")
+no_link_around_a_link_after_a_bracket()
+    assert_eq(html("[x [a](b) [c] ](d)"), "<p>[x <a href=\"b\">a</a> [c] ](d)</p>\n")
+    assert_eq(html("[[a](b) [c](d)](e)"), "<p>[<a href=\"b\">a</a> <a href=\"d\">c</a>](e)</p>\n")
+
+@test("an image may hold links, and a link after it still forms")
+image_around_links()
+    assert_eq(html("![a [b](c) [e](f)](d)"), "<p><img src=\"d\" alt=\"a b e\" /></p>\n")
+    assert_eq(html("![a](b) [c](d)"), "<p><img src=\"b\" alt=\"a\" /> <a href=\"d\">c</a></p>\n")
