@@ -10,7 +10,7 @@ import sysl.text.{Search, from_utf8_unchecked}
 
 private html(src: string, opts: HtmlOptions) -> string = to_html_with(parse(src), opts)
 
-private safe() -> HtmlOptions = HtmlOptions(false, "\n", None, false)
+private safe() -> HtmlOptions = HtmlOptions(false, "\n", None, false, Standard, Standard)
 
 private first(d: Doc) -> NodeId
     d.first_child(d.root()) match
@@ -86,16 +86,16 @@ raw_html_off_alt()
 
 @test("the soft break is written as the options say")
 softbreak_option()
-    assert_eq(html("a\nb\n", HtmlOptions(true, " ", None, false)), "<p>a b</p>\n")
-    assert_eq(html("a\nb\n", HtmlOptions(true, "<br />\n", None, false)), "<p>a<br />\nb</p>\n")
+    assert_eq(html("a\nb\n", HtmlOptions(true, " ", None, false, Standard, Standard)), "<p>a b</p>\n")
+    assert_eq(html("a\nb\n", HtmlOptions(true, "<br />\n", None, false, Standard, Standard)), "<p>a<br />\nb</p>\n")
 
 @test("a hard break is not a soft break")
 softbreak_leaves_hard_breaks()
-    assert_eq(html("a  \nb\n", HtmlOptions(true, " ", None, false)), "<p>a<br />\nb</p>\n")
+    assert_eq(html("a  \nb\n", HtmlOptions(true, " ", None, false, Standard, Standard)), "<p>a<br />\nb</p>\n")
 
 @test("inside an image's alt text a soft break is a newline whatever the option says")
 softbreak_in_alt()
-    assert_eq(html("![a\nb](i)\n", HtmlOptions(true, "<br />\n", None, false)), "<p><img src=\"i\" alt=\"a\nb\" /></p>\n")
+    assert_eq(html("![a\nb](i)\n", HtmlOptions(true, "<br />\n", None, false, Standard, Standard)), "<p><img src=\"i\" alt=\"a\nb\" /></p>\n")
 
 // --- the highlight hook ---
 
@@ -107,7 +107,7 @@ highlight_called()
         seen.push("[" + info + "|" + code + "]")
         None
 
-    html("```sysl  title=a&amp;b\nval x = 1\n```\n\n    indented\n\n~~~\nbare\n~~~\n", HtmlOptions(true, "\n", Some(hl), false))
+    html("```sysl  title=a&amp;b\nval x = 1\n```\n\n    indented\n\n~~~\nbare\n~~~\n", HtmlOptions(true, "\n", Some(hl), false, Standard, Standard))
 
     assert_eq(seen.len(), 3)
     assert_eq(seen[0], "[sysl  title=a&b|val x = 1\n]")
@@ -119,7 +119,7 @@ highlight_replaces()
     val hl: &Fn(string, string) -> Option[string] = (info, code) ->
         if info.starts_with("sysl") then Some("<div class=\"hl\">" + code.trim() + "</div>") else None
 
-    val out = html("a\n```sysl\nx < 1\n```\n```py\ny < 2\n```\nb\n", HtmlOptions(true, "\n", Some(hl), false))
+    val out = html("a\n```sysl\nx < 1\n```\n```py\ny < 2\n```\nb\n", HtmlOptions(true, "\n", Some(hl), false, Standard, Standard))
 
     assert_eq(out, "<p>a</p>\n<div class=\"hl\">x < 1</div>\n<pre><code class=\"language-py\">y &lt; 2\n</code></pre>\n<p>b</p>\n")
 
@@ -128,7 +128,7 @@ highlight_declines()
     val src = "```sysl\nx\n```\n\n    y\n"
     val none: &Fn(string, string) -> Option[string] = (info, code) -> None
 
-    assert_eq(html(src, HtmlOptions(true, "\n", Some(none), false)), html(src, commonmark_html()))
+    assert_eq(html(src, HtmlOptions(true, "\n", Some(none), false, Standard, Standard)), html(src, commonmark_html()))
 
 // --- regions ---
 
@@ -280,12 +280,12 @@ readme_example()
     val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
 
     assert_eq(to_html(d), "<h1>Hello, <em>world</em></h1>\n<p>See <b>this</b>.</p>\n")
-    assert_eq(to_html_with(d, HtmlOptions(false, "\n", None, false)), "<h1>Hello, <em>world</em></h1>\n<p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>\n")
+    assert_eq(to_html_with(d, HtmlOptions(false, "\n", None, false, Standard, Standard)), "<h1>Hello, <em>world</em></h1>\n<p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>\n")
     assert_eq(plain_text(d, d.root()), "Hello, world\nSee this.")
 
     val code: &Fn(string, string) -> Option[string] = (info, text) ->
         if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
 
-    val opts = HtmlOptions(true, "\n", Some(code), false)
+    val opts = HtmlOptions(true, "\n", Some(code), false, Standard, Standard)
 
     assert_eq(to_html_with(parse("```sysl\na < b\n```\n"), opts), "<pre class=\"sysl\">a &lt; b\n</pre>\n")

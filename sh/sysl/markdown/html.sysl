@@ -355,7 +355,7 @@ private keeps(c: u8) -> bool
 
 // The info string up to its first ASCII whitespace -- a space, or a byte from tab to carriage return
 // -- as cmark cuts it. A non-breaking space or any other Unicode space is part of the word.
-private first_word(info: string) -> string
+private[markdown] first_word(info: string) -> string
     val b = info.bytes
 
     for i in 0..<b.len

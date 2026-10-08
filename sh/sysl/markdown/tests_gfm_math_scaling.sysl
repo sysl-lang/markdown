@@ -1,0 +1,83 @@
+module sh.sysl.markdown
+@tests
+
+import sysl.text.repeat
+import sysl.time.{monotonic, whole_micros}
+
+// Math's hostile inputs -- long runs of `$`, openers that never close, closers that each fail one
+// rule, and the backtick form never closing -- read with gfm() at two sizes ten times apart, as
+// tests_gfm_scaling.sysl reads the other extensions': a linear reading takes about ten times as long
+// for the larger, a quadratic one about a hundred. The output is checked at both sizes.
+
+private const small: usize = 5000
+
+private timed(src: string, want: string) -> long
+    val t0 = monotonic()
+    val got = to_html_with(parse_with(src, gfm()), gfm_html())
+    val t1 = monotonic()
+
+    assert_eq(got, want)
+    whole_micros(t1 - t0)
+
+private ratio(input: usize -> string, output: usize -> string) -> long
+    val a = timed(input(small), output(small))
+    val b = timed(input(10 * small), output(10 * small))
+
+    b / (if a < 1000 then 1000 else a)
+
+private para(body: string) -> string = "<p>" + body + "</p>\n"
+
+private dollar_run(n: usize) -> string = "a" + repeat("$", n) + "b\n"
+
+private dollar_run_out(n: usize) -> string = para("a" + repeat("$", n) + "b")
+
+private openers(n: usize) -> string = repeat("$a ", n) + "\n"
+
+private openers_out(n: usize) -> string = para(repeat("$a ", n - 1) + "$a")
+
+private alternating(n: usize) -> string = repeat("$a $", n) + "\n"
+
+private alternating_out(n: usize) -> string = para(repeat("$a $", n))
+
+private display_openers(n: usize) -> string = repeat("$$a ", n) + "\n"
+
+private display_openers_out(n: usize) -> string = para(repeat("$$a ", n - 1) + "$$a")
+
+private display_lines(n: usize) -> string = repeat("$$a\n", n)
+
+private display_lines_out(n: usize) -> string = para(repeat("$$a\n", n - 1) + "$$a")
+
+private backtick_openers(n: usize) -> string = repeat("$`a ", n) + "\n"
+
+private backtick_openers_out(n: usize) -> string = para("$" + repeat("<code>a $</code>a $", n / 2 - 1) + "<code>a $</code>a")
+
+private comments(n: usize) -> string = repeat("$<!--x$ ", n) + "\n"
+
+private comments_out(n: usize) -> string
+    val one = "<span class=\"math math-inline\">\\(&lt;!--x\\)</span>"
+
+    para(repeat(one + " ", n - 1) + one)
+
+private many(n: usize) -> string = repeat("$x$ ", n) + "\n"
+
+private many_out(n: usize) -> string
+    val one = "<span class=\"math math-inline\">\\(x\\)</span>"
+
+    para(repeat(one + " ", n - 1) + one)
+
+@test("a long run of dollars is read in linear time")
+dollar_runs()
+    assert(ratio(dollar_run, dollar_run_out) < 20)
+
+@test("openers that never close, and closers that each fail, are read in linear time")
+failing_dollars()
+    assert(ratio(openers, openers_out) < 20)
+    assert(ratio(alternating, alternating_out) < 20)
+    assert(ratio(display_openers, display_openers_out) < 20)
+    assert(ratio(display_lines, display_lines_out) < 20)
+    assert(ratio(backtick_openers, backtick_openers_out) < 20)
+
+@test("many math spans, and math holding what almost begins raw HTML, are read in linear time")
+many_spans()
+    assert(ratio(many, many_out) < 20)
+    assert(ratio(comments, comments_out) < 20)

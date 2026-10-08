@@ -1,0 +1,277 @@
+module sh.sysl.markdown
+
+import sysl.buf.{Buf, buf}
+import sysl.text.Search
+
+// LaTeX math, as GitHub writes it: `$…$` and `` $`…`$ `` inline, `$$…$$` for display, and a fenced
+// code block whose info string's first word is `math`.
+//
+// **The TeX is passed through, not typeset.** A math node keeps the source between its delimiters
+// exactly as written -- no emphasis, no entity, no escape is read inside it, so `\$` stays `\$`, which
+// is TeX's own dollar -- and the HTML renderer writes it, escaped, in the markup a client-side
+// renderer looks for (`HtmlOptions.math`).
+//
+// **What makes a `$` a delimiter** -- the rules GitHub's renderer follows on the cases that settle
+// them, chosen so that prices are never read as math:
+//
+// - **An opening `$`** is a run of exactly one `$`, not preceded by a letter, a digit or any byte of a
+//   non-ASCII character, and followed by something that is not a space, a tab or a line ending. So
+//   `x$a$` and `1$a$` are text, and so is `$ a$`.
+// - **Its closing `$`** is the first `$` after it that a backslash does not escape. It has to be a
+//   run of exactly one, not preceded by a space or a tab, and not followed by a letter, a digit or a
+//   non-ASCII byte -- so `$5 and $10` is text (the second `$` follows a space) and so is `$x$5`. A
+//   `$` that fails is text, and the next `$` is tried afresh as an opener, so `$a $b$` is the text
+//   `$a ` and the math `b`.
+// - **`$$…$$` is display math**: a run of exactly two `$` each side, the opening one not followed by a
+//   space or a tab; the closing one may follow a space. Inside a line it is display math written in
+//   running text; a paragraph that is nothing but one `$$…$$` is a display block, and only then may
+//   the math run over several lines.
+// - **`` $`…`$ ``** opens with `$` and a backtick and closes at the first backtick, which has to be
+//   followed by `$`. Everything between is TeX -- the form for math holding a `$`, a tag-like `<`
+//   or anything else Markdown would read.
+// - **A run of three or more `$` is text**, and so is any `$` the rules above do not take.
+// - **Inline math does not cross a line ending.**
+//
+// **What Markdown reads first stays Markdown's.** A backslash-escaped `\$` is a literal dollar and
+// opens nothing; a `$` inside a code span, raw HTML or an autolink is part of it, because the scan
+// meets the backtick or the `<` first. And where the text between two dollars holds a backtick, or a
+// `<` that begins raw HTML or an autolink, the dollars are text and that markup is read instead --
+// so a code span or a tag is never cut in half by a `$` inside it. A table splits its row at `|`
+// before any of this is read, so `$a|b$` in a cell is two cells, as on GitHub.
+//
+// **Where this differs from github.com on purpose**: GitHub reads math only after emphasis, so
+// `*$a*b$*` is emphasis there and math here, and math inside an emphasised or linked phrase with
+// other text (`*x $f$ y*`) is text there and math here. And a `\$` before an opening dollar, which
+// GitHub sometimes reads as an opener, is always a literal dollar here. Three smaller ones follow
+// from keeping the rules to letters and digits: github.com also refuses `-$a$`, `$a$:` and `$a$-`,
+// which are math here, and accepts `$x $` at the end of a line, which is text here.
+
+/** The math extension, for a `Registry`. */
+math() -> &Extension = Math()
+
+/** The `tag` of `$…$` and `` $`…`$ ``: inline math, its TeX in `data`. */
+const MATH_INLINE: u32 = 0
+
+/** The `tag` of `$$…$$` in running text: display math inside a paragraph's line. */
+const MATH_DISPLAY: u32 = 1
+
+/** The `tag` of a fenced `math` code block, its TeX without the final line ending. */
+const MATH_BLOCK: u32 = 2
+
+/** The `tag` of a paragraph that was nothing but one `$$…$$`: a display block, as GitHub reads it. */
+const MATH_PARAGRAPH: u32 = 3
+
+private struct Math
+end Math
+
+impl Extension for Math
+    name(self) -> string = "math"
+
+    override triggers(self) -> string = "$"
+
+    override inline_match(self, s: Subject) -> InlineMatch
+        val b = s.text.bytes
+        val p = s.pos
+
+        if p > 0 && (b[p - 1] == u8('$') || is_word(b[p - 1])) then return NoMatch
+
+        var run = p
+
+        while run < b.len && b[run] == u8('$') do run += 1
+
+        if run - p == 2 then return display_math(s.text, p)
+        if run - p > 2 then return NoMatch
+        if byte_at(b, p + 1) == u8('`') then return backtick_math(s.text, p)
+
+        inline_math(s.text, p)
+
+    // A fenced `math` block becomes a display block, and so does a paragraph holding nothing but one
+    // `$$…$$` -- both before any renderer sees the tree, so a highlighter is never asked about them.
+    override post_pass(self, d: Doc)
+        var found: Buf[NodeId] = buf()
+
+        for (ev, n) in d.walk()
+            if ev == Enter then
+                d.kind(n) match
+                    CodeBlock(info, _, fenced) -> if fenced && first_word(info) == "math" then found.push(n)
+                    Paragraph -> if lone_display(d, n) then found.push(n)
+                    _ -> ()
+
+        for n in found.view()
+            d.kind(n) match
+                CodeBlock(_, literal, _) ->
+                    val tex = if literal.ends_with("\n") then literal[0..<literal.len - 1] else literal
+
+                    d.set_kind(n, Ext(ExtNode("math", MATH_BLOCK, tex, false)))
+                _ ->
+                    val c = d.first_child(n).unwrap()
+
+                    d.set_kind(n, Ext(ExtNode("math", MATH_PARAGRAPH, ext_data(d, c), false)))
+                    d.unlink(c)
+    end post_pass
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val x = d.kind(n) match
+            Ext(x) -> x
+            _ -> return
+
+        if w.options().math == GitHub then github_math(w, d, n, x) else standard_math(w, x)
+end Math
+
+// `\(…\)` and `\[…\]` inside a classed element: what KaTeX's and MathJax's auto-render find with their
+// default delimiters, and a class a stylesheet or a script can select on.
+private standard_math(w: *HtmlWriter, x: ExtNode)
+    if x.tag == MATH_INLINE then
+        w.tag("<span class=\"math math-inline\">\\(")
+        w.esc(x.data)
+        w.tag("\\)</span>")
+    else if x.tag == MATH_DISPLAY then
+        w.tag("<span class=\"math math-display\">\\[")
+        w.esc(x.data)
+        w.tag("\\]</span>")
+    else
+        w.cr()
+        w.tag("<div class=\"math math-display\">\\[")
+        w.esc(x.data)
+        w.tag("\\]</div>")
+        w.cr()
+
+// GitHub's `<math-renderer>` elements, the TeX inside written with the dollars it was read with,
+// less the run-specific `data-run-id` attribute github.com adds.
+private github_math(w: *HtmlWriter, d: Doc, n: NodeId, x: ExtNode)
+    if x.tag == MATH_INLINE || x.tag == MATH_DISPLAY then
+        val dollars = if x.tag == MATH_INLINE then "$" else "$$"
+
+        w.tag("<math-renderer class=\"js-inline-math\" style=\"display: inline-block\">")
+        w.tag(dollars)
+        w.esc(x.data)
+        w.tag(dollars)
+        w.tag("</math-renderer>")
+        return
+
+    val para = x.tag == MATH_PARAGRAPH && !in_tight_item(d, n)
+
+    w.cr()
+    if para then w.tag("<p>")
+    w.tag("<math-renderer class=\"js-display-math\" style=\"display: block\">$$")
+    w.esc(x.data)
+    w.tag("$$</math-renderer>")
+    if para then w.tag("</p>")
+    w.cr()
+end github_math
+
+// Whether `n` sits directly in an item of a tight list, where a paragraph writes no `<p>`.
+private in_tight_item(d: Doc, n: NodeId) -> bool
+    val list = d.parent(n).and_then((p) -> d.parent(p))
+
+    list match
+        Some(l) ->
+            d.kind(l) match
+                List(_, tight) -> tight
+                _ -> false
+        None -> false
+
+// Whether paragraph `n` holds one node and nothing else, and that node is `$$…$$`.
+private lone_display(d: Doc, n: NodeId) -> bool
+    d.first_child(n) match
+        Some(c) ->
+            if d.next_sibling(c).is_some() then return false
+
+            d.kind(c) match
+                Ext(x) -> x.ext == "math" && x.tag == MATH_DISPLAY
+                _ -> false
+        None -> false
+
+private ext_data(d: Doc, n: NodeId) -> string
+    d.kind(n) match
+        Ext(x) -> x.data
+        _ -> ""
+
+private math_node(t: string, tag: u32, from: usize, to: usize) -> Kind = Ext(ExtNode("math", tag, t[from..<to], false))
+
+// `$…$` from the `$` at `p`.
+private inline_math(t: string, p: usize) -> InlineMatch
+    val b = t.bytes
+    val first = byte_at(b, p + 1)
+
+    if first == 0 || is_math_space(first) then return NoMatch
+
+    val q = closing_dollar(b, p + 1, false) match
+        Some(q) -> q
+        None -> return NoMatch
+
+    if byte_at(b, q + 1) == u8('$') || is_math_space(b[q - 1]) || is_word(byte_at(b, q + 1)) then return NoMatch
+    if holds_markup(b, p + 1, q) then return NoMatch
+
+    Inline(math_node(t, MATH_INLINE, p + 1, q), q + 1 - p)
+
+// `$$…$$` from the first `$` at `p`.
+private display_math(t: string, p: usize) -> InlineMatch
+    val b = t.bytes
+    val first = byte_at(b, p + 2)
+
+    if first == 0 || first == u8(' ') || first == u8('\t') then return NoMatch
+
+    val q = closing_dollar(b, p + 2, true) match
+        Some(q) -> q
+        None -> return NoMatch
+
+    if byte_at(b, q + 1) != u8('$') || byte_at(b, q + 2) == u8('$') || is_word(byte_at(b, q + 2)) then return NoMatch
+
+    var lines = false
+    var blank = true
+
+    for i in p + 2..<q
+        if b[i] == u8('\n') then lines = true
+        if !is_math_space(b[i]) then blank = false
+
+    if blank || (lines && (p != 0 || q + 2 != b.len)) then return NoMatch
+    if holds_markup(b, p + 2, q) then return NoMatch
+
+    Inline(math_node(t, MATH_DISPLAY, p + 2, q), q + 2 - p)
+end display_math
+
+// `` $`…`$ `` from the `$` at `p`, a backtick after it.
+private backtick_math(t: string, p: usize) -> InlineMatch
+    val b = t.bytes
+    var i = p + 2
+
+    while i < b.len && b[i] != u8('`') && b[i] != u8('\n') do i += 1
+
+    if i == p + 2 || byte_at(b, i) != u8('`') || byte_at(b, i + 1) != u8('$') then return NoMatch
+    if is_word(byte_at(b, i + 2)) then return NoMatch
+
+    Inline(math_node(t, MATH_INLINE, p + 2, i), i + 2 - p)
+
+// The first `$` at or after `from` that no backslash escapes, unless a backtick -- or, where `lines`
+// is false, a line ending -- comes first.
+private closing_dollar(b: []const u8, from: usize, lines: bool) -> Option[usize]
+    var i = from
+
+    while i < b.len
+        val c = b[i]
+
+        if c == u8('$') then return Some(i)
+        if c == u8('`') || (c == u8('\n') && !lines) then return None
+
+        i += if c == u8('\\') then 2 else 1
+
+    None
+
+// Whether a `<` in `b[from..<to]` begins raw HTML or an autolink that ends there too: markup the
+// inline parser reads, which two dollars around it must not cut in half.
+private holds_markup(b: []const u8, from: usize, to: usize) -> bool
+    val within = b[0..<to]
+    var unclosed: [4]bool = [false, false, false, false]
+
+    for i in from..<to
+        if b[i] == u8('<') then
+            if raw_html_end(within, i, &unclosed) > 0 then return true
+            if uri_autolink_end(within, i) > 0 || email_autolink_end(within, i) > 0 then return true
+
+    false
+
+private is_math_space(c: u8) -> bool = c == u8(' ') || c == u8('\t') || c == u8('\n')
+
+// A letter, a digit, or a byte of a non-ASCII character: what may not touch a dollar's outside.
+private is_word(c: u8) -> bool = c >= 0x80 || (c >= u8('0') && c <= u8('9')) || is_ascii_letter(c)

@@ -20,8 +20,9 @@
 # package does. Our side is a small program written into a scratch directory and built against this
 # checkout with --lib, so the package's own tree holds no program for `sysl test .` to walk.
 #
-# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm() and renders with
-# gfm_html(), and the other side is cmark-gfm (`CMARK_GFM` names another binary) run as
+# --gfm compares GitHub Flavored Markdown instead: this package parses with gfm()'s first four
+# extensions (math and mermaid are github.com's, not cmark-gfm's) and renders with gfm_html(), and
+# the other side is cmark-gfm (`CMARK_GFM` names another binary) run as
 # `cmark-gfm --unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter`. The default
 # corpus then also holds every example of GitHub's spec (spec/gfm-spec.txt).
 #
@@ -42,13 +43,24 @@ fi
 if (( gfm )); then
     cmark_bin=${CMARK_GFM:-cmark-gfm}
     cmark_args=(--unsafe -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
-    imports='parse_with, to_html_with, gfm, gfm_html'
-    render='to_html_with(parse_with(src, gfm()), gfm_html())'
+    imports='ParseOptions, parse_with, to_html_with, gfm_html, registry, tables, strikethrough, autolinks, task_lists'
+    render='to_html_with(parse_with(src, cmark_gfm()), gfm_html())'
+    prelude='// gfm() less math() and mermaid(), which cmark-gfm does not have.
+cmark_gfm() -> ParseOptions
+    val r = registry()
+
+    r.add(tables())
+    r.add(strikethrough())
+    r.add(autolinks())
+    r.add(task_lists())
+    ParseOptions(r)
+'
 else
     cmark_bin=${CMARK:-cmark}
     cmark_args=(--unsafe)
     imports='parse, to_html'
     render='to_html(parse(src))'
+    prelude=''
 fi
 
 if ! command -v $cmark_bin > /dev/null; then
@@ -76,6 +88,7 @@ dependencies {
 print -r -- "import sh.sysl.markdown.{$imports}
 import sysl.io.{read_all_text, stdin}
 
+$prelude
 var input = stdin()
 
 read_all_text(&input) match

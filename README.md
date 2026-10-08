@@ -34,13 +34,15 @@ render_html(d: Doc, opts: HtmlOptions, out: *Writer)
 plain_text(d: Doc, n: NodeId) -> string                     // the text under a node, for slugs, alt text, search
 
 struct ParseOptions                                         // commonmark(): no extensions
-    exts: Registry                                          // gfm(): tables, strikethrough, autolinks, task lists
+    exts: Registry                                          // gfm(): tables, strikethrough, autolinks, task lists, math, mermaid
 
-struct HtmlOptions                                          // commonmark_html(): true, "\n", None, false
-    raw_html: bool                                          // gfm_html(): true, "\n", None, true
+struct HtmlOptions                                          // commonmark_html(): true, "\n", None, false, Standard, Standard
+    raw_html: bool                                          // gfm_html(): true, "\n", None, true, Standard, Standard
     softbreak: string
     highlight: Option[&Fn(string, string) -> Option[string]]   // (info, code) -> the block's markup
     tagfilter: bool                                         // GitHub's filter on raw HTML
+    math: ClientMarkup                                      // Standard (KaTeX/MathJax auto-render) or GitHub
+    mermaid: ClientMarkup                                   // Standard (mermaid.js) or GitHub
 
 struct Region                                               // a run of program lines, for weave
     span: Span
@@ -71,13 +73,13 @@ import sh.sysl.markdown.*
 val d = parse("# Hello, *world*\n\nSee <b>this</b>.\n")
 
 print(to_html(d))                                       // <h1>Hello, <em>world</em></h1> <p>See <b>this</b>.</p>
-print(to_html_with(d, HtmlOptions(false, "\n", None, false)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
+print(to_html_with(d, HtmlOptions(false, "\n", None, false, Standard, Standard)))  // ... <p>See <!-- raw HTML omitted -->this<!-- raw HTML omitted -->.</p>
 print(plain_text(d, d.root()))                          // Hello, world / See this.
 
 val code: &Fn(string, string) -> Option[string] = (info, text) ->
     if info == "sysl" then Some("<pre class=\"sysl\">" + escape_html(text) + "</pre>") else None
 
-val opts = HtmlOptions(true, "\n", Some(code), false)
+val opts = HtmlOptions(true, "\n", Some(code), false, Standard, Standard)
 
 print(to_html_with(parse("```sysl\na < b\n```\n"), opts))   // <pre class="sysl">a &lt; b</pre>
 ```
@@ -90,10 +92,11 @@ val d = parse_with("| a | b |\n|---|--:|\n| ~~c~~ | www.d.com |\n", gfm())
 print(to_html_with(d, gfm_html()))
 ```
 
-`gfm()` turns on the four extensions GitHub's own renderer runs, and `gfm_html()` its tag filter.
-Each extension is an ordinary `Extension`, so a parse wanting some of them builds its own
-`Registry`: `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`. **Every rule is
-cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec does not write down:
+`gfm()` turns on the six extensions github.com renders -- cmark-gfm's four, then math and mermaid --
+and `gfm_html()` its tag filter. Each extension is an ordinary `Extension`, so a parse wanting some
+of them builds its own `Registry`: `tables()`, `strikethrough()`, `autolinks()`, `task_lists()`,
+`math()`, `mermaid()`. **Every rule of the first four is cmark-gfm's** (0.29.0.gfm.13, which GitHub
+runs), down to the corners its spec does not write down:
 
 - **Tables** -- a delimiter row under a paragraph whose last line has as many cells; `\|` is a pipe
   in a cell, code spans included; a short row is filled out and a long one cut; any line that is not
@@ -107,6 +110,26 @@ cmark-gfm's** (0.29.0.gfm.13, which GitHub runs), down to the corners its spec d
   `mailto:` and `xmpp:` forms), without trailing punctuation or an unmatched `)`.
 - **The tag filter** -- `HtmlOptions.tagfilter` writes the `<` of `title`, `textarea`, `style`,
   `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext` as `&lt;`.
+
+**Math and mermaid** have no spec and no cmark-gfm extension; their rules are github.com's, read off
+its own renderer (`gh api markdown`, gfm mode) and written out at the top of `gfm_math.sysl`:
+
+- **Math** -- `$…$` and `` $`…`$ `` inline, `$$…$$` for display, and a fence whose info string
+  begins `math`. An opening `$` is not followed by a space and not preceded by a letter or digit; its
+  closing `$` is the next unescaped one, not preceded by a space and not followed by a letter or
+  digit -- so `$5 and $10` is text. A paragraph of nothing but `$$…$$` is a display block and may
+  run over several lines. The TeX is literal: no emphasis or escape is read inside it (`\$` stays
+  `\$`, TeX's dollar), and a code span, raw HTML or autolink is never cut in half by a `$`.
+- **Mermaid** -- a fence whose info string begins `mermaid` is a diagram.
+- **Both take precedence over `highlight`**: the fences become `Ext` nodes when the parse finishes,
+  so the renderer never shows them to the hook. With the extensions off they are ordinary code
+  blocks, and the hook is asked.
+- **The markup is the rendering's** -- `HtmlOptions.math` and `.mermaid`, each a `ClientMarkup`.
+  `Standard` (both presets) writes `<span class="math math-inline">\(x\)</span>`,
+  `<div class="math math-display">\[x\]</div>` (`<span>` for `$$…$$` inside a line) and
+  `<pre class="mermaid">…</pre>`: what KaTeX's or MathJax's auto-render and mermaid.js find with
+  their defaults. `GitHub` writes github.com's `<math-renderer class="js-inline-math">$x$</math-renderer>`
+  and `js-display-math` elements, and `<pre lang="mermaid"><code>…</code></pre>`.
 
 ## Writing an extension
 
@@ -221,6 +244,8 @@ examples are 0.29's and are not taken; instead `tests_gfm_commonmark.sysl` reads
 CommonMark 0.31.2's with every extension on. Eleven render differently, as cmark-gfm's own runner
 lists such examples -- six HTML blocks the tag filter rewrites and five autolink examples whose text
 an extended autolink now links -- and each asserts what cmark-gfm renders with the same extensions.
+Math and mermaid change none of the 652: no example's `$` meets the delimiter rules, and none has a
+`math` or `mermaid` fence.
 
 `spec/entities.json` is WHATWG's list of HTML5 named character references, unmodified, as published
 at <https://html.spec.whatwg.org/entities.json>:
@@ -247,7 +272,12 @@ and a tenth of it, with the HTML checked exactly at both and the time checked ag
 growth: a ratio under 20 where linear reading gives about 10 and quadratic about 100.
 `tests_gfm_scaling.sysl` does the same for the extensions' own hostile inputs: tables of 50,000
 columns and of 50,000 rows, a cell of escaped pipes, a paragraph of mismatched delimiter rows, runs of
-`~`, and text an autolink almost starts in at every byte.
+`~`, and text an autolink almost starts in at every byte. `tests_gfm_math_scaling.sysl` adds math's:
+runs of 50,000 `$`, and openers that never close or whose closers each fail a different rule.
+
+`tests_gfm_math.sysl` holds math's and mermaid's rules as exact HTML. Neither has a spec or a
+cmark-gfm extension, so the oracle is github.com itself: the delimiter cases its header names were
+rendered by `gh api markdown -f mode=gfm`, and the `GitHub` markup is asserted against what it wrote.
 
 `tests_gfm_edges.sysl` holds 187 corner cases for the extensions, each asserting the HTML cmark-gfm
 writes for it -- the inputs `tools/differential.sh --gfm` was run over while they were written.
