@@ -9,7 +9,7 @@ against cmark and cmark-gfm agree on their whole corpora but for the cases liste
 
 ```hocon
 dependencies {
-  markdown { git = "github.com/sysl-lang/markdown", version = "0.2.0" }
+  markdown { git = "github.com/sysl-lang/markdown", version = "0.2.1" }
 }
 ```
 
