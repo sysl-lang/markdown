@@ -2,14 +2,14 @@
 
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
-**Status: 0.3.0 — CommonMark and GitHub's Markdown complete, plus smart punctuation.** Every one of the CommonMark spec's
+**Status: 0.4.0 — CommonMark and GitHub's Markdown complete, plus smart punctuation and definition lists.** Every one of the CommonMark spec's
 652 examples renders exactly, with the GitHub extensions off and on; every extension example of
 GitHub's spec renders exactly; hostile inputs are read in linear time; and differential checks
 against cmark and cmark-gfm agree on their whole corpora but for the cases listed below.
 
 ```hocon
 dependencies {
-  markdown { git = "github.com/sysl-lang/markdown", version = "0.3.0" }
+  markdown { git = "github.com/sysl-lang/markdown", version = "0.4.0" }
 }
 ```
 
@@ -181,6 +181,33 @@ follow `]` or `)`), and a pair makes no node, so a quotation may overlap emphasi
 is a multiple of three, en dashes where it is even, and otherwise em dashes then one en dash or
 two; a single hyphen stays. `...` is `…`. Code spans, code blocks, autolinks, raw HTML, entities
 and backslash escapes are never changed.
+
+**Definition lists** are `definition_lists()`, in no preset either: PHP Markdown Extra's and
+Pandoc's syntax, a paragraph of terms (one to a line) followed by definitions, each opened by `:`
+and a space or tab.
+
+```sysl
+val r = registry()
+
+r.add(definition_lists())
+print(to_html(parse_with("Apple\n: A round fruit.\n: A company.\n", ParseOptions(r))))
+// <dl>
+// <dt>Apple</dt>
+// <dd>A round fruit.</dd>
+// <dd>A company.</dd>
+// </dl>
+```
+
+A definition is a container, as a list item is: a line indented to its text continues it, so it may
+hold several paragraphs, a list or code, and its paragraph takes lazy continuation lines. A `:` opens
+one at most three spaces in, and may interrupt a paragraph, whose lines become the terms; `::`, a
+`:` with nothing after it, and a `:` not followed by a space or tab open nothing. A definition after
+a definition joins its list; one that follows no paragraph -- at the start of a container, after a
+heading -- is a paragraph again, its `:` kept as text. **A blank line between any two parts of a
+list makes it loose**, each definition's paragraphs in `<p>` (what the Scala juicer writes for its
+blank-line-separated items); otherwise a definition's paragraph is bare in the `<dd>`, as a tight
+list item's is. The tree is `Ext` nodes named `definition_list`, tagged `DEFINITION_LIST_NODE`,
+`DEFINITION_TERM_NODE` and `DEFINITION_NODE`.
 
 **Math and mermaid** have no spec and no cmark-gfm extension; their rules are github.com's, read off
 its own renderer (`gh api markdown`, gfm mode) and written out at the top of `gfm_math.sysl`:
@@ -411,6 +438,12 @@ definitions, 20,000 definitions nested one inside the next, undefined references
 `tests_smart_punctuation.sysl` holds the examples of the CommonMark spec's `smart_punct.txt` and the
 edges around them -- quotes at a paragraph's ends, beside punctuation and brackets, nested, inside
 emphasis and links, hyphen runs of two to thirteen -- each asserting the HTML `cmark --smart` writes.
+
+`tests_definition_lists.sysl` holds definition lists as exact HTML: tight and loose, several terms
+and definitions, lazy and indented continuation, blocks inside a definition, lists inside a list
+item and a block quote, inline markup, the colons that open nothing, definitions that follow no
+term, and the extension off. The loose case is the page juicer's documentation renders with the
+Scala juicer.
 
 `tests_gfm_math.sysl` holds math's and mermaid's rules as exact HTML. Neither has a spec or a
 cmark-gfm extension, so the oracle is github.com itself: the delimiter cases its header names were

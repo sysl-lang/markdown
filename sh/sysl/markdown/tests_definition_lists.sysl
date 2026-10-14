@@ -1,0 +1,96 @@
+module sh.sysl.markdown
+@tests
+
+// Definition lists, PHP Markdown Extra's and Pandoc's syntax. The loose form is what the Scala
+// juicer's markdown renders on juicer's own documentation page (concepts/markdown, "Definition
+// lists"): every definition in a `<p>`, as each is below wherever a blank line separates the parts.
+
+private dl() -> ParseOptions
+    val r = registry()
+
+    r.add(definition_lists())
+    ParseOptions(r)
+
+private html(src: string) -> string = to_html(parse_with(src, dl()))
+
+@test("definition lists: a term and its definition, tight")
+deflist_tight()
+    assert_eq(html("Apple\n: A round fruit.\n"), "<dl>\n<dt>Apple</dt>\n<dd>A round fruit.</dd>\n</dl>\n")
+
+@test("definition lists: the page juicer's documentation renders, loose")
+deflist_juicer_page()
+    val src = "Apple\n: A round fruit, typically red or green.\n\nOrange\n: A citrus fruit. Also a color.\n"
+
+    assert_eq(html(src), "<dl>\n<dt>Apple</dt>\n<dd>\n<p>A round fruit, typically red or green.</p>\n</dd>\n<dt>Orange</dt>\n<dd>\n<p>A citrus fruit. Also a color.</p>\n</dd>\n</dl>\n")
+
+@test("definition lists: several definitions of one term")
+deflist_several_definitions()
+    assert_eq(html("Term\n: one\n: two\n: three\n"), "<dl>\n<dt>Term</dt>\n<dd>one</dd>\n<dd>two</dd>\n<dd>three</dd>\n</dl>\n")
+
+@test("definition lists: several terms, one to a line")
+deflist_several_terms()
+    assert_eq(html("Term 1\nTerm 2\n: shared\n"), "<dl>\n<dt>Term 1</dt>\n<dt>Term 2</dt>\n<dd>shared</dd>\n</dl>\n")
+    assert_eq(html("Term 1  \nTerm 2\n: shared\n"), "<dl>\n<dt>Term 1</dt>\n<dt>Term 2</dt>\n<dd>shared</dd>\n</dl>\n")
+
+@test("definition lists: a lazy line continues the definition's paragraph")
+deflist_lazy()
+    assert_eq(html("Term\n: first line\nsecond line\n"), "<dl>\n<dt>Term</dt>\n<dd>first line\nsecond line</dd>\n</dl>\n")
+    assert_eq(html("Term\n:   first line\n    second line\n"), "<dl>\n<dt>Term</dt>\n<dd>first line\nsecond line</dd>\n</dl>\n")
+
+@test("definition lists: a blank line anywhere between the parts makes the list loose")
+deflist_loose()
+    assert_eq(html("Term\n\n: def\n"), "<dl>\n<dt>Term</dt>\n<dd>\n<p>def</p>\n</dd>\n</dl>\n")
+    assert_eq(html("Term\n: one\n\n: two\n"), "<dl>\n<dt>Term</dt>\n<dd>\n<p>one</p>\n</dd>\n<dd>\n<p>two</p>\n</dd>\n</dl>\n")
+    assert_eq(html("Term\n: para one\n\n  para two\n"), "<dl>\n<dt>Term</dt>\n<dd>\n<p>para one</p>\n<p>para two</p>\n</dd>\n</dl>\n")
+
+@test("definition lists: a trailing blank line leaves the list tight")
+deflist_trailing_blank()
+    assert_eq(html("Term\n: def\n\nAfter.\n"), "<dl>\n<dt>Term</dt>\n<dd>def</dd>\n</dl>\n<p>After.</p>\n")
+
+@test("definition lists: a definition holds blocks indented to its text")
+deflist_blocks()
+    assert_eq(html("Term\n: def\n  - a\n  - b\n"), "<dl>\n<dt>Term</dt>\n<dd>def\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n</dd>\n</dl>\n")
+    assert_eq(html("Term\n:     code\n"), "<dl>\n<dt>Term</dt>\n<dd>\n<pre><code>code\n</code></pre>\n</dd>\n</dl>\n")
+
+@test("definition lists: inline markup in terms and definitions")
+deflist_inlines()
+    assert_eq(html("*Emphasized* `term`\n: with **strong** and [a link](/u)\n"), "<dl>\n<dt><em>Emphasized</em> <code>term</code></dt>\n<dd>with <strong>strong</strong> and <a href=\"/u\">a link</a></dd>\n</dl>\n")
+
+@test("definition lists: inside a list item and a block quote")
+deflist_nested()
+    assert_eq(html("- Term\n  : def\n"), "<ul>\n<li>\n<dl>\n<dt>Term</dt>\n<dd>def</dd>\n</dl>\n</li>\n</ul>\n")
+    assert_eq(html("> Term\n> : def\n"), "<blockquote>\n<dl>\n<dt>Term</dt>\n<dd>def</dd>\n</dl>\n</blockquote>\n")
+
+@test("definition lists: a colon that opens no definition")
+deflist_not_definitions()
+    assert_eq(html("Note: this is prose.\n"), "<p>Note: this is prose.</p>\n")
+    assert_eq(html("A line\nwith a colon : inside\n"), "<p>A line\nwith a colon : inside</p>\n")
+    assert_eq(html("Term\n:no space\n"), "<p>Term\n:no space</p>\n")
+    assert_eq(html("Term\n:: double\n"), "<p>Term\n:: double</p>\n")
+    assert_eq(html("Term\n:\n"), "<p>Term\n:</p>\n")
+    assert_eq(html("Term\n    : indented four\n"), "<p>Term\n: indented four</p>\n")
+    assert_eq(html("```\nTerm\n: in a fence\n```\n"), "<pre><code>Term\n: in a fence\n</code></pre>\n")
+
+@test("definition lists: a definition that follows no term is a paragraph again")
+deflist_orphans()
+    assert_eq(html(": alone\n"), "<p>: alone</p>\n")
+    assert_eq(html("# Heading\n:  after a heading\n"), "<h1>Heading</h1>\n<p>:  after a heading</p>\n")
+    assert_eq(html(": one\n: two\n"), "<p>: one</p>\n<p>: two</p>\n")
+
+@test("definition lists: switched off, the text is CommonMark's")
+deflist_off()
+    val src = "Apple\n: A round fruit.\n\nOrange\n: A citrus fruit.\n"
+
+    assert_eq(to_html(parse(src)), "<p>Apple\n: A round fruit.</p>\n<p>Orange\n: A citrus fruit.</p>\n")
+
+@test("definition lists: the tree, and what a reader sees")
+deflist_tree()
+    val d = parse_with("Term\n: def\n", dl())
+    val list = d.first_child(d.root()).unwrap()
+
+    d.kind(list) match
+        Ext(x) -> assert_eq(x.tag, DEFINITION_LIST_NODE)
+        _ -> assert(false)
+
+    assert_eq(d.src[d.span(list).start..<d.span(list).end], "Term\n: def")
+    assert_eq(plain_text(d, d.root()), "Term\ndef")

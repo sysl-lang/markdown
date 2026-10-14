@@ -1,0 +1,329 @@
+module sh.sysl.markdown
+
+import sh.sysl.parsing.Span
+import sysl.buf.{Buf, buf}
+
+// Definition lists, as PHP Markdown Extra and Pandoc write them: a paragraph of terms, one to a line,
+// then one or more definitions, each opened by a `:` and a space or tab.
+//
+//     Apple
+//     : A round fruit.
+//     : A company.
+//
+//     Orange
+//     : A citrus fruit.
+//
+// **A definition is a container**, as a list item is: its first line is what follows the `: `, a line
+// indented as far as that text continues it, and a paragraph in it takes lazy continuation lines. A
+// `:` opens one where a block may start -- at most three spaces in -- and may interrupt a paragraph,
+// whose lines then become the terms. A `::` or a `:` with nothing after it opens nothing.
+//
+// **Which paragraph is a term is decided after the blocks are read**, since a block hook sees a line
+// and not the blocks before it: a definition right after a paragraph makes that paragraph its terms,
+// one right after a definition list joins it, and one after anything else -- the start of a container,
+// a heading, a code block -- follows no term and is a paragraph again, its `:` kept as text.
+//
+// **A list is loose, its definitions' paragraphs written in `<p>`, where a blank line separates any
+// two of its parts** -- a term and its definition, two definitions, a definition and the next term,
+// or two blocks in one definition -- and tight otherwise, a definition's paragraph then written
+// bare in the `<dd>`, as a tight list item's is.
+
+/** The definition-lists extension, for a `Registry`. It is in no preset. */
+definition_lists() -> &Extension = DefinitionLists()
+
+/** The `tag` of a definition list's `ExtNode`: it holds its terms and definitions, in order. */
+const DEFINITION_LIST_NODE: u32 = 0
+
+/** The `tag` of a term's `ExtNode`: it holds the inlines of one line. */
+const DEFINITION_TERM_NODE: u32 = 1
+
+/** The `tag` of a definition's `ExtNode`: it holds blocks, or a tight list's inlines. */
+const DEFINITION_NODE: u32 = 2
+
+private const NAME: string = "definition_list"
+
+// A definition's state word: the columns from the line's start to its text in the low half, and a
+// bit set while the last line it took was blank. `block_close` turns the bit into the node's `data`,
+// `TRAILING`, which the list reads and clears once it has decided whether it is loose.
+private const WIDTH: u64 = 0xFFFFFFFF
+private const BLANK: u64 = 0x100000000
+private const TRAILING: string = "blank"
+
+private struct DefinitionLists
+end DefinitionLists
+
+impl Extension for DefinitionLists
+    name(self) -> string = NAME
+
+    override interrupts_paragraph(self) -> bool = true
+
+    override block_start(self, line: Line) -> BlockStart
+        if line.indent >= 4 then return Declined
+
+        val b = line.text.bytes
+        var col = line.column
+        var i = line.pos
+
+        while i < b.len && is_space_or_tab(b[i])
+            col = advance(col, b[i])
+            i += 1
+
+        if i + 1 >= b.len || b[i] != u8(':') || !is_space_or_tab(b[i + 1]) then return Declined
+
+        col += 1
+
+        // The text begins after the spaces that follow the `:`, unless there are five columns of them
+        // or more: then it begins after one, and is indented code.
+        var j = i + 1
+        var at = col
+
+        while j < b.len && is_space_or_tab(b[j])
+            at = advance(at, b[j])
+            j += 1
+
+        if j == b.len then return Declined
+
+        if at - col > 4 then
+            j = i + 2
+            at = advance(col, b[i + 1])
+
+        Container(Ext(ExtNode(NAME, DEFINITION_NODE, "", true)), j - line.pos, u64(at - line.column))
+
+    override block_continue(self, line: Line, kind: Kind, state: *u64) -> BlockContinue
+        val width = usize(*state & WIDTH)
+
+        if line.blank then
+            *state = *state | BLANK
+            return Takes(0)
+
+        if line.indent < width then return Ends
+
+        *state = *state & WIDTH
+        Indented(width)
+
+    override block_close(self, c: Closing, state: u64) -> Kind
+        Ext(ExtNode(NAME, DEFINITION_NODE, if state & BLANK != 0 then TRAILING else "", true))
+
+    override post_pass(self, d: Doc)
+        var defs: Buf[NodeId] = buf()
+
+        for (ev, n) in d.walk()
+            if ev == Enter && has_tag(d, n, DEFINITION_NODE) then defs.push(n)
+
+        var lists: Buf[NodeId] = buf()
+        var plain: Buf[NodeId] = buf()
+
+        for x in defs.view() do gather(d, x, lists, plain)
+        for l in lists.view() do settle(d, l)
+
+    override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
+        val tag = d.kind(n) match
+            Ext(x) -> x.tag
+            _ -> return
+
+        val element = if tag == DEFINITION_LIST_NODE then "dl" else if tag == DEFINITION_TERM_NODE then "dt" else "dd"
+
+        if ev == Enter then
+            w.cr()
+            w.tag(s"<$element>")
+            if tag == DEFINITION_LIST_NODE then w.cr()
+        else
+            w.tag(s"</$element>")
+            w.cr()
+
+    override plain_text(self, d: Doc, n: NodeId) -> Seen
+        if has_tag(d, n, DEFINITION_LIST_NODE) then Unseen else Block("")
+end DefinitionLists
+
+// The column after `c` at column `col`: a tab advances to the next multiple of 4.
+private advance(col: usize, c: u8) -> usize = if c == u8('\t') then col + 4 - col % 4 else col + 1
+
+private has_tag(d: Doc, n: NodeId, tag: u32) -> bool
+    d.kind(n) match
+        Ext(x) -> x.ext == NAME && x.tag == tag
+        _ -> false
+
+private holds(ns: Buf[NodeId], n: NodeId) -> bool
+    for m in ns.view()
+        if m.i == n.i then return true
+
+    false
+
+// Definition `x` put in a list: the one before it, or one made of the paragraph before it, whose
+// lines become terms. A definition after anything else is a paragraph again; `plain` holds those,
+// which are no one's terms.
+private gather(d: Doc, x: NodeId, lists: Buf[NodeId], plain: Buf[NodeId])
+    val p = d.prev_sibling(x) match
+        Some(p) -> p
+        None ->
+            orphan(d, x, plain)
+            return
+
+    if has_tag(d, p, DEFINITION_LIST_NODE) then
+        join(d, p, x)
+        return
+
+    val term = d.kind(p) match
+        Paragraph -> !holds(plain, p)
+        _ -> false
+
+    if !term then
+        orphan(d, x, plain)
+        return
+
+    val inlines = children(d, p)
+    var dl = p
+
+    d.prev_sibling(p) match
+        Some(q) -> if has_tag(d, q, DEFINITION_LIST_NODE) then dl = q
+        None -> ()
+
+    if dl.i == p.i then
+        for n in inlines.view() do d.unlink(n)
+        d.set_kind(p, Ext(ExtNode(NAME, DEFINITION_LIST_NODE, "", true)))
+        lists.push(p)
+    else
+        d.unlink(p)
+
+    terms(d, dl, inlines)
+    join(d, dl, x)
+end gather
+
+// The inlines of a paragraph, as terms of `dl`: one to each line.
+private terms(d: Doc, dl: NodeId, inlines: Buf[NodeId])
+    var dt: Option[NodeId] = None
+
+    for n in inlines.view()
+        val brk = d.kind(n) match
+            SoftBreak | HardBreak -> true
+            _ -> false
+
+        if brk then
+            dt = None
+            continue
+
+        val t = dt match
+            Some(t) -> t
+            None -> d.append_child(dl, Ext(ExtNode(NAME, DEFINITION_TERM_NODE, "", true)), d.span(n))
+
+        dt = Some(t)
+        d.append_node(t, n)
+        d.set_span(t, Span(d.span(t).start, d.span(n).end))
+
+private join(d: Doc, dl: NodeId, x: NodeId)
+    d.append_node(dl, x)
+    d.set_span(dl, Span(d.span(dl).start, d.span(x).end))
+
+// A definition that follows no term, made the blocks it holds again, its `:` and the spaces after it
+// text at the start of the first.
+private orphan(d: Doc, x: NodeId, plain: Buf[NodeId])
+    val at = d.span(x).start
+    val kids = children(d, x)
+    var anchor = x
+    var first: Option[NodeId] = None
+
+    if kids.len() > 0 then
+        d.kind(kids[0]) match
+            Paragraph -> first = Some(kids[0])
+            _ -> ()
+
+    first match
+        Some(fp) ->
+            val to = d.span(fp).start
+            val inlines = children(d, fp)
+
+            d.append_child(fp, Text(d.src[at..<to]), Span(at, to))
+            for n in inlines.view() do d.append_node(fp, n)
+            d.set_span(fp, Span(at, d.span(fp).end))
+            plain.push(fp)
+        None ->
+            val para = d.append_child(x, Paragraph, Span(at, at + 1))
+
+            d.append_child(para, Text(":"), Span(at, at + 1))
+            d.insert_after(x, para)
+            plain.push(para)
+            anchor = para
+
+    for n in kids.view()
+        d.insert_after(anchor, n)
+        anchor = n
+
+    d.unlink(x)
+end orphan
+
+// Whether list `dl` is loose, and, where it is tight, each definition's paragraphs unwrapped.
+private settle(d: Doc, dl: NodeId)
+    var loose = false
+    var c = d.first_child(dl)
+
+    while c.is_some()
+        val n = c.unwrap()
+        val next = d.next_sibling(n)
+
+        c = next
+
+        if !has_tag(d, n, DEFINITION_NODE) then continue
+
+        d.kind(n) match
+            Ext(x) -> if x.data == TRAILING && next.is_some() then loose = true
+            _ -> ()
+
+        d.set_kind(n, Ext(ExtNode(NAME, DEFINITION_NODE, "", true)))
+
+        d.prev_sibling(n) match
+            Some(t) -> if has_tag(d, t, DEFINITION_TERM_NODE) && apart(d, t, n) then loose = true
+            None -> ()
+
+        var k = d.first_child(n)
+
+        while k.is_some()
+            val a = k.unwrap()
+
+            k = d.next_sibling(a)
+            k match
+                Some(b) -> if apart(d, a, b) then loose = true
+                None -> ()
+
+    if loose then return
+
+    for n in children(d, dl)
+        if has_tag(d, n, DEFINITION_NODE) then
+            for p in children(d, n)
+                d.kind(p) match
+                    Paragraph -> unwrap(d, p)
+                    _ -> ()
+end settle
+
+// Whether a blank line lies between `a` and the node after it, `b`.
+private apart(d: Doc, a: NodeId, b: NodeId) -> bool
+    val from = d.span(a).end
+    val to = d.span(b).start
+
+    if to <= from then return false
+
+    var lines = 0
+
+    for ch in d.src.bytes[from..<to]
+        if ch == u8('\n') then lines += 1
+
+    lines > 1
+
+private children(d: Doc, n: NodeId) -> Buf[NodeId]
+    var out: Buf[NodeId] = buf()
+    var c = d.first_child(n)
+
+    while c.is_some()
+        out.push(c.unwrap())
+        c = d.next_sibling(c.unwrap())
+
+    out
+
+// Paragraph `p` replaced by its inlines.
+private unwrap(d: Doc, p: NodeId)
+    var anchor = p
+
+    for n in children(d, p)
+        d.insert_after(anchor, n)
+        anchor = n
+
+    d.unlink(p)

@@ -124,7 +124,9 @@ private[markdown] struct Parser
                     self.close_to(last + 1)
                     return
 
-        self.reach(last + 1, line_end)
+        // A paragraph the line reached is not reached by the line until the line is added to it: a
+        // block that starts on the line closes the paragraph, which then ends at the line before.
+        self.reach(if self.is_prose(last) then last else last + 1, line_end)
 
         var closed = last + 1 == self.stack.len()
         var container = last
@@ -155,6 +157,7 @@ private[markdown] struct Parser
             if self.takes_lines(container) then
                 val ends = self.html_ends(container)
 
+                self.reach(container + 1, line_end)
                 self.add_line()
                 if ends then self.close_to(container)
             else if !self.cur.blank then
@@ -319,6 +322,7 @@ private[markdown] struct Parser
 
                 if under > 0 && self.keeps_text_past_refs(container) then
                     self.doc.set_kind(self.stack[container].node, Heading(under, None))
+                    self.stack.view()[container].end = line_end
                     self.close_to(container)
                     return Done
 

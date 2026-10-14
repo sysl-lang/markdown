@@ -93,3 +93,28 @@ spans_after_crlf()
     val src = "> a *b\r\n> c*\r\n"
 
     assert_eq(inline_map(src), "text[a ]\nem[*b\r\n> c*]\ntext[b]\nsoft[\r\n]\ntext[c]\n")
+
+// The source a top-level block spans, for each block in `src`, as `[bytes]`.
+private block_map(src: string) -> string
+    val d = parse(src)
+    var out = str_builder()
+    var c = d.first_child(d.root())
+
+    while c.is_some()
+        val s = d.span(c.unwrap())
+
+        out.push("[")
+        out.push(src[s.start..<s.end])
+        out.push("]")
+        c = d.next_sibling(c.unwrap())
+
+    out.finish()
+
+@test("a paragraph a block interrupts ends at its own last line, and a setext heading at its underline")
+spans_of_interrupted_paragraphs()
+    assert_eq(block_map("a\nb\n- c\n"), "[a\nb][- c]")
+    assert_eq(block_map("a\n> b\n"), "[a][> b]")
+    assert_eq(block_map("a\n# b\n"), "[a][# b]")
+    assert_eq(block_map("a\n***\n"), "[a][***]")
+    assert_eq(block_map("a\nb\n===\n"), "[a\nb\n===]")
+    assert_eq(block_map("a\nb\n\nc\n"), "[a\nb][c]")
