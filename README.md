@@ -2,14 +2,14 @@
 
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
-**Status: 0.2.0 — CommonMark and GitHub's Markdown complete.** Every one of the CommonMark spec's
+**Status: 0.3.0 — CommonMark and GitHub's Markdown complete, plus smart punctuation.** Every one of the CommonMark spec's
 652 examples renders exactly, with the GitHub extensions off and on; every extension example of
 GitHub's spec renders exactly; hostile inputs are read in linear time; and differential checks
 against cmark and cmark-gfm agree on their whole corpora but for the cases listed below.
 
 ```hocon
 dependencies {
-  markdown { git = "github.com/sysl-lang/markdown", version = "0.2.1" }
+  markdown { git = "github.com/sysl-lang/markdown", version = "0.3.0" }
 }
 ```
 
@@ -160,7 +160,27 @@ document order. Each heading is then `Heading(level, Some(id))` in the tree, whi
 contents reads. `heading_ids_with(HeadingIdOptions(slug, prefix, anchors))` plugs in a slug of one's
 own, writes a prefix before every id (GitHub's pages use `user-content-`), and with `anchors` gives
 each heading GitHub's `<a id="…" class="anchor" aria-hidden="true" href="#…">` link to itself, which
-then carries the id in the heading's place.
+then carries the id in the heading's place. A heading whose slug comes out empty (`#` alone, `# !`)
+has no id and no anchor, and takes no number from the headings after it.
+
+**Smart punctuation** is an extension of its own too, `smart_punctuation()`, and not in `gfm()`:
+GitHub writes quotes as they are typed. Its rules are cmark's `--smart`, and `tools/differential.sh
+--smart` compares the two over the whole corpus.
+
+```sysl
+val r = registry()
+
+r.add(smart_punctuation())
+print(to_html(parse_with("\"Don't,\" she said -- 'wait'...\n", ParseOptions(r))))
+// <p>“Don’t,” she said – ‘wait’…</p>
+```
+
+A `"` or `'` pairs with another as emphasis does, by the same flanking rules (an opener may not
+follow `]` or `)`), and a pair makes no node, so a quotation may overlap emphasis as text does; a
+`'` that pairs with nothing is an apostrophe, `’`. A run of hyphens is em dashes where its length
+is a multiple of three, en dashes where it is even, and otherwise em dashes then one en dash or
+two; a single hyphen stays. `...` is `…`. Code spans, code blocks, autolinks, raw HTML, entities
+and backslash escapes are never changed.
 
 **Math and mermaid** have no spec and no cmark-gfm extension; their rules are github.com's, read off
 its own renderer (`gh api markdown`, gfm mode) and written out at the top of `gfm_math.sysl`:
@@ -215,6 +235,13 @@ enum BlockStart
     Container(kind: Kind, consumed: usize, state: u64)          // holds blocks
     Lines(kind: Kind, consumed: usize, state: u64, from_para: usize)   // lines taken as a paragraph's
     Retag(container: Kind, consumed: usize)                     // re-mark the block the line reached
+
+enum InlineMatch
+    NoMatch
+    Inline(kind: Kind, consumed: usize)                         // a node; Text(lit) puts lit in the bytes' place
+    Delimiters(count: usize, can_open: bool, can_close: bool)   // a run, paired into a node as emphasis is
+    Paired(can_open: bool, can_close: bool, alone: string, opening: string, closing: string)
+                                                                // one byte pairing as a quotation mark: no node
 
 struct ExtNode                                                  // Kind.Ext(node: ExtNode)
     ext: string                                                 // the extension that made it, and renders it
@@ -381,6 +408,10 @@ definitions, 20,000 definitions nested one inside the next, undefined references
 `tests_footnotes.sysl` holds 36 footnote cases, each asserting the HTML cmark-gfm writes for it, and
 `tests_alerts.sysl` 34 alert cases asserting the HTML GitHub writes (less the icon).
 
+`tests_smart_punctuation.sysl` holds the examples of the CommonMark spec's `smart_punct.txt` and the
+edges around them -- quotes at a paragraph's ends, beside punctuation and brackets, nested, inside
+emphasis and links, hyphen runs of two to thirteen -- each asserting the HTML `cmark --smart` writes.
+
 `tests_gfm_math.sysl` holds math's and mermaid's rules as exact HTML. Neither has a spec or a
 cmark-gfm extension, so the oracle is github.com itself: the delimiter cases its header names were
 rendered by `gh api markdown -f mode=gfm`, and the `GitHub` markup is asserted against what it wrote.
@@ -391,7 +422,7 @@ writes for it -- the inputs `tools/differential.sh --gfm` was run over while the
 ### The differential check against cmark
 
 ```
-tools/differential.sh [--gfm] [file or directory ...]
+tools/differential.sh [--gfm | --smart] [file or directory ...]
 ```
 
 renders a corpus through this package and through `cmark --unsafe` and names every file whose HTML
@@ -407,6 +438,9 @@ with GitHub's spec examples and cmark-gfm's extension tests added to the corpus.
 CommonMark 0.29, so a file on which it and cmark 0.31.2 disagree with every extension off is marked
 as such: there the difference is the CommonMark version's, and this package renders as cmark 0.31.2
 does. Over the whole corpus -- 1,591 files -- every difference is one of those.
+
+**`--smart`** parses with `smart_punctuation()` alone against `cmark --unsafe --smart`. Over the
+default corpus -- 789 files -- none differs.
 
 `spec/cmark-regression.txt` is cmark 0.31.2's `test/regression.txt`, unmodified:
 

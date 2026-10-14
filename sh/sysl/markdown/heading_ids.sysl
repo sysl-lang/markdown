@@ -49,7 +49,8 @@ heading_ids() -> &Extension = heading_ids_with(github_heading_ids())
  *
  * After a parse, each heading is `Heading(level, Some(id))`, `id` being the prefix and the unique slug
  * -- the value of its `id` attribute -- whatever the heading held before. A table of contents reads
- * them off the tree.
+ * them off the tree. A heading whose slug is empty -- `#` alone, or `# !` under GitHub's slug -- is
+ * `Heading(level, None)`: it has no id and no anchor, and takes no number from the ones after it.
  */
 heading_ids_with(opts: HeadingIdOptions) -> &Extension = HeadingIds(opts)
 
@@ -77,7 +78,15 @@ impl Extension for HeadingIds
                 Heading(l, _) -> l
                 _ -> 1
 
-            val slug = s.unique(self.opts.slug(slug_text(d, h)))
+            val base = self.opts.slug(slug_text(d, h))
+
+            // A heading with nothing to slug has no id: an empty one is no target, and numbering it
+            // would make one that is.
+            if base.len == 0 then
+                d.set_kind(h, Heading(level, None))
+                continue
+
+            val slug = s.unique(base)
 
             d.set_kind(h, Heading(level, Some(self.opts.prefix + slug)))
 

@@ -155,11 +155,23 @@ struct Subject
     pos: usize
     in_brackets: bool
 
-/** What `inline_match` answers. */
+/** What `inline_match` answers.
+ *
+ * - `Inline` -- a node reading `consumed` bytes from `pos`. A `Text(lit)` node puts `lit` in the
+ *   bytes' place, as an ellipsis replaces `...`.
+ * - `Delimiters` -- a run, paired into a node as emphasis is (`Extension.delimiter_node`).
+ * - `Paired` -- one byte that pairs as a quotation mark does: a `Text` node reading `alone`, put on
+ *   the delimiter list. A closer is matched to the nearest earlier opener of the same byte from the
+ *   same extension, in the same pass and by the same search as emphasis; a pair makes no node and
+ *   takes none of the delimiters between the two, so an `*` inside a quotation still pairs with one
+ *   outside it. The opener's text becomes `opening` and the closer's `closing`; one that never pairs
+ *   reads `alone`.
+ */
 enum InlineMatch
     NoMatch
-    Inline(kind: Kind, consumed: usize)                         // a node reading `consumed` bytes from `pos`
-    Delimiters(count: usize, can_open: bool, can_close: bool)   // a run, resolved as emphasis is
+    Inline(kind: Kind, consumed: usize)
+    Delimiters(count: usize, can_open: bool, can_close: bool)
+    Paired(can_open: bool, can_close: bool, alone: string, opening: string, closing: string)
 
 trait Extension
     /** A short name, unique among the extensions one parse is given. An `Ext` node names the

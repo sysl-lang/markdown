@@ -179,7 +179,7 @@ struct HtmlWriter
 
                     // An anchor heading_ids put inside the heading carries the id in its place.
                     id match
-                        Some(s) if !anchored(d, n) ->
+                        Some(s) if s.len > 0 && !anchored(d, n) ->
                             self.tag(" id=\"")
                             if self.alt == 0 then self.esc(s)
                             self.tag("\"")

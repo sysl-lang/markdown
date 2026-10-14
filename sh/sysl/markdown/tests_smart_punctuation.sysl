@@ -1,0 +1,101 @@
+module sh.sysl.markdown
+@tests
+
+// Smart punctuation, checked against cmark 0.31's `--smart`: the examples of the CommonMark spec's
+// test/smart_punct.txt, then the edges, each expected string the HTML `cmark --smart` wrote for the
+// same input.
+
+private smart() -> ParseOptions
+    val r = registry()
+
+    r.add(smart_punctuation())
+    ParseOptions(r)
+
+private html(src: string) -> string = to_html(parse_with(src, smart()))
+
+@test("smart_punct.txt: double quotes and single quotes inside them")
+smart_spec_quotes()
+    assert_eq(html("\"Hello,\" said the spider.\n\"'Shelob' is my name.\"\n"), "<p>“Hello,” said the spider.\n“‘Shelob’ is my name.”</p>\n")
+    assert_eq(html("'A', 'B', and 'C' are letters.\n"), "<p>‘A’, ‘B’, and ‘C’ are letters.</p>\n")
+    assert_eq(html("'Oak,' 'elm,' and 'beech' are names of trees.\nSo is 'pine.'\n"), "<p>‘Oak,’ ‘elm,’ and ‘beech’ are names of trees.\nSo is ‘pine.’</p>\n")
+    assert_eq(html("'He said, \"I want to go.\"'\n"), "<p>‘He said, “I want to go.”’</p>\n")
+
+@test("smart_punct.txt: apostrophes")
+smart_spec_apostrophes()
+    assert_eq(html("Were you alive in the 70's?\n"), "<p>Were you alive in the 70’s?</p>\n")
+    assert_eq(html("'tis the season to be 'jolly'\n"), "<p>’tis the season to be ‘jolly’</p>\n")
+    assert_eq(html("'We'll use Jane's boat and John's truck,' Jenna said.\n"), "<p>‘We’ll use Jane’s boat and John’s truck,’ Jenna said.</p>\n")
+    assert_eq(html("[a]'s b'\n"), "<p>[a]’s b’</p>\n")
+
+@test("smart_punct.txt: quotes around a code span and a link, and an unclosed quote per paragraph")
+smart_spec_around_inlines()
+    assert_eq(html("Here is some quoted '`code`' and a \"[quoted link](url)\".\n"), "<p>Here is some quoted ‘<code>code</code>’ and a “<a href=\"url\">quoted link</a>”.</p>\n")
+    assert_eq(html("\"A paragraph with no closing quote.\n\n\"Second paragraph by same speaker, in fiction.\"\n"), "<p>“A paragraph with no closing quote.</p>\n<p>“Second paragraph by same speaker, in fiction.”</p>\n")
+
+@test("smart_punct.txt: an escaped quote stays straight")
+smart_spec_escapes()
+    assert_eq(html("\\\"This is not smart.\\\"\nThis isn't either.\n5\\'8\\\"\n"), "<p>&quot;This is not smart.&quot;\nThis isn’t either.\n5'8&quot;</p>\n")
+
+@test("smart_punct.txt: dashes")
+smart_spec_dashes()
+    assert_eq(html("Some dashes:  em---em\nen--en\nem --- em\nen -- en\n2--3\n"), "<p>Some dashes:  em—em\nen–en\nem — em\nen – en\n2–3</p>\n")
+    assert_eq(html("one-\ntwo--\nthree---\nfour----\nfive-----\nsix------\nseven-------\neight--------\nnine---------\nthirteen-------------.\n"), "<p>one-\ntwo–\nthree—\nfour––\nfive—–\nsix——\nseven—––\neight––––\nnine———\nthirteen———––.</p>\n")
+    assert_eq(html("Escaped hyphens: \\-- \\-\\-\\-.\n"), "<p>Escaped hyphens: -- ---.</p>\n")
+
+@test("smart_punct.txt: ellipses")
+smart_spec_ellipses()
+    assert_eq(html("Ellipses...and...and....\n"), "<p>Ellipses…and…and….</p>\n")
+    assert_eq(html("No ellipses\\.\\.\\.\n"), "<p>No ellipses...</p>\n")
+
+@test("quotes at the start and end of a paragraph, and one left open")
+smart_paragraph_edges()
+    assert_eq(html("\"start and end\"\n"), "<p>“start and end”</p>\n")
+    assert_eq(html("\"a\n"), "<p>“a</p>\n")
+    assert_eq(html("a \" b ' c\n"), "<p>a “ b ’ c</p>\n")
+
+@test("quotes next to punctuation and brackets")
+smart_next_to_punctuation()
+    assert_eq(html("(\"paren\") [\"br\"] \"x\"y\"z\" a\"b\n"), "<p>(“paren”) [“br”] “x”y”z” a”b</p>\n")
+    assert_eq(html("\"comma\", \"period\". \"?\"\n"), "<p>“comma”, “period”. “?”</p>\n")
+    assert_eq(html("f(x)'y' and [a]'b' and [a]\"b\"\n"), "<p>f(x)’y’ and [a]’b’ and [a]“b”</p>\n")
+
+@test("nested quotes, contractions and doubled single quotes")
+smart_nesting()
+    assert_eq(html("\"outer 'inner' outer\" and don't and \"it's\"\n"), "<p>“outer ‘inner’ outer” and don’t and “it’s”</p>\n")
+    assert_eq(html("rock 'n' roll, 'twas, ol' and ''double''\n"), "<p>rock ‘n’ roll, ‘twas, ol’ and ‘‘double’’</p>\n")
+
+@test("quotes inside emphasis and links, and a quotation overlapping emphasis")
+smart_with_emphasis_and_links()
+    assert_eq(html("*\"emph\"* and \"*inner*\" and [x \"y\" z](u) and [\"a](u)\"\n"), "<p><em>“emph”</em> and “<em>inner</em>” and <a href=\"u\">x “y” z</a> and <a href=\"u\">“a</a>”</p>\n")
+    assert_eq(html("\"*a\"*\n"), "<p>“<em>a”</em></p>\n")
+    assert_eq(html("![a \"b\" c](i \"t--t\")\n"), "<p><img src=\"i\" alt=\"a “b” c\" title=\"t--t\" /></p>\n")
+
+@test("hyphen runs of two to six, and single hyphens left alone")
+smart_hyphen_runs()
+    assert_eq(html("a--b\n"), "<p>a–b</p>\n")
+    assert_eq(html("a---b\n"), "<p>a—b</p>\n")
+    assert_eq(html("a----b\n"), "<p>a––b</p>\n")
+    assert_eq(html("a-----b\n"), "<p>a—–b</p>\n")
+    assert_eq(html("a------b\n"), "<p>a——b</p>\n")
+    assert_eq(html("one-two --x-- 1-- --\n"), "<p>one-two –x– 1– –</p>\n")
+
+@test("runs of periods: two stay, three or more lead with an ellipsis")
+smart_periods()
+    assert_eq(html(".. .... ..... ......\n"), "<p>.. …. ….. ……</p>\n")
+
+@test("nothing changes in code spans, code blocks, autolinks or raw HTML")
+smart_untouched()
+    assert_eq(html("`\"q\" --- ...` <http://a.b/\"x\"--y...> <span title=\"a--b\">'q'</span>\n\n```\n\"code\" -- ...\n```\n\n    \"indented\" --\n"), "<p><code>&quot;q&quot; --- ...</code> <a href=\"http://a.b/%22x%22--y...\">http://a.b/&quot;x&quot;--y...</a> <span title=\"a--b\">‘q’</span></p>\n<pre><code>&quot;code&quot; -- ...\n</code></pre>\n<pre><code>&quot;indented&quot; --\n</code></pre>\n")
+    assert_eq(html("&quot;ent&quot; &#39;x&#39;\n"), "<p>&quot;ent&quot; 'x'</p>\n")
+
+@test("a heading's text, and its plain text, read the curly forms")
+smart_in_headings()
+    assert_eq(html("# \"Quoted\" heading -- yes...\n"), "<h1>“Quoted” heading – yes…</h1>\n")
+    val d = parse_with("\"a\" -- 'b'...\n", smart())
+
+    assert_eq(plain_text(d, d.root()), "“a” – ‘b’…")
+
+@test("without the extension, quotes, dashes and periods are as written")
+smart_off()
+    assert_eq(to_html(parse_with("\"a\" -- 'b'...\n", commonmark())), "<p>&quot;a&quot; -- 'b'...</p>\n")
+    assert_eq(to_html(parse_with("\"a\" -- 'b'...\n", gfm())), "<p>&quot;a&quot; -- 'b'...</p>\n")

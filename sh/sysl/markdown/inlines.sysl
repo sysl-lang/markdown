@@ -125,17 +125,17 @@ private struct Scan
 
         val (open, close) = flanking(self.b, i, j)
 
-        self.push_run(i, j, ch, open, close, 0)
+        self.push_run(i, j, self.leaf.text[i..<j], ch, open, close, 0, None)
         j
 
-    // The bytes `i..<j` as a `Text` node of their own, on the delimiter list.
-    push_run(*self, i: usize, j: usize, ch: u8, open: bool, close: bool, ext: usize)
+    // The bytes `i..<j` as a `Text` node of their own reading `lit`, on the delimiter list.
+    push_run(*self, i: usize, j: usize, lit: string, ch: u8, open: bool, close: bool, ext: usize, texts: Option[(string, string)])
         self.flush(i)
 
         val start = self.m.src(i)
-        val node = self.d.append_child(self.leaf.node, Text(self.leaf.text[i..<j]), Span(start, self.m.src(j)))
+        val node = self.d.append_child(self.leaf.node, Text(lit), Span(start, self.m.src(j)))
 
-        self.ds.push(node, ch, j - i, open, close, ext)
+        self.ds.push(node, ch, j - i, open, close, ext, texts)
         self.restart(j)
 
     // A `[`, or with `image` a `![`, at `i..<j`: a `Text` node holding it, and an opener on the
@@ -305,8 +305,11 @@ private struct Scan
                         if n > 0 then
                             val j = i + min(n, self.b.len - i)
 
-                            self.push_run(i, j, c, open, close, ix + 1)
+                            self.push_run(i, j, self.leaf.text[i..<j], c, open, close, ix + 1, None)
                             return j
+                    Paired(open, close, alone, opening, closing) ->
+                        self.push_run(i, i + 1, alone, c, open, close, ix + 1, Some((opening, closing)))
+                        return i + 1
 
         i
     end extension

@@ -4,7 +4,7 @@
 # differs. cmark is the second oracle the spec's own expected HTML cannot be: it reads documents
 # nobody wrote a test for.
 #
-#     tools/differential.sh [--gfm] [file or directory ...]
+#     tools/differential.sh [--gfm | --smart] [file or directory ...]
 #
 # With no arguments the corpus is
 #
@@ -27,6 +27,9 @@
 # The default corpus then also holds every example of GitHub's spec (spec/gfm-spec.txt) and of
 # cmark-gfm's own extension tests (spec/cmark-gfm-extensions.txt).
 #
+# --smart compares smart punctuation: this package parses with smart_punctuation() alone, and the
+# other side is `cmark --unsafe --smart`.
+#
 # The report names each differing file, and a unified diff of the two outputs is kept beside it in
 # the scratch directory, whose path is printed last. Exits 1 if any file differs.
 
@@ -36,12 +39,28 @@ root=${0:A:h:h}
 sysl_bin=${SYSL:-sysl}
 gfm=0
 
+smart=0
+
 if [[ ${1:-} == --gfm ]]; then
     gfm=1
     shift
+elif [[ ${1:-} == --smart ]]; then
+    smart=1
+    shift
 fi
 
-if (( gfm )); then
+if (( smart )); then
+    cmark_bin=${CMARK:-cmark}
+    cmark_args=(--unsafe --smart)
+    imports='ParseOptions, parse_with, to_html, registry, smart_punctuation'
+    render='to_html(parse_with(src, smart()))'
+    prelude='smart() -> ParseOptions
+    val r = registry()
+
+    r.add(smart_punctuation())
+    ParseOptions(r)
+'
+elif (( gfm )); then
     cmark_bin=${CMARK_GFM:-cmark-gfm}
     cmark_args=(--unsafe -e footnotes -e table -e strikethrough -e autolink -e tasklist -e tagfilter)
     imports='ParseOptions, parse_with, to_html_with, gfm_html, registry, footnotes, tables, strikethrough, autolinks, task_lists'

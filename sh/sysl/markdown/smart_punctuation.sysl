@@ -1,0 +1,73 @@
+module sh.sysl.markdown
+
+import sysl.text.str_builder
+
+// Smart punctuation: straight quotes made curly, runs of hyphens made dashes and three periods an
+// ellipsis, as cmark's `--smart` makes them.
+//
+// **The rules are cmark's.** A `"` or `'` is a delimiter, flanking as emphasis reckons it: it may
+// open where it is left-flanking, not right-flanking, and not just after a `]` or `)`, and may close
+// where it is right-flanking. Quotes pair as emphasis does, in the same pass, and a pair turns the
+// two into `“…”` or `‘…’` without making a node -- so a quotation and emphasis may overlap, as the
+// text does. One that never pairs is `’` for `'`, which is what an apostrophe is, and `”` or `“`
+// for `"`, by whether it could close. A run of two or more hyphens is all em dashes where its length
+// is a multiple of three, else all en dashes where it is even, else em dashes followed by one en
+// dash or two; `...` is `…`. Code spans, autolinks, raw HTML and backslash escapes are read before
+// this sees a byte, so none of them changes.
+
+/** The smart-punctuation extension, for a `Registry`. It is not in the `gfm()` preset: GitHub
+ * renders straight quotes as they are written.
+ */
+smart_punctuation() -> &Extension = SmartPunctuation()
+
+private struct SmartPunctuation
+end SmartPunctuation
+
+impl Extension for SmartPunctuation
+    name(self) -> string = "smart_punctuation"
+
+    override triggers(self) -> string = "'\"-."
+
+    override inline_match(self, s: Subject) -> InlineMatch
+        val b = s.text.bytes
+        val p = s.pos
+
+        if b[p] == u8('-') then return dashes(b, p)
+
+        if b[p] == u8('.') then
+            return if p + 2 < b.len && b[p + 1] == u8('.') && b[p + 2] == u8('.') then Inline(Text("\u{2026}"), 3) else NoMatch
+
+        val (left, right) = flanking(b, p, p + 1)
+        val before = if p > 0 then b[p - 1] else u8('\n')
+        val open = left && !right && before != u8(']') && before != u8(')')
+
+        if b[p] == u8('\'') then return Paired(open, right, "\u{2019}", "\u{2018}", "\u{2019}")
+
+        Paired(open, right, if right then "\u{201d}" else "\u{201c}", "\u{201c}", "\u{201d}")
+end SmartPunctuation
+
+// The run of hyphens at `at`, as dashes: one hyphen alone is left as it is.
+private dashes(b: []const u8, at: usize) -> InlineMatch
+    var j = at + 1
+
+    while j < b.len && b[j] == u8('-') do j += 1
+
+    val n = j - at
+
+    if n == 1 then return NoMatch
+
+    val em =
+        if n % 3 == 0 then n / 3
+        else if n % 2 == 0 then 0
+        else if n % 3 == 2 then (n - 2) / 3
+        else (n - 4) / 3
+
+    // What the em dashes leave is none, every hyphen, two or four: en dashes, two hyphens each.
+    val en = (n - 3 * em) / 2
+
+    var out = str_builder()
+
+    for _ in 0..<em do out.push("\u{2014}")
+    for _ in 0..<en do out.push("\u{2013}")
+
+    Inline(Text(out.finish()), n)

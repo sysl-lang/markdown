@@ -38,6 +38,7 @@ private[markdown] struct Delim
     can_open: bool
     can_close: bool
     ext: usize          // 0 for emphasis; for an extension's run, its place in the registry plus one
+    texts: Option[(string, string)]     // a `Paired` delimiter's text as an opener and as a closer
     prev: u32
     next: u32
 
@@ -50,11 +51,11 @@ private[markdown] struct Delims
 
     at(self, i: u32) -> Delim = self.items.at(usize(i))
 
-    push(self, node: NodeId, ch: u8, count: usize, can_open: bool, can_close: bool, ext: usize)
+    push(self, node: NodeId, ch: u8, count: usize, can_open: bool, can_close: bool, ext: usize, texts: Option[(string, string)])
         val id = u32(self.items.len())
         val tail = self.items.at(0).prev
 
-        self.items.push(Delim(node, ch, count, count, can_open, can_close, ext, tail, 0))
+        self.items.push(Delim(node, ch, count, count, can_open, can_close, ext, texts, tail, 0))
         self.items.view()[usize(tail)].next = id
         self.items.view()[0].prev = id
 
@@ -98,7 +99,7 @@ end Delims
 private[markdown] delims() -> Delims
     val items: Buf[Delim] = buf()
 
-    items.push(Delim(NodeId(0), 0, 0, 0, false, false, 0, 0, 0))
+    items.push(Delim(NodeId(0), 0, 0, 0, false, false, 0, None, 0, 0))
     Delims(items)
 
 /** Pair the delimiters at or above `bottom` into emphasis, as the spec's appendix does, then take
@@ -126,7 +127,15 @@ private[markdown] process_emphasis(d: Doc, ds: Delims, exts: Registry, bottom: u
 
             if od.can_open && od.ch == c.ch && od.ext == c.ext && suits(od, c) then found = true else o = od.prev
 
-        if found && c.ext != 0 && exts.at(c.ext - 1).delimiter_node(c.ch, ds.at(o).orig, c.orig).is_none() then
+        if found && c.texts.is_some() then
+            val (opening, closing) = c.texts.unwrap()
+
+            d.set_kind(ds.at(o).node, Text(opening))
+            d.set_kind(c.node, Text(closing))
+            ds.remove(o)
+            ds.remove(closer)
+            closer = c.next
+        else if found && c.ext != 0 && exts.at(c.ext - 1).delimiter_node(c.ch, ds.at(o).orig, c.orig).is_none() then
             ds.join(ds.at(o).prev, c.next)
             closer = c.next
         else if found then
