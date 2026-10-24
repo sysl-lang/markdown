@@ -3,7 +3,8 @@ module sh.sysl.markdown
 
 import sysl.buf.{Buf, buf}
 import sysl.text.{Search, repeat, str_builder}
-import sysl.time.{monotonic, whole_micros}
+import sysl.posix.time.cpu_time
+import sysl.time.whole_micros
 
 // Heading ids: GitHub's slug, the numbering of duplicates, the pluggable slug, the prefix and the
 // anchor. github-slugger's own fixtures are in tests_slug_fixtures.sysl.
@@ -194,17 +195,28 @@ the_slugger()
 private const small: usize = 2000
 
 private timed(src: string, want: usize) -> long
-    val t0 = monotonic()
+    val t0 = cpu_time()
     val d = parse_with(src, heading_id_options())
     val got = heading_ids_of(d)
-    val t1 = monotonic()
+    val t1 = cpu_time()
 
     assert_eq(got.len(), want)
     whole_micros(t1 - t0)
 
+// Processor time of the larger input over the smaller's, each the cheapest of five runs taken in
+// turn (see tests_scaling.sysl); linear answers about 10, quadratic about 100, the bound is 40.
 private ratio(input: usize -> string) -> long
-    val a = timed(input(small), small)
-    val b = timed(input(10 * small), 10 * small)
+    val a_src = input(small)
+    val b_src = input(10 * small)
+    var a: long = -1
+    var b: long = -1
+
+    for round in 0..<5
+        val x = timed(a_src, small)
+        val y = timed(b_src, 10 * small)
+
+        if a < 0 || x < a then a = x
+        if b < 0 || y < b then b = y
 
     b / (if a < 1000 then 1000 else a)
 
@@ -228,8 +240,8 @@ same_text_is_linear()
 
     assert_eq(got[0], "a")
     assert_eq(got[9999], "a-9999")
-    assert(ratio(same) < 20)
+    assert(ratio(same) < 40)
 
 @test("numbered slugs already taken are stepped over in linear time")
 taken_numbers_are_linear()
-    assert(ratio(numbered_first) < 20)
+    assert(ratio(numbered_first) < 40)

@@ -2,7 +2,8 @@ module sh.sysl.markdown
 @tests
 
 import sysl.text.{Search, repeat}
-import sysl.time.{monotonic, whole_micros}
+import sysl.posix.time.cpu_time
+import sysl.time.whole_micros
 
 // GitHub's emoji shortcodes, read with the emoji extension alone and with the whole GFM preset.
 
@@ -117,16 +118,27 @@ emoji_for_looks_up()
 private const small: usize = 5000
 
 private timed(src: string, want: string) -> long
-    val t0 = monotonic()
+    val t0 = cpu_time()
     val got = html(src)
-    val t1 = monotonic()
+    val t1 = cpu_time()
 
     assert_eq(got, want)
     whole_micros(t1 - t0)
 
+// Processor time of the larger input over the smaller's, each the cheapest of five runs taken in
+// turn (see tests_scaling.sysl); linear answers about 10, quadratic about 100, the bound is 40.
 private ratio(input: usize -> string, output: usize -> string) -> long
-    val a = timed(input(small), output(small))
-    val b = timed(input(10 * small), output(10 * small))
+    val a_src = input(small)
+    val b_src = input(10 * small)
+    var a: long = -1
+    var b: long = -1
+
+    for round in 0..<5
+        val x = timed(a_src, output(small))
+        val y = timed(b_src, output(10 * small))
+
+        if a < 0 || x < a then a = x
+        if b < 0 || y < b then b = y
 
     b / (if a < 1000 then 1000 else a)
 
@@ -149,13 +161,13 @@ private many_out(n: usize) -> string = "<p>" + repeat("\u{1f604}", n) + "</p>\n"
 
 @test("a run of colons is linear")
 colon_runs_are_linear()
-    assert(ratio(colons, colons_out) < 20)
+    assert(ratio(colons, colons_out) < 40)
 
 @test("shortcodes that never close are linear")
 near_misses_are_linear()
-    assert(ratio(near_misses, near_misses_out) < 20)
-    assert(ratio(long_names, long_names_out) < 20)
+    assert(ratio(near_misses, near_misses_out) < 40)
+    assert(ratio(long_names, long_names_out) < 40)
 
 @test("many emoji are linear")
 many_emoji_are_linear()
-    assert(ratio(many, many_out) < 20)
+    assert(ratio(many, many_out) < 40)

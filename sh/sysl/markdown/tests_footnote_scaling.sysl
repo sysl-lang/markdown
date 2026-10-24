@@ -2,7 +2,8 @@ module sh.sysl.markdown
 @tests
 
 import sysl.text.{repeat, str_builder}
-import sysl.time.{monotonic, whole_micros}
+import sysl.posix.time.cpu_time
+import sysl.time.whole_micros
 
 // Footnotes' and alerts' hostile inputs -- many references, many definitions, definitions nested
 // one inside the next, many alerts -- each read with gfm() at two sizes ten times apart, as
@@ -12,16 +13,27 @@ import sysl.time.{monotonic, whole_micros}
 private const small: usize = 2000
 
 private timed(src: string, want: string) -> long
-    val t0 = monotonic()
+    val t0 = cpu_time()
     val got = to_html_with(parse_with(src, gfm()), gfm_html())
-    val t1 = monotonic()
+    val t1 = cpu_time()
 
     assert_eq(got, want)
     whole_micros(t1 - t0)
 
+// Processor time of the larger input over the smaller's, each the cheapest of five runs taken in
+// turn (see tests_scaling.sysl); linear answers about 10, quadratic about 100, the bound is 40.
 private ratio(input: usize -> string, output: usize -> string) -> long
-    val a = timed(input(small), output(small))
-    val b = timed(input(10 * small), output(10 * small))
+    val a_src = input(small)
+    val b_src = input(10 * small)
+    var a: long = -1
+    var b: long = -1
+
+    for round in 0..<5
+        val x = timed(a_src, output(small))
+        val y = timed(b_src, output(10 * small))
+
+        if a < 0 || x < a then a = x
+        if b < 0 || y < b then b = y
 
     b / (if a < 1000 then 1000 else a)
 
@@ -139,26 +151,26 @@ private long_marker_out(n: usize) -> string = "<blockquote>\n<p>[!" + repeat("N"
 
 @test("many references to one footnote are read in linear time")
 footnote_many_references()
-    assert(ratio(same_refs, same_refs_out) < 20)
+    assert(ratio(same_refs, same_refs_out) < 40)
 
 @test("many footnotes, each referred to once, are read in linear time")
 footnote_many_definitions()
-    assert(ratio(many_defs, many_defs_out) < 20)
+    assert(ratio(many_defs, many_defs_out) < 40)
 
 @test("many unreferenced definitions are read in linear time")
 footnote_many_unused()
-    assert(ratio(unused_defs, unused_defs_out) < 20)
+    assert(ratio(unused_defs, unused_defs_out) < 40)
 
 @test("definitions nested one inside the next are read in linear time")
 footnote_nested_definitions()
-    assert(ratio(nested_defs, nested_defs_out) < 20)
+    assert(ratio(nested_defs, nested_defs_out) < 40)
 
 @test("many undefined references and unclosed openers are read in linear time")
 footnote_undefined()
-    assert(ratio(undefined_refs, undefined_refs_out) < 20)
-    assert(ratio(unclosed, unclosed_out) < 20)
+    assert(ratio(undefined_refs, undefined_refs_out) < 40)
+    assert(ratio(unclosed, unclosed_out) < 40)
 
 @test("many alerts, and a long almost-marker, are read in linear time")
 alert_scaling()
-    assert(ratio(many_alerts, many_alerts_out) < 20)
-    assert(ratio(long_marker, long_marker_out) < 20)
+    assert(ratio(many_alerts, many_alerts_out) < 40)
+    assert(ratio(long_marker, long_marker_out) < 40)

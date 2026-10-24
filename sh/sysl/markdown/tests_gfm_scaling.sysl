@@ -2,7 +2,8 @@ module sh.sysl.markdown
 @tests
 
 import sysl.text.{Search, repeat}
-import sysl.time.{monotonic, whole_micros}
+import sysl.posix.time.cpu_time
+import sysl.time.whole_micros
 
 // The GitHub extensions' own hostile inputs -- wide and long tables, runs of `~`, text an autolink
 // almost starts in -- each read with gfm() at two sizes ten times apart, as tests_scaling.sysl reads
@@ -12,16 +13,27 @@ import sysl.time.{monotonic, whole_micros}
 private const small: usize = 5000
 
 private timed(src: string, want: string) -> long
-    val t0 = monotonic()
+    val t0 = cpu_time()
     val got = to_html_with(parse_with(src, gfm()), gfm_html())
-    val t1 = monotonic()
+    val t1 = cpu_time()
 
     assert_eq(got, want)
     whole_micros(t1 - t0)
 
+// Processor time of the larger input over the smaller's, each the cheapest of five runs taken in
+// turn (see tests_scaling.sysl); linear answers about 10, quadratic about 100, the bound is 40.
 private ratio(input: usize -> string, output: usize -> string) -> long
-    val a = timed(input(small), output(small))
-    val b = timed(input(10 * small), output(10 * small))
+    val a_src = input(small)
+    val b_src = input(10 * small)
+    var a: long = -1
+    var b: long = -1
+
+    for round in 0..<5
+        val x = timed(a_src, output(small))
+        val y = timed(b_src, output(10 * small))
+
+        if a < 0 || x < a then a = x
+        if b < 0 || y < b then b = y
 
     b / (if a < 1000 then 1000 else a)
 
@@ -89,37 +101,37 @@ private urls_out(n: usize) -> string = para(repeat("<a href=\"http://a.com\">htt
 
 @test("a table of many columns is read in linear time")
 many_columns()
-    assert(ratio(wide, wide_out) < 20)
+    assert(ratio(wide, wide_out) < 40)
 
 @test("a table of many rows is read in linear time")
 many_rows()
-    assert(ratio(long_table, long_table_out) < 20)
+    assert(ratio(long_table, long_table_out) < 40)
 
 @test("a cell of many escaped pipes is read in linear time")
 many_escaped_pipes()
-    assert(ratio(escaped_pipes, escaped_pipes_out) < 20)
+    assert(ratio(escaped_pipes, escaped_pipes_out) < 40)
 
 @test("a paragraph of many delimiter rows of the wrong width is read in linear time")
 many_delimiter_rows()
-    assert(ratio(delimiter_rows, delimiter_rows_out) < 20)
+    assert(ratio(delimiter_rows, delimiter_rows_out) < 40)
 
 @test("runs of '~' that never pair, pair badly, or are too long are read in linear time")
 tildes()
-    assert(ratio(tilde_openers, tilde_openers_out) < 20)
-    assert(ratio(tilde_mismatched, tilde_mismatched_out) < 20)
-    assert(ratio(tilde_run, tilde_run_out) < 20)
+    assert(ratio(tilde_openers, tilde_openers_out) < 40)
+    assert(ratio(tilde_mismatched, tilde_mismatched_out) < 40)
+    assert(ratio(tilde_run, tilde_run_out) < 40)
 
 @test("text an autolink almost starts in at every byte is read in linear time")
 autolink_runs()
-    assert(ratio(www_run, www_run_out) < 20)
-    assert(ratio(scheme_run, scheme_run_out) < 20)
-    assert(ratio(w_run, w_run_out) < 20)
-    assert(ratio(ats, ats_out) < 20)
+    assert(ratio(www_run, www_run_out) < 40)
+    assert(ratio(scheme_run, scheme_run_out) < 40)
+    assert(ratio(w_run, w_run_out) < 40)
+    assert(ratio(ats, ats_out) < 40)
 
 @test("many email addresses and URLs in one paragraph are read in linear time")
 many_autolinks()
-    assert(ratio(emails, emails_out) < 20)
-    assert(ratio(urls, urls_out) < 20)
+    assert(ratio(emails, emails_out) < 40)
+    assert(ratio(urls, urls_out) < 40)
 
 @test("a wide header over many one-cell rows stops taking rows once it has filled out 524,288 cells")
 filled_cells_are_capped()

@@ -2,7 +2,8 @@ module sh.sysl.markdown
 @tests
 
 import sysl.text.repeat
-import sysl.time.{monotonic, whole_micros}
+import sysl.posix.time.cpu_time
+import sysl.time.whole_micros
 
 // Math's hostile inputs -- long runs of `$`, openers that never close, closers that each fail one
 // rule, and the backtick form never closing -- read with gfm() at two sizes ten times apart, as
@@ -12,16 +13,27 @@ import sysl.time.{monotonic, whole_micros}
 private const small: usize = 5000
 
 private timed(src: string, want: string) -> long
-    val t0 = monotonic()
+    val t0 = cpu_time()
     val got = to_html_with(parse_with(src, gfm()), gfm_html())
-    val t1 = monotonic()
+    val t1 = cpu_time()
 
     assert_eq(got, want)
     whole_micros(t1 - t0)
 
+// Processor time of the larger input over the smaller's, each the cheapest of five runs taken in
+// turn (see tests_scaling.sysl); linear answers about 10, quadratic about 100, the bound is 40.
 private ratio(input: usize -> string, output: usize -> string) -> long
-    val a = timed(input(small), output(small))
-    val b = timed(input(10 * small), output(10 * small))
+    val a_src = input(small)
+    val b_src = input(10 * small)
+    var a: long = -1
+    var b: long = -1
+
+    for round in 0..<5
+        val x = timed(a_src, output(small))
+        val y = timed(b_src, output(10 * small))
+
+        if a < 0 || x < a then a = x
+        if b < 0 || y < b then b = y
 
     b / (if a < 1000 then 1000 else a)
 
@@ -67,17 +79,17 @@ private many_out(n: usize) -> string
 
 @test("a long run of dollars is read in linear time")
 dollar_runs()
-    assert(ratio(dollar_run, dollar_run_out) < 20)
+    assert(ratio(dollar_run, dollar_run_out) < 40)
 
 @test("openers that never close, and closers that each fail, are read in linear time")
 failing_dollars()
-    assert(ratio(openers, openers_out) < 20)
-    assert(ratio(alternating, alternating_out) < 20)
-    assert(ratio(display_openers, display_openers_out) < 20)
-    assert(ratio(display_lines, display_lines_out) < 20)
-    assert(ratio(backtick_openers, backtick_openers_out) < 20)
+    assert(ratio(openers, openers_out) < 40)
+    assert(ratio(alternating, alternating_out) < 40)
+    assert(ratio(display_openers, display_openers_out) < 40)
+    assert(ratio(display_lines, display_lines_out) < 40)
+    assert(ratio(backtick_openers, backtick_openers_out) < 40)
 
 @test("many math spans, and math holding what almost begins raw HTML, are read in linear time")
 many_spans()
-    assert(ratio(many, many_out) < 20)
-    assert(ratio(comments, comments_out) < 20)
+    assert(ratio(many, many_out) < 40)
+    assert(ratio(comments, comments_out) < 40)
