@@ -203,7 +203,7 @@ private colliding(count: usize) -> string
     var i: usize = 0
 
     while found < count
-        val k = "x" + str(i)
+        val k = "x" + i.to_string()
 
         i += 1
 
@@ -227,7 +227,7 @@ private first_key() -> string
     var i: usize = 0
 
     loop
-        val k = "x" + str(i)
+        val k = "x" + i.to_string()
 
         if bad_hash(k) then return k
 
@@ -237,7 +237,7 @@ private many_refs(n: usize) -> string
     var out = str_builder()
 
     for i in 1..<16 * n
-        out.push("[" + str(i) + "]: u\n")
+        out.push("[" + i.to_string() + "]: u\n")
 
     out.push(repeat("[0] ", n))
     out.finish()

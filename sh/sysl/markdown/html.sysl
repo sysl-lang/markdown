@@ -334,7 +334,7 @@ struct HtmlWriter
                     self.tag("<ol>")
                 else
                     self.tag("<ol start=\"")
-                    self.lit(str(start))
+                    self.lit(start.to_string())
                     self.tag("\">")
 
         self.cr()

@@ -21,7 +21,7 @@ private first(d: Doc) -> NodeId
 private woven(src: string, regions: Buf[Region]) -> string
     parse_with_regions(src, commonmark(), regions) match
         Ok(d) -> to_html(d)
-        Err(e) -> str(e)
+        Err(e) -> e.to_string()
 
 private regions_of(spans: []const Span) -> Buf[Region]
     var rs: Buf[Region] = buf()

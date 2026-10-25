@@ -2,14 +2,14 @@
 
 CommonMark, plus what GitHub renders, for [sysl](https://sysl.sh). The module is `sh.sysl.markdown`.
 
-**Status: 0.4.1 — CommonMark and GitHub's Markdown complete, plus smart punctuation and definition lists.** Every one of the CommonMark spec's
+**Status: 0.4.2 — CommonMark and GitHub's Markdown complete, plus smart punctuation and definition lists.** Every one of the CommonMark spec's
 652 examples renders exactly, with the GitHub extensions off and on; every extension example of
 GitHub's spec renders exactly; hostile inputs are read in linear time; and differential checks
 against cmark and cmark-gfm agree on their whole corpora but for the cases listed below.
 
 ```hocon
 dependencies {
-  markdown { git = "github.com/sysl-lang/markdown", version = "0.4.1" }
+  markdown { git = "github.com/sysl-lang/markdown", version = "0.4.2" }
 }
 ```
 
