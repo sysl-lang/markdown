@@ -352,7 +352,7 @@ private[markdown] struct Parser
 
         val within = self.doc.kind(self.stack[container].node)
         val in_this = self.is_para(container)
-        val para = if in_this then self.content.bytes.view() else "".bytes
+        val para = if in_this then self.content.as_bytes else "".bytes
 
         while self.para_words.len() < self.exts.len() do self.para_words.push(0)
 
