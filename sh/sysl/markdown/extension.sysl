@@ -286,7 +286,7 @@ struct Registry
 
     is_empty(self) -> bool = self.exts.len() == 0
 
-    at(self, i: usize) -> &Extension = self.exts.at(i)
+    at(self, i: usize) -> &Extension = self.exts[i]
 
     /** The extension called `name`, if there is one. */
     named(self, name: string) -> Option[&Extension]

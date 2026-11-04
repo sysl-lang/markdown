@@ -114,9 +114,9 @@ struct Doc
     /** How many nodes the arena holds, the document included. */
     len(self) -> usize = self.nodes.len()
 
-    kind(self, n: NodeId) -> Kind = self.nodes.at(usize(n.i)).kind
+    kind(self, n: NodeId) -> Kind = self.nodes[usize(n.i)].kind
 
-    span(self, n: NodeId) -> Span = self.nodes.at(usize(n.i)).span
+    span(self, n: NodeId) -> Span = self.nodes[usize(n.i)].span
 
     /** Replace what a node is, keeping where it is: a rewrite's one primitive. */
     set_kind(self, n: NodeId, k: Kind)
@@ -126,21 +126,21 @@ struct Doc
     set_span(self, n: NodeId, s: Span)
         self.nodes.view()[usize(n.i)].span = s
 
-    parent(self, n: NodeId) -> Option[NodeId] = if n.i == 0 then None else Some(NodeId(self.nodes.at(usize(n.i)).parent))
+    parent(self, n: NodeId) -> Option[NodeId] = if n.i == 0 then None else Some(NodeId(self.nodes[usize(n.i)].parent))
 
-    first_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).first)
+    first_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes[usize(n.i)].first)
 
-    last_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).last)
+    last_child(self, n: NodeId) -> Option[NodeId] = link(self.nodes[usize(n.i)].last)
 
-    next_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).next)
+    next_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes[usize(n.i)].next)
 
-    prev_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes.at(usize(n.i)).prev)
+    prev_sibling(self, n: NodeId) -> Option[NodeId] = link(self.nodes[usize(n.i)].prev)
 
     /** A new node, made the last child of `parent`. */
     append_child(self, parent: NodeId, k: Kind, span: Span) -> NodeId
         val id = u32(self.nodes.len())
         val p = usize(parent.i)
-        val before = self.nodes.at(p).last
+        val before = self.nodes[p].last
 
         self.nodes.push(Node(k, span, parent.i, 0, 0, before, 0))
 
@@ -264,7 +264,7 @@ impl Iterate for Walker
 
         val cur = self.at
         val ev = if self.entering then Enter else Exit
-        val node = self.doc.nodes.at(usize(cur.i))
+        val node = self.doc.nodes[usize(cur.i)]
 
         if self.entering && is_container(node.kind) then
             if node.first != 0 then self.at = NodeId(node.first) else self.entering = false

@@ -49,11 +49,11 @@ private[markdown] struct Delims
     /** The index the next run pushed will take: the stack bottom for whatever is read after now. */
     top(self) -> u32 = u32(self.items.len())
 
-    at(self, i: u32) -> Delim = self.items.at(usize(i))
+    at(self, i: u32) -> Delim = self.items[usize(i)]
 
     push(self, node: NodeId, ch: u8, count: usize, can_open: bool, can_close: bool, ext: usize, texts: Option[(string, string)])
         val id = u32(self.items.len())
-        val tail = self.items.at(0).prev
+        val tail = self.items[0].prev
 
         self.items.push(Delim(node, ch, count, count, can_open, can_close, ext, texts, tail, 0))
         self.items.view()[usize(tail)].next = id
@@ -78,19 +78,19 @@ private[markdown] struct Delims
     // The first delimiter at or above `bottom`, or 0.
     first_from(self, bottom: u32) -> u32
         var first: u32 = 0
-        var i = self.items.at(0).prev
+        var i = self.items[0].prev
 
         while i != 0 && i >= bottom
             first = i
-            i = self.items.at(usize(i)).prev
+            i = self.items[usize(i)].prev
 
         first
 
     // Every delimiter at or above `bottom` taken off the list.
     cut(self, bottom: u32)
-        var i = self.items.at(0).prev
+        var i = self.items[0].prev
 
-        while i != 0 && i >= bottom do i = self.items.at(usize(i)).prev
+        while i != 0 && i >= bottom do i = self.items[usize(i)].prev
 
         self.join(i, 0)
 end Delims
