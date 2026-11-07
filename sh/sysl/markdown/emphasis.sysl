@@ -56,24 +56,21 @@ private[markdown] struct Delims
         val tail = self.items[0].prev
 
         self.items.push(Delim(node, ch, count, count, can_open, can_close, ext, texts, tail, 0))
-        self.items.view()[usize(tail)].next = id
-        self.items.view()[0].prev = id
+        self.items[usize(tail)].next = id
+        self.items[0].prev = id
 
     // `i` taken off the list. Its own links are left as they were.
     remove(self, i: u32)
-        val v = self.items.view()
-        val p = v[usize(i)].prev
-        val n = v[usize(i)].next
+        val p = self.items[usize(i)].prev
+        val n = self.items[usize(i)].next
 
-        v[usize(p)].next = n
-        v[usize(n)].prev = p
+        self.items[usize(p)].next = n
+        self.items[usize(n)].prev = p
 
     // Every delimiter strictly between `a` and `b` taken off the list at once.
     join(self, a: u32, b: u32)
-        val v = self.items.view()
-
-        v[usize(a)].next = b
-        v[usize(b)].prev = a
+        self.items[usize(a)].next = b
+        self.items[usize(b)].prev = a
 
     // The first delimiter at or above `bottom`, or 0.
     first_from(self, bottom: u32) -> u32
@@ -172,8 +169,8 @@ private pair(d: Doc, ds: Delims, exts: Registry, o: u32, c: u32) -> u32
         use = 2
 
     ds.join(o, c)
-    ds.items.view()[usize(o)].count = od.count - use
-    ds.items.view()[usize(c)].count = cd.count - use
+    ds.items[usize(o)].count = od.count - use
+    ds.items[usize(c)].count = cd.count - use
 
     val so = d.span(od.node)
     val sc = d.span(cd.node)

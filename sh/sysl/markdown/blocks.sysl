@@ -267,7 +267,7 @@ private[markdown] struct Parser
                 val line = self.cur.line(self.doc.kind(self.stack[i - 1].node), "".bytes, 0)
                 val answer = self.exts.at(ix).block_continue(line, self.doc.kind(o.node), &word)
 
-                self.stack.view()[i].block = Ext(ix, word, shape)
+                self.stack[i].block = Ext(ix, word, shape)
 
                 answer match
                     Takes(n) ->
@@ -322,7 +322,7 @@ private[markdown] struct Parser
 
                 if under > 0 && self.keeps_text_past_refs(container) then
                     self.doc.set_kind(self.stack[container].node, Heading(under, None))
-                    self.stack.view()[container].end = line_end
+                    self.stack[container].end = line_end
                     self.close_to(container)
                     return Done
 
@@ -507,7 +507,7 @@ private[markdown] struct Parser
             self.content.push(leaf.text[0..<cut])
             taken = leaf.text[cut..<b.len]
 
-            if cut > 0 then self.stack.view()[container].end = src_of(leaf.segs, cut - 1)
+            if cut > 0 then self.stack[container].end = src_of(leaf.segs, cut - 1)
 
         val parent = self.parent_for(container)
         val node = self.doc.append_child(self.stack[parent].node, k, Span(start, line_end))
@@ -549,7 +549,7 @@ private[markdown] struct Parser
     // written: a block passes its end down to the one below it when it closes (`close_top`), so a
     // line costs the same however deep the blocks it reaches are nested.
     private reach(*self, n: usize, end: usize)
-        if n > 0 then self.stack.view()[n - 1].end = end
+        if n > 0 then self.stack[n - 1].end = end
 
     // Close open blocks until `n` are left.
     private close_to(*self, n: usize)
@@ -563,7 +563,7 @@ private[markdown] struct Parser
 
         val below = self.stack.len()
 
-        if below > 0 && self.stack[below - 1].end < o.end then self.stack.view()[below - 1].end = o.end
+        if below > 0 && self.stack[below - 1].end < o.end then self.stack[below - 1].end = o.end
 
         o.block match
             Root | Quote -> ()

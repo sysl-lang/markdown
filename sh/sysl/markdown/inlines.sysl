@@ -147,7 +147,7 @@ private struct Scan
         val node = self.d.append_child(self.leaf.node, Text(self.leaf.text[i..<j]), Span(start, self.m.src(j)))
         val n = self.brackets.len()
 
-        if n > 0 then self.brackets.view()[n - 1].bracket_after = true
+        if n > 0 then self.brackets[n - 1].bracket_after = true
 
         self.brackets.push(Bracket(node, image, false, self.ds.top(), j))
         self.restart(j)

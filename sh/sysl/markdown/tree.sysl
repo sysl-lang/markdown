@@ -120,11 +120,11 @@ struct Doc
 
     /** Replace what a node is, keeping where it is: a rewrite's one primitive. */
     set_kind(self, n: NodeId, k: Kind)
-        self.nodes.view()[usize(n.i)].kind = k
+        self.nodes[usize(n.i)].kind = k
 
     /** Replace the bytes a node is said to come from: the parser widens a block's as lines join it. */
     set_span(self, n: NodeId, s: Span)
-        self.nodes.view()[usize(n.i)].span = s
+        self.nodes[usize(n.i)].span = s
 
     parent(self, n: NodeId) -> Option[NodeId] = if n.i == 0 then None else Some(NodeId(self.nodes[usize(n.i)].parent))
 
@@ -144,9 +144,9 @@ struct Doc
 
         self.nodes.push(Node(k, span, parent.i, 0, 0, before, 0))
 
-        if before == 0 then self.nodes.view()[p].first = id else self.nodes.view()[usize(before)].next = id
+        if before == 0 then self.nodes[p].first = id else self.nodes[usize(before)].next = id
 
-        self.nodes.view()[p].last = id
+        self.nodes[p].last = id
         NodeId(id)
 
     /** Take a node, with everything under it, out of its parent's children. Its slot in the arena
@@ -156,21 +156,20 @@ struct Doc
     unlink(self, n: NodeId)
         if n.i == 0 then return
 
-        val v = self.nodes.view()
         val me = usize(n.i)
-        val p = usize(v[me].parent)
-        val before = v[me].prev
-        val after = v[me].next
+        val p = usize(self.nodes[me].parent)
+        val before = self.nodes[me].prev
+        val after = self.nodes[me].next
 
         // A node with no sibling before it is linked only where it is its parent's first child: one
         // already unlinked keeps its parent's index, and must not clear that parent's links.
-        if before == 0 && v[p].first != n.i then return
+        if before == 0 && self.nodes[p].first != n.i then return
 
-        if before == 0 then v[p].first = after else v[usize(before)].next = after
-        if after == 0 then v[p].last = before else v[usize(after)].prev = before
+        if before == 0 then self.nodes[p].first = after else self.nodes[usize(before)].next = after
+        if after == 0 then self.nodes[p].last = before else self.nodes[usize(after)].prev = before
 
-        v[me].prev = 0
-        v[me].next = 0
+        self.nodes[me].prev = 0
+        self.nodes[me].next = 0
 
     /** Make `n` -- a node already in the arena, unlinked or not -- the sibling directly after
      * `anchor`. Moving a node is an `unlink` and an insert, and costs neither a copy nor a walk.
@@ -181,18 +180,17 @@ struct Doc
 
         self.unlink(n)
 
-        val v = self.nodes.view()
         val a = usize(anchor.i)
         val me = usize(n.i)
-        val p = v[a].parent
-        val after = v[a].next
+        val p = self.nodes[a].parent
+        val after = self.nodes[a].next
 
-        v[me].parent = p
-        v[me].prev = anchor.i
-        v[me].next = after
-        v[a].next = n.i
+        self.nodes[me].parent = p
+        self.nodes[me].prev = anchor.i
+        self.nodes[me].next = after
+        self.nodes[a].next = n.i
 
-        if after == 0 then v[usize(p)].last = n.i else v[usize(after)].prev = n.i
+        if after == 0 then self.nodes[usize(p)].last = n.i else self.nodes[usize(after)].prev = n.i
     end insert_after
 
     /** Make `n` -- a node already in the arena, unlinked or not -- the last child of `parent`, as
@@ -204,18 +202,17 @@ struct Doc
 
         self.unlink(n)
 
-        val v = self.nodes.view()
         val p = usize(parent.i)
         val me = usize(n.i)
-        val before = v[p].last
+        val before = self.nodes[p].last
 
-        v[me].parent = parent.i
-        v[me].prev = before
-        v[me].next = 0
+        self.nodes[me].parent = parent.i
+        self.nodes[me].prev = before
+        self.nodes[me].next = 0
 
-        if before == 0 then v[p].first = n.i else v[usize(before)].next = n.i
+        if before == 0 then self.nodes[p].first = n.i else self.nodes[usize(before)].next = n.i
 
-        v[p].last = n.i
+        self.nodes[p].last = n.i
     end append_node
 
     /** Every node from the document down, in document order: see `Walker`. */
