@@ -113,7 +113,7 @@ impl Extension for DefinitionLists
         var lists: Buf[NodeId] = buf()
         var plain: Buf[NodeId] = buf()
 
-        for x in defs.view() do gather(d, x, lists, plain)
+        for x in defs.view() do gather(d, x, &lists, &plain)
         for l in lists.view() do settle(d, l)
 
     override render(self, w: *HtmlWriter, d: Doc, n: NodeId, ev: Event)
@@ -152,7 +152,7 @@ private holds(ns: Buf[NodeId], n: NodeId) -> bool
 // Definition `x` put in a list: the one before it, or one made of the paragraph before it, whose
 // lines become terms. A definition after anything else is a paragraph again; `plain` holds those,
 // which are no one's terms.
-private gather(d: Doc, x: NodeId, lists: Buf[NodeId], plain: Buf[NodeId])
+private gather(d: Doc, x: NodeId, lists: *Buf[NodeId], plain: *Buf[NodeId])
     val p = d.prev_sibling(x) match
         Some(p) -> p
         None ->
@@ -164,7 +164,7 @@ private gather(d: Doc, x: NodeId, lists: Buf[NodeId], plain: Buf[NodeId])
         return
 
     val term = d.kind(p) match
-        Paragraph -> !holds(plain, p)
+        Paragraph -> !holds(*plain, p)
         _ -> false
 
     if !term then
@@ -216,7 +216,7 @@ private join(d: Doc, dl: NodeId, x: NodeId)
 
 // A definition that follows no term, made the blocks it holds again, its `:` and the spaces after it
 // text at the start of the first.
-private orphan(d: Doc, x: NodeId, plain: Buf[NodeId])
+private orphan(d: Doc, x: NodeId, plain: *Buf[NodeId])
     val at = d.span(x).start
     val kids = children(d, x)
     var anchor = x

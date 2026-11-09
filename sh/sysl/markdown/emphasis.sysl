@@ -44,7 +44,7 @@ private[markdown] struct Delim
 
 /** The delimiter list of one leaf. */
 private[markdown] struct Delims
-    items: Buf[Delim]
+    items: &Buf[Delim]
 
     /** The index the next run pushed will take: the stack bottom for whatever is read after now. */
     top(self) -> u32 = u32(self.items.len())
@@ -94,7 +94,7 @@ end Delims
 
 /** A delimiter list holding nothing but its head. */
 private[markdown] delims() -> Delims
-    val items: Buf[Delim] = buf()
+    var items: Buf[Delim] = buf()
 
     items.push(Delim(NodeId(0), 0, 0, 0, false, false, 0, None, 0, 0))
     Delims(items)

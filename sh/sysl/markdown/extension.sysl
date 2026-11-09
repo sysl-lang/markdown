@@ -107,7 +107,7 @@ struct Closing
     text: string
     private[markdown] doc: Doc
     private[markdown] segs: Buf[Seg]
-    private[markdown] leaves: Buf[Leaf]
+    private[markdown] leaves: &Buf[Leaf]
 
     /** A new node, made the last child of `parent` -- the closing block or a node made under it --
      * and said to come from `text[from..<to]`. It holds nothing until something is put in it.
@@ -278,7 +278,7 @@ enum PostPhase
 
 /** The extensions one parse uses, in the order they are asked. Empty is pure CommonMark. */
 struct Registry
-    private exts: Buf[&Extension]
+    private exts: &Buf[&Extension]
 
     add(self, e: &Extension) = self.exts.push(e)
 

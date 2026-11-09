@@ -104,7 +104,7 @@ struct LinkRef
  */
 struct Doc
     src: string
-    nodes: Buf[Node]
+    nodes: &Buf[Node]
     refs: Map[string, LinkRef]
     exts: Registry
 

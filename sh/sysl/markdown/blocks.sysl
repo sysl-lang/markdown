@@ -84,7 +84,7 @@ private[markdown] struct Parser
     private doc: Doc
     private exts: Registry
     private stack: Buf[Open]
-    private leaves: Buf[Leaf]
+    private leaves: &Buf[Leaf]
     private content: StrBuilder         // the tip leaf's text so far
     private segs: Buf[Seg]              // and its map back to the source
     private cur: Cursor

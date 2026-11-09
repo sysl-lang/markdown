@@ -261,7 +261,7 @@ private[markdown] without_refs(d: Doc, leaf: Leaf) -> Leaf
 
     if p == 0 then return leaf
 
-    val segs: Buf[Seg] = buf()
+    var segs: Buf[Seg] = buf()
 
     for g in leaf.segs.view()
         if g.at <= p then
